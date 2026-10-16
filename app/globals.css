@@ -1,0 +1,98 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+/* Daidai design system (docs/DESIGN.md). In layers, so Tailwind utilities can still adjust dd- classes and
+   next/font's --font-* variables on <html> win over the token defaults. */
+@import "../styles/tokens.css" layer(base);
+@import "../styles/components.css" layer(components);
+
+/* One theme mechanism: dark: switches exactly like styles/tokens.css (Blackboard when data-theme="dark", or when
+   the system is dark and data-theme isn't "light"). There is no .dark class. */
+@custom-variant dark {
+  &:where(:root[data-theme="dark"], :root[data-theme="dark"] *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:where(
+        :root:not([data-theme="light"]),
+        :root:not([data-theme="light"]) *
+      ) {
+      @slot;
+    }
+  }
+}
+
+/* No shadows, on shadcn components or anywhere else: the only elevation is the slip's paper edge (.dd-slip). */
+@theme {
+  --shadow-*: initial;
+  --inset-shadow-*: initial;
+  --drop-shadow-*: initial;
+  --text-shadow-*: initial;
+}
+
+@theme inline {
+  --font-sans: var(--font-ui);
+  --font-heading: var(--font-ui);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/* shadcn's names point at the Daidai tokens, so styles/tokens.css stays the only palette and both themes follow it. */
+:root {
+  --background: var(--paper);
+  --foreground: var(--ink);
+  --card: var(--sheet);
+  --card-foreground: var(--ink);
+  --popover: var(--sheet);
+  --popover-foreground: var(--ink);
+  --primary: var(--blue);
+  --primary-foreground: var(--sheet);
+  --secondary: var(--sheet);
+  --secondary-foreground: var(--blue);
+  /* hovers and highlighted items stay neutral: never --marker (time) or --green (safe) */
+  --muted: var(--rule);
+  --muted-foreground: var(--ink-2);
+  --accent: var(--rule);
+  --accent-foreground: var(--ink);
+  /* errors are words in ink; --red is proof and corrections only */
+  --destructive: var(--ink);
+  --border: var(--rule);
+  --input: var(--ink-2);
+  --ring: var(--blue);
+  --radius: var(--r-button);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+}
