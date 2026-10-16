@@ -11,7 +11,9 @@
     "lint": "biome check",
     "format": "biome format --write",
     "test": "vitest run",
-    "smoke": "node --env-file-if-exists=.env.local scripts/smoke.ts"
+    "smoke": "node --env-file-if-exists=.env.local scripts/smoke.ts",
+    "seed": "node --env-file-if-exists=.env.local --import tsx scripts/seed.ts",
+    "demo:reset": "pnpm seed"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.81",
@@ -40,7 +42,9 @@
     "@types/node": "^22.20.5",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "csv-parse": "^7.0.3",
     "tailwindcss": "^4",
+    "tsx": "^4.23.15",
     "typescript": "^5",
     "vitest": "^5.0.5"
   },

@@ -10,6 +10,7 @@ seed/private/
 /test-results/
 /playwright-report/
 /playwright/.cache/
+/.playwright-mcp/
 supabase/.temp/
 .DS_Store
 

@@ -38,9 +38,11 @@ const marker = Yusei_Magic({
 export default async function RootLayout({ children }: LayoutProps<"/">) {
   const locale = await getLocale();
   return (
+    // Browser extensions add attributes to <html> before React loads; this ignores them on this element only.
     <html
       lang={locale}
       className={`${hand.variable} ${ui.variable} ${figures.variable} ${marker.variable}`}
+      suppressHydrationWarning
     >
       <body>
         <NextIntlClientProvider>{children}</NextIntlClientProvider>
