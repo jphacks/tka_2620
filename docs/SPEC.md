@@ -111,7 +111,8 @@ They are the shared acceptance tests for F2–F4, and `lib/mocks.ts` is built fr
   - `provenance`: for added notes, the source without names, e.g. 「LINEグループ・2024年10月」, 「PDF・2026年10月」, 「貼り付け・2026年10月」
   - `superseded_by`: set when a later note updates this one; a superseded note leaves answers but stays as history
     (and still feeds the rule-change flag)
-- `questions(id, asker_user_id, seat_id, text, lang, status: answered|waiting, created_at)`
+- `questions(id, asker_user_id, seat_id, text, lang, status: answered|waiting, prompt_id, created_at)`
+  - `prompt_id`: the demand prompt the question was merged into after an abstain (`prompts.source_question_id` is only the first)
 - `answers(question_id, payload jsonb, created_at)`: the latest answer per question (asker only), pushed by Realtime
 - `prompts(id, seat_id, kind: core|demand|gap|required, text, ask_count, source_question_id, retired)`
 - `prompt_routes(prompt_id, user_id, created_at, seen_at)`: a demand prompt delivered to a reachable predecessor's inbox
@@ -240,7 +241,7 @@ type AskResult =
 - **Console panes:** each pane creates its own Supabase client signed in as its persona
   (`persistSession: false`), so three personas run side by side in one browser.
 - **Realtime:** clients subscribe to `answers`, `prompt_routes`, `notes` (status changes) and `events` (meter); nothing polls.
-- **Publishing for a routed prompt** re-runs every waiting question linked to it and writes an `answers` row per asker.
+- **Publishing for a routed prompt** re-runs every waiting question linked to it (`questions.prompt_id`) and writes an `answers` row per asker.
 
 ## Features (Hack Day, in build order)
 | # | Feature | Acceptance check |
