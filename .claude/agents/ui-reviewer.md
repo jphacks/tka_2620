@@ -1,7 +1,7 @@
 ---
 name: ui-reviewer
 description: Checks a screen against docs/DESIGN.md at phone (390px) and projector (1920px) widths, including the one-interface rules. Use after building or changing a screen.
-tools: Read, Glob, Grep, Bash
+tools: Read, Glob, Grep, Bash, mcp__playwright__browser_navigate, mcp__playwright__browser_resize, mcp__playwright__browser_take_screenshot, mcp__playwright__browser_snapshot, mcp__playwright__browser_click, mcp__playwright__browser_type, mcp__playwright__browser_wait_for, mcp__playwright__browser_emulate_media
 model: sonnet
 ---
 
