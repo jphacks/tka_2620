@@ -62,6 +62,10 @@ Seat name on the tag 31px. Console title 39px. Nothing below 13px.
 
 Japanese settings (put them on the root and in the components named):
 - `lang="ja"` on `<html>`; English pages get `lang="en"`.
+- Text from notes, questions and answers carries its own `lang`, so Japanese keeps `lang="ja"` on English pages
+  (fonts and `auto-phrase` line breaks depend on it): a note's title and body from `notes.lang`, the question on an
+  `InboxSlip` from `questions.lang`, and each `AnswerEntry` sentence from the answer's `language` (answers are
+  written in the asker's language, which can differ from the notes').
 - Headings, tag labels and buttons: `word-break: auto-phrase` (Chrome 119+, falls back cleanly) and
   `font-feature-settings: "palt"` with `letter-spacing: .04em`.
 - Body text: no `palt`, `letter-spacing: .02em`, `line-break: strict`.
