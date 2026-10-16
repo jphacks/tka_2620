@@ -1,0 +1,121 @@
+/* Daidai component classes (prefix dd-), the same file the "Daidai Design System" page renders its previews with.
+   Values come from styles/tokens.css; only geometry lives here. Import after tokens.css. Use them inside your React
+   components (className="dd-stamp") or translate them to Tailwind; keep the names in docs/DESIGN.md. */
+body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--font-ui); font-size: 16px; line-height: 1.6; letter-spacing: .02em; line-break: strict; }
+@supports (text-autospace: normal) { body { text-autospace: normal; } }
+.dd-pad { padding: var(--s-4) var(--s-5); }
+.dd-row { display: flex; flex-wrap: wrap; gap: var(--s-4); align-items: center; }
+.dd-col { display: grid; gap: var(--s-3); }
+.dd-label, .dd-btn, .dd-h { font-feature-settings: "palt"; letter-spacing: .04em; word-break: auto-phrase; }
+.dd-h { font-size: 20px; line-height: 30px; font-weight: 700; margin: 0; }
+.dd-cap { font-size: 13px; line-height: 20px; color: var(--ink-2); }
+.dd-fig { font-family: var(--font-figures); font-variant-numeric: tabular-nums; }
+.dd-hand { font-family: var(--font-hand); }
+:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+[data-theme="dark"] { color-scheme: dark; }
+.dd-select { font: inherit; min-height: 40px; padding: 0 var(--s-2); background: var(--sheet); color: var(--ink); border: 1px solid var(--ink-2); border-radius: var(--r-button); }
+
+/* Ruled notebook area: hand text sits on the 32px lines */
+.dd-ruled { font-family: var(--font-hand); font-size: 17px; line-height: var(--s-6); letter-spacing: .02em;
+  background: repeating-linear-gradient(to bottom, transparent 0 31px, var(--rule) 31px 32px); }
+/* each line box ends in its rule, so hand text sits on the line; anything inside keeps the 32px rhythm */
+.dd-ruled p { margin: 0; }
+
+/* Highlighter: time. Only behind ink text */
+.dd-marker { background: linear-gradient(to bottom, transparent 38%, var(--marker) 38%, var(--marker) 92%, transparent 92%); color: var(--ink); padding-inline: .1em; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+
+/* Buttons */
+.dd-btn { font-family: var(--font-ui); font-size: 16px; font-weight: 700; min-height: 44px; padding: 0 var(--s-4); border-radius: var(--r-button); border: 1.5px solid var(--blue); background: var(--sheet); color: var(--blue); cursor: pointer; }
+.dd-btn:hover { background: var(--blue-wash); }
+.dd-btn-primary { background: var(--blue); color: var(--sheet); }
+.dd-btn-primary:hover { background: var(--blue); text-decoration: underline; text-underline-offset: 3px; }
+.dd-btn[disabled] { border-color: var(--rule); color: var(--ink-2); background: var(--paper); cursor: not-allowed; text-decoration: none; }
+.dd-link { color: var(--blue); text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; background: none; border: 0; padding: 0; font: inherit; cursor: pointer; }
+
+/* Date stamp (日付印): authorship only */
+.dd-stamp { display: inline-grid; grid-template-rows: 1fr 18px 1fr; width: 64px; height: 64px; box-sizing: border-box; border: 1.5px solid var(--red); border-radius: var(--r-round);
+  color: var(--red); transform: rotate(-3deg); overflow: hidden; text-align: center; font-family: var(--font-ui); font-size: 13px; line-height: 1; letter-spacing: 0; flex: none; }
+.dd-stamp > span { display: grid; place-items: center; }
+.dd-stamp > span:first-child { align-self: end; padding-bottom: 2px; }
+.dd-stamp > span:last-child { align-self: start; padding-top: 2px; letter-spacing: -.02em; }
+.dd-stamp-year { border-block: 1px solid var(--red); font-family: var(--font-figures); font-weight: 700; }
+.dd-mini { position: relative; display: inline-grid; place-items: center; width: 24px; height: 24px; box-sizing: border-box; border: 1.5px solid var(--red); border-radius: var(--r-round);
+  color: var(--red); font-family: var(--font-figures); font-size: 13px; font-weight: 700; line-height: 1; letter-spacing: 0; transform: rotate(-3deg); vertical-align: 2px; margin-inline: 2px 6px; background: none; padding: 0; cursor: pointer; }
+.dd-mini::after { content: ""; position: absolute; inset: -10px; } /* 44px hit area */
+.dd-stamp-blank { display: inline-block; width: 24px; height: 24px; box-sizing: border-box; border: 1.5px dashed var(--ink-2); border-radius: var(--r-round); vertical-align: middle; }
+.is-landing { animation: dd-land var(--t-stamp, 180ms) cubic-bezier(.2,.8,.2,1) both; }
+@keyframes dd-land { from { transform: scale(1.12) rotate(-8deg); opacity: 0; } to { transform: rotate(-3deg); opacity: 1; } }
+
+/* Kind marks */
+.dd-kind { display: inline-flex; gap: var(--s-1); align-items: baseline; font-weight: 700; }
+.dd-kind-mark { font-size: 1.15em; line-height: 1; }
+
+/* Correction (二重線) and blackout (黒塗り) */
+.dd-double { text-decoration-line: line-through; text-decoration-style: double; text-decoration-color: var(--red); text-decoration-thickness: 1.5px; }
+.dd-blackout { display: inline-block; background: var(--ink); color: var(--paper); font-family: var(--font-ui); font-size: 13px; line-height: 20px; padding: 0 .5em; border-radius: 1px; letter-spacing: .04em; }
+
+/* Slip: the only raised object */
+.dd-slip { background: var(--sheet); border: 1px solid var(--rule); border-radius: var(--r-slip); box-shadow: var(--edge); }
+
+/* Writing line (AskField) */
+.dd-ask { display: flex; align-items: end; gap: var(--s-3); }
+.dd-ask input { flex: 1; min-width: 0; min-height: 44px; border: 0; border-bottom: 2px solid var(--blue); background: transparent; color: var(--ink); font-family: var(--font-hand); font-size: 20px; padding: 0 var(--s-1); border-radius: 0; }
+.dd-ask input::placeholder { color: var(--ink-2); }
+.dd-ask input:focus-visible { outline: none; border-bottom-width: 3px; }
+
+/* Answer */
+.dd-q { color: var(--blue); font-weight: 700; margin: 0 0 var(--s-2); }
+.dd-margin { position: relative; padding-left: var(--s-4); }
+.dd-margin::before { content: ""; position: absolute; left: 0; top: 6px; bottom: 6px; width: 6px; border: 1.5px solid var(--red); border-right: 0; }
+.dd-margin-note { color: var(--red); font-family: var(--font-ui); font-size: 13px; font-weight: 700; letter-spacing: .04em; white-space: nowrap; }
+
+/* Key tag */
+.dd-tag { position: relative; display: inline-flex; align-items: center; gap: var(--s-3); height: 56px; padding: 0 var(--s-4) 0 var(--s-6); background: var(--sheet); border: 1.5px solid var(--ink); border-radius: var(--r-tag); box-sizing: border-box; }
+.dd-tag::before { content: ""; position: absolute; left: 10px; top: 50%; width: 10px; height: 10px; margin-top: -5px; border-radius: var(--r-round); background: var(--paper); border: 1.5px solid var(--ink); box-sizing: border-box; }
+.dd-tag-ring { position: absolute; left: -14px; top: 50%; width: 30px; height: 30px; margin-top: -15px; border: 2px solid var(--ink-2); border-radius: var(--r-round); box-sizing: border-box; clip-path: inset(0 50% 0 0); }
+.dd-tag-name { font-family: var(--font-marker); font-size: 31px; line-height: 36px; letter-spacing: .04em; }
+
+/* Lineage rail */
+.dd-rail { display: flex; gap: var(--s-3); overflow-x: auto; padding: var(--s-2) var(--s-1) var(--s-3); }
+.dd-ltag { position: relative; flex: none; width: 44px; height: 112px; box-sizing: border-box; padding-top: 26px; display: grid; justify-items: center; align-content: start;
+  background: var(--sheet); border: 1.5px solid var(--ink-2); border-radius: var(--r-tag); color: var(--ink); }
+.dd-ltag::before { content: ""; position: absolute; top: 8px; left: 50%; width: 10px; height: 10px; margin-left: -5px; border-radius: var(--r-round); border: 1.5px solid var(--ink-2); box-sizing: border-box; background: var(--paper); }
+.dd-ltag-label { writing-mode: vertical-rl; font-family: var(--font-marker); font-size: 16px; line-height: 18px; letter-spacing: .08em; }
+.dd-ltag-label .tcy { text-combine-upright: all; }
+.dd-ltag.is-current { border-color: var(--ink); }
+.dd-ltag.is-you { border: 1.5px dashed var(--blue); background: transparent; color: var(--blue); }
+.dd-ltag.is-you .dd-ltag-label { font-family: var(--font-ui); font-weight: 700; font-size: 13px; }
+
+/* Verb tabs (notebook index tabs, bottom edge on phones) */
+.dd-tabs { display: flex; gap: var(--s-1); padding: 0 var(--s-4); border-top: 1px solid var(--rule); }
+.dd-tab { flex: 1; min-height: 48px; margin-top: -1px; border: 1px solid var(--rule); border-top: 0; border-radius: 0 0 var(--r-button) var(--r-button); background: var(--paper); color: var(--ink-2);
+  font-family: var(--font-ui); font-size: 16px; font-weight: 700; letter-spacing: .04em; cursor: pointer; }
+.dd-tab[aria-selected="true"] { background: var(--sheet); color: var(--blue); min-height: 52px; }
+
+/* Inbox slip (伝言メモ) */
+.dd-inbox { max-width: 360px; padding: var(--s-4); border-top: 1px dashed var(--ink-2); }
+.dd-field { display: grid; grid-template-columns: 56px 1fr; align-items: end; gap: var(--s-2); border-bottom: 1px solid var(--rule); padding: var(--s-1) 0; }
+.dd-field dt { font-size: 13px; color: var(--ink-2); }
+.dd-field dd { margin: 0; font-weight: 700; }
+.dd-inbox-q { word-break: auto-phrase; font-family: var(--font-hand); font-size: 20px; line-height: var(--s-6); font-weight: 600; margin: var(--s-3) 0 var(--s-1); }
+.is-arriving { animation: dd-arrive var(--t-quick, 160ms) ease-out both; }
+@keyframes dd-arrive { from { transform: translateY(-8px); } to { transform: none; } }
+
+/* Voice */
+.dd-voice { position: relative; width: 80px; height: 80px; border-radius: var(--r-round); border: 0; background: var(--blue); color: var(--sheet); display: grid; place-items: center; cursor: pointer; flex: none; }
+.dd-voice.is-listening::after { content: ""; position: absolute; inset: 0; border-radius: var(--r-round); border: 6px solid var(--blue-wash); animation: dd-pulse 1.2s ease-out infinite; }
+@keyframes dd-pulse { from { transform: scale(1); opacity: 1; } to { transform: scale(1.45); opacity: 0; } }
+
+/* Scope rings */
+.dd-scope { display: flex; gap: var(--s-5); align-items: center; flex-wrap: wrap; }
+.dd-scope svg circle { fill: none; stroke: var(--blue); stroke-width: 1.5; }
+.dd-scope svg circle.is-on { fill: var(--blue-wash); }
+.dd-scope fieldset { border: 0; margin: 0; padding: 0; display: grid; gap: var(--s-1); }
+.dd-scope label { display: flex; gap: var(--s-2); align-items: center; min-height: 36px; cursor: pointer; }
+.dd-scope input { accent-color: var(--blue); width: 18px; height: 18px; margin: 0; }
+
+/* Drop area and planner */
+.dd-drop { border: 1.5px dashed var(--ink-2); border-radius: var(--r-slip); padding: var(--s-5) var(--s-4); text-align: center; display: grid; gap: var(--s-1); justify-items: center; }
+.dd-date { display: inline-grid; place-items: center; min-width: 72px; height: 32px; border: 1px solid var(--ink); border-radius: var(--r-slip); font-family: var(--font-figures); font-variant-numeric: tabular-nums; font-size: 16px; }
+
+@media (prefers-reduced-motion: reduce) { .is-landing, .is-arriving, .dd-voice.is-listening::after { animation: none !important; } }

@@ -1,0 +1,17 @@
+# Strings that must never leave the browser when seed/chat-line.sample.txt or seed/handover-2024.sample.docx is added.
+# pnpm test:redact checks the request body, the LLM payload, every note and every log line.
+山田太郎
+山田
+太郎
+佐藤花子
+佐藤
+花子
+鈴木一郎
+鈴木
+一郎
+田中
+090-1234-5678
+taro.yamada@example.com
+taro_smash
+1234567
+4721

@@ -1,0 +1,45 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm *)",
+      "Bash(git status)",
+      "Bash(git diff *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git log *)",
+      "Bash(supabase *)",
+      "Bash(gh issue *)",
+      "Bash(gh pr *)",
+      "Bash(ollama list)"
+    ],
+    "deny": [
+      "Bash(git push --force *)",
+      "Read(./.env*)",
+      "Read(./seed/private/**)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path' | xargs pnpm exec biome check --write --no-errors-on-unmatched >/dev/null 2>&1 || true"
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "osascript -e 'display notification \"Claude Code needs your attention\" with title \"Daidai\"'"
+          }
+        ]
+      }
+    ]
+  }
+}

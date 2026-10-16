@@ -1,0 +1,153 @@
+{
+  "verbs": {
+    "ask": "聞く",
+    "handover": "残す",
+    "myNotes": "自分のメモ"
+  },
+  "seatTypes": {
+    "club_role": {
+      "seat": "役職",
+      "term": "{term}年度",
+      "byline": "{term}年度 {seat}",
+      "lineage": "代々の{seat}",
+      "scope": {
+        "successor": "次の{seat}だけ",
+        "group": "{group}全体",
+        "institution": "{institution}の全サークル",
+        "public": "一般公開"
+      },
+      "abstain": "歴代の{seat}は誰も知りません。"
+    },
+    "exchange_route": {
+      "seat": "留学ルート",
+      "term": "{term}",
+      "byline": "{term} 交換留学生",
+      "lineage": "このルートの先輩たち",
+      "scope": {
+        "successor": "次の留学生だけ",
+        "group": "このルートの全員",
+        "institution": "{institution}の留学生全員",
+        "public": "一般公開"
+      },
+      "abstain": "このルートの先輩は誰も知りません。"
+    },
+    "lab_duty": {
+      "seat": "担当",
+      "term": "{term}",
+      "byline": "{term} {seat}",
+      "lineage": "代々の{seat}",
+      "scope": {
+        "successor": "次の{seat}だけ",
+        "group": "{group}のメンバー",
+        "institution": "{institution}の全研究室",
+        "public": "一般公開"
+      },
+      "abstain": "歴代の{seat}は誰も知りません。"
+    }
+  },
+  "ask": {
+    "placeholder": "先輩たちに聞いてみましょう",
+    "sources": "根拠になったメモ",
+    "disagreement": "{term}にルールが変わりました",
+    "outdated": "古い？",
+    "outdatedDone": "次の引き継ぎで確認してもらいます",
+    "ruleChange": "{term}にルールが変わりました",
+    "sourceChip": "{byline}"
+  },
+  "abstain": {
+    "routed": "この質問を次の引き継ぎに追加しました。"
+  },
+  "handover": {
+    "reasonDemand": "後輩の{n}人がこれを質問しました",
+    "reasonRequired": "{group}の必須質問です",
+    "readers": "{n}人が読めます",
+    "publish": "公開する",
+    "invite": "次の人に席を渡す",
+    "inviteHint": "このリンクは一度だけ使えます",
+    "pasteOld": "去年の引き継ぎ資料を貼り付ける（任意）",
+    "gapsOnly": "資料にないことだけを聞きます"
+  },
+  "withdraw": {
+    "action": "撤回する",
+    "done": "撤回しました（{ms}ミリ秒で回答から消えました）"
+  },
+  "leak": {
+    "counter": "漏れ {leaks} / {probes} 検査"
+  },
+  "onkuri": {
+    "credit": "{n}人の先輩が、あなたの質問{q}個に答えました。次はあなたの番です！"
+  },
+  "seatSwitcher": {
+    "title": "あなたの席",
+    "current": "いまの席",
+    "past": "これまでの席"
+  },
+  "seat": {
+    "upcoming": "これからの締切",
+    "upcomingItem": "{title} {date}まで ・{byline}"
+  },
+  "kinds": {
+    "deadline": "締切",
+    "contact": "連絡先",
+    "rule_of_thumb": "コツ",
+    "pitfall": "落とし穴",
+    "unwritten_rule": "暗黙のルール"
+  },
+  "myNotes": {
+    "used": "このメモは{n}回、回答に使われました"
+  },
+  "inbox": {
+    "title": "後輩からの質問",
+    "arrived": "後輩から質問が届きました",
+    "askedBy": "{byline}からの質問",
+    "askCount": "{n}人が質問しました",
+    "answerByVoice": "声で答える",
+    "answerByText": "文字で答える",
+    "listening": "聞いています…",
+    "publish": "公開する"
+  },
+  "live": {
+    "answered": "いま、{byline}が答えました",
+    "waiting": "先輩に質問を届けました"
+  },
+  "import": {
+    "title": "資料・ファイル・トーク履歴から追加",
+    "paste": "去年の引き継ぎ資料を貼り付けてください",
+    "extract": "メモにする",
+    "notStored": "元の資料やファイルは保存されません",
+    "missingTitle": "書かれていないこと",
+    "missingItem": "{topic}が書かれていません",
+    "askLeaver": "先輩に聞く",
+    "tabDoc": "貼り付け",
+    "tabChat": "トーク履歴",
+    "dropChat": "LINE や WhatsApp のトーク履歴（.txt）をここに置くか、Slack・X・Instagram からコピーして貼り付けてください",
+    "speakers": "話している人",
+    "rolePick": "役割を選ぶ",
+    "member": "メンバー{letter}",
+    "hideMore": "ほかに隠す言葉",
+    "hidden": "名前 {names}件・電話番号 {phones}件・メール {emails}件・口座番号 {accounts}件・秘密 {secrets}件を隠しました",
+    "preview": "送られる内容",
+    "consent": "このトークのメンバーに、引き継ぎに使うことを伝えました",
+    "sendRedacted": "この内容だけを送る",
+    "staysHere": "名前や連絡先は、この端末の外に出ません",
+    "provenance": "{platform}・{month}",
+    "blocked": "個人の情報が含まれていたため、このメモは作りませんでした",
+    "add": "＋ 追加",
+    "anytime": "いつでも追加できます。最初は、去年の資料やトーク履歴から始めましょう",
+    "tabFile": "ファイル",
+    "dropFile": "PDF・Word・テキストファイルをここに置いてください（10MBまで）",
+    "pickFile": "ファイルを選ぶ",
+    "fileRead": "{name}（{pages}ページ）を読み込みました",
+    "scanned": "文字を読み取れないPDFです。文字をコピーして貼り付けてください",
+    "tooLarge": "ファイルが大きすぎます（10MB・30ページまで）",
+    "consentFile": "この資料を引き継ぎに使ってよいことを確認しました",
+    "duplicate": "似たメモがあります：{title}（{byline}）",
+    "update": "更新する",
+    "keepBoth": "別のメモとして残す",
+    "superseded": "{term}に更新"
+  },
+  "trust": {
+    "nothing": "このページで見られるメモはありません",
+    "leaks": "漏れ {leaks} / {attempts} 回"
+  }
+}

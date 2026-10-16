@@ -1,0 +1,153 @@
+{
+  "verbs": {
+    "ask": "Ask",
+    "handover": "Hand over",
+    "myNotes": "My notes"
+  },
+  "seatTypes": {
+    "club_role": {
+      "seat": "role",
+      "term": "{term}",
+      "byline": "{term} {seat}",
+      "lineage": "Every {seat} before you",
+      "scope": {
+        "successor": "Next {seat} only",
+        "group": "All of {group}",
+        "institution": "Every club at {institution}",
+        "public": "Public"
+      },
+      "abstain": "No {seat} before you knew this."
+    },
+    "exchange_route": {
+      "seat": "exchange route",
+      "term": "{term}",
+      "byline": "{term} exchange student",
+      "lineage": "Students who took this route",
+      "scope": {
+        "successor": "Next exchange student only",
+        "group": "Everyone on this route",
+        "institution": "All exchange students at {institution}",
+        "public": "Public"
+      },
+      "abstain": "Nobody on this route knew this yet."
+    },
+    "lab_duty": {
+      "seat": "duty",
+      "term": "{term}",
+      "byline": "{term} {seat}",
+      "lineage": "Every {seat} before you",
+      "scope": {
+        "successor": "Next {seat} only",
+        "group": "Members of {group}",
+        "institution": "Every lab at {institution}",
+        "public": "Public"
+      },
+      "abstain": "No {seat} before you knew this."
+    }
+  },
+  "ask": {
+    "placeholder": "Ask the people who held this seat",
+    "sources": "Notes this answer is based on",
+    "disagreement": "The rule changed in {term}",
+    "outdated": "Outdated?",
+    "outdatedDone": "We'll ask the next handover to check this",
+    "ruleChange": "The rule changed in {term}",
+    "sourceChip": "{byline}"
+  },
+  "abstain": {
+    "routed": "Added to the next handover."
+  },
+  "handover": {
+    "reasonDemand": "{n} newcomers asked this",
+    "reasonRequired": "Required by {group}",
+    "readers": "{n} people can read this",
+    "publish": "Publish",
+    "invite": "Hand the seat to the next person",
+    "inviteHint": "This link works once",
+    "pasteOld": "Paste last year's handover doc (optional)",
+    "gapsOnly": "We'll only ask about what it doesn't cover"
+  },
+  "withdraw": {
+    "action": "Withdraw",
+    "done": "Withdrawn (gone from answers in {ms} ms)"
+  },
+  "leak": {
+    "counter": "Leaks {leaks} / {probes} checks"
+  },
+  "onkuri": {
+    "credit": "{n} senpai answered {q} of your questions. Your turn!"
+  },
+  "seatSwitcher": {
+    "title": "Your seats",
+    "current": "Current",
+    "past": "Past"
+  },
+  "seat": {
+    "upcoming": "Coming up",
+    "upcomingItem": "{title} by {date} · {byline}"
+  },
+  "kinds": {
+    "deadline": "Deadline",
+    "contact": "Contact",
+    "rule_of_thumb": "Rule of thumb",
+    "pitfall": "Pitfall",
+    "unwritten_rule": "Unwritten rule"
+  },
+  "myNotes": {
+    "used": "This note was used in {n} answers"
+  },
+  "inbox": {
+    "title": "Questions from newcomers",
+    "arrived": "A newcomer asked you something",
+    "askedBy": "Asked by {byline}",
+    "askCount": "{n} people asked this",
+    "answerByVoice": "Answer by voice",
+    "answerByText": "Answer in text",
+    "listening": "Listening…",
+    "publish": "Publish"
+  },
+  "live": {
+    "answered": "{byline} just answered",
+    "waiting": "Sent to your predecessors"
+  },
+  "import": {
+    "title": "Add from docs, files and chats",
+    "paste": "Paste last year's handover doc",
+    "extract": "Turn into notes",
+    "notStored": "The original document or file is not stored",
+    "missingTitle": "What's missing",
+    "missingItem": "No {topic} in the doc",
+    "askLeaver": "Ask the leaver",
+    "tabDoc": "Paste",
+    "tabChat": "Chat history",
+    "dropChat": "Drop a LINE or WhatsApp chat export (.txt) here, or paste messages copied from Slack, X or Instagram",
+    "speakers": "People in this chat",
+    "rolePick": "Choose a role",
+    "member": "Member {letter}",
+    "hideMore": "Other words to hide",
+    "hidden": "Hidden: {names} names, {phones} phone numbers, {emails} emails, {accounts} account numbers, {secrets} secrets",
+    "preview": "What will be sent",
+    "consent": "I told the people in this chat that it will be used for the handover",
+    "sendRedacted": "Send only this",
+    "staysHere": "Names and contact details never leave this device",
+    "provenance": "{platform} · {month}",
+    "blocked": "Not created: it contained personal information",
+    "add": "+ Add",
+    "anytime": "You can add at any time. Start with last year's docs or chat history",
+    "tabFile": "File",
+    "dropFile": "Drop a PDF, Word or text file here (up to 10 MB)",
+    "pickFile": "Choose a file",
+    "fileRead": "Read {name} ({pages} pages)",
+    "scanned": "This PDF has no readable text. Copy the text and paste it instead",
+    "tooLarge": "The file is too large (up to 10 MB and 30 pages)",
+    "consentFile": "I've confirmed this document may be used for the handover",
+    "duplicate": "A similar note exists: {title} ({byline})",
+    "update": "Update it",
+    "keepBoth": "Keep as a separate note",
+    "superseded": "Updated in {term}"
+  },
+  "trust": {
+    "nothing": "There are no notes you can see here",
+    "leaks": "Leaks {leaks} / {attempts} attempts"
+  }
+}

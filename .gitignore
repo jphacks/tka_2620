@@ -1,0 +1,14 @@
+# secrets
+.env*
+!.env.example
+# Claude Code, per person
+.claude/settings.local.json
+.claude/worktrees/
+# real data (only with the group's OK; Claude Code can't read it)
+seed/private/
+# test and tool output
+/test-results/
+/playwright-report/
+/playwright/.cache/
+supabase/.temp/
+.DS_Store

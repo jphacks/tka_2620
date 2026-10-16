@@ -1,0 +1,14 @@
+{
+  "recommendations": [
+    "anthropic.claude-code",
+    "bradlc.vscode-tailwindcss",
+    "biomejs.biome",
+    "lokalise.i18n-ally",
+    "usernamehw.errorlens",
+    "yoavbls.pretty-ts-errors",
+    "vitest.explorer",
+    "ms-playwright.playwright",
+    "eamodio.gitlens",
+    "ms-vsliveshare.vsliveshare"
+  ]
+}

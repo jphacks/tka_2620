@@ -1,0 +1,85 @@
+/* Daidai design tokens: 部室ノート (notebook by day, blackboard by night). Meaning: docs/DESIGN.md.
+   Import once from app/globals.css:  @import "../styles/tokens.css"; @import "../styles/components.css";
+   Fonts: load Klee One (400, 600), BIZ UDPGothic (400, 700), BIZ UDGothic (400, 700) and Yusei Magic (400)
+   with next/font/google and expose them as the four --font-* variables below. */
+
+:root {
+  /* Colour: one job per pen */
+  --paper: #F9FAFB;      /* page */
+  --sheet: #FFFFFF;      /* slips, tags, panes */
+  --rule: #D9E1EC;       /* ruled lines, borders (decorative only, never text) */
+  --ink: #1D2433;        /* knowledge: notes, answers, redaction bars */
+  --ink-2: #566074;      /* secondary text */
+  --blue: #2141B8;       /* you: interactive, focus, the asker's question, selected scope */
+  --blue-wash: #E8EDFB;  /* selected scope ring, hover on blue controls */
+  --red: #C0262F;        /* proof and corrections: date stamps, double lines, rule-change notes, running meter */
+  --marker: #FFE35A;     /* time: highlighter behind deadline text (black ink only) */
+  --green: #24704A;      /* safe: 漏れ 0 and privacy counts only */
+
+  /* Type */
+  --font-hand: "Klee One", "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif;
+  --font-ui: "BIZ UDPGothic", "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif;
+  --font-figures: "BIZ UDGothic", "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif;
+  --font-marker: "Yusei Magic", "BIZ UDPGothic", "Hiragino Sans", system-ui, sans-serif;
+  --text-xs: 13px; --text-s: 16px; --text-m: 20px; --text-l: 25px; --text-xl: 31px; --text-xxl: 39px;
+  --hand-size: 17px;
+  --ruled: 32px;         /* the notebook line height; hand text sits on it */
+
+  /* Space and shape */
+  --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px; --s-5: 24px; --s-6: 32px; --s-7: 48px;
+  --r-slip: 2px; --r-tag: 10px; --r-button: 6px;
+  --r-round: 50%;
+  --edge: 0 2px 0 var(--rule);  /* a paper edge, not a blur shadow */
+
+  /* Motion */
+  --ease-stamp: cubic-bezier(.2, .8, .2, 1);
+  --t-stamp: 180ms; --t-line: 220ms; --t-quick: 160ms;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #1B2723; --sheet: #22302B; --rule: #33433C;
+    --ink: #E9EEE7; --ink-2: #A8B5AC;
+    --blue: #9DB4FF; --blue-wash: #2A3A5A; --red: #FF9890;
+    --marker: #5F5418; --green: #8FD3A4;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #1B2723; --sheet: #22302B; --rule: #33433C;
+  --ink: #E9EEE7; --ink-2: #A8B5AC;
+  --blue: #9DB4FF; --blue-wash: #2A3A5A; --red: #FF9890;
+  --marker: #5F5418; --green: #8FD3A4;
+  color-scheme: dark;
+}
+
+/* Base: Japanese typesetting */
+html { background: var(--paper); color: var(--ink); font-family: var(--font-ui); font-size: var(--text-s); line-height: 1.6; }
+body { background: var(--paper); letter-spacing: .02em; line-break: strict; }
+@supports (text-autospace: normal) { body { text-autospace: normal; } }
+h1, h2, h3, .label, button { font-feature-settings: "palt"; letter-spacing: .04em; word-break: auto-phrase; text-wrap: balance; }
+:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+/* Signature pieces as utilities */
+.ruled {                       /* note and answer areas */
+  font-family: var(--font-hand); font-size: var(--hand-size); line-height: var(--ruled);
+  background: repeating-linear-gradient(to bottom, transparent 0 calc(var(--ruled) - 1px), var(--rule) calc(var(--ruled) - 1px) var(--ruled));
+  /* each 32px line box ends in its rule, so hand text sits on the line */
+}
+.marker {                      /* highlighter behind deadline text */
+  background: linear-gradient(to bottom, transparent 38%, var(--marker) 38%, var(--marker) 92%, transparent 92%);
+  color: var(--ink); padding-inline: .1em;
+}
+.figures { font-family: var(--font-figures); font-variant-numeric: tabular-nums; }
+.blackout {                    /* redaction bar with its type inside */
+  background: var(--ink); color: var(--paper); font-family: var(--font-ui); font-size: var(--text-xs);
+  padding: 0 .4em; border-radius: 1px;
+}
+.double-line {                 /* 二重線: withdrawn or updated */
+  text-decoration-line: line-through; text-decoration-style: double; text-decoration-color: var(--red);
+  text-decoration-thickness: 1.5px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}

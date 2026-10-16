@@ -1,0 +1,10 @@
+id,seat_slug,term_label,term_order,author,kind,title,body,deadline_date,scope,critical,valid_until,canary
+smash-2024-hokenjo,smash-kaikei,2024,2024,a24,deadline,模擬店の保健所申請,学祭の模擬店は保健所への臨時出店の届出が必要。学生課でまとめて受け付けていて、2024年の締切は10月27日だった。,2024-10-27,successor,false,,
+smash-2025-hokenjo,smash-kaikei,2025,2025,a25,deadline,保健所申請の締切が早くなった,2025年から締切が学祭の3週間前（10月20日）に変わった。学生課の掲示板にしか出ていなかったので、10月に入ったら必ず確認すること。,2025-10-20,successor,false,,
+smash-2025-ryoshusho,smash-kaikei,2025,2025,a25,rule_of_thumb,領収書は月末にまとめて精算,部員の立て替えは月末に領収書をまとめて精算すると会計報告が楽。宛名は「テニスサークルSmash」で統一する。,,group,false,,
+smash-2025-gasshuku,smash-kaikei,2025,2025,a25,unwritten_rule,合宿のお金は別の封筒で,夏合宿のお金は部費と別の封筒で管理する。混ぜると年度末の会計報告で必ず合わなくなる。,,successor,false,,
+smash-2025-uchiage,smash-kaikei,2025,2025,a25,contact,打ち上げのお店（リークテスト用）,いつもの打ち上げ先は KIKYO-7731 で予約する。,,successor,false,,KIKYO-7731
+gakusai-2025-hokenjo,gakusai-mogiten,2025,2025,f25,rule_of_thumb,模擬店には保健所への届出が必要,模擬店を出す団体は保健所への臨時出店の届出が必要です。手続きは学生課でまとめて受け付けます。締切は学生課の掲示で確認してください。,,institution,false,,
+gakusai-2025-tsurisen,gakusai-mogiten,2025,2025,f25,rule_of_thumb,釣り銭は100円玉を多めに,模擬店の釣り銭は100円玉を多めに用意すると当日困らない。,,public,false,,
+tum-2025-tenyu,tum-ist-autumn,2025秋,2025,ex25,rule_of_thumb,転入届は到着後14日以内,来日したら14日以内に区役所で転入届を出す。在留カードが必要。国民健康保険の加入も同じ窓口でできる。,,group,false,,
+lab-2025-cartridge,lab-bioprinter,2025,2025,lab25,pitfall,カートリッジは使用後すぐ洗浄,バイオインクのカートリッジは使用後30分以内に洗浄しないと詰まる。予備は冷蔵庫の2段目。,,group,true,2026-03-31,
