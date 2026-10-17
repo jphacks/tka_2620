@@ -114,7 +114,8 @@
   },
   "live": {
     "answered": "{byline} just answered",
-    "waiting": "Sent to your predecessors"
+    "waiting": "Sent to your predecessors",
+    "stamp": "Note by {byline}"
   },
   "import": {
     "title": "Add from docs, files and chats",
@@ -157,6 +158,7 @@
     "leaks": "Leaks {leaks} / {attempts} attempts"
   },
   "mock": {
-    "newcomerAsks": "Newcomer asks (mock)"
+    "newcomerAsks": "Newcomer asks (mock)",
+    "predecessorAnswers": "Predecessor answers and publishes (mock)"
   }
 }

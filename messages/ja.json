@@ -114,7 +114,8 @@
   },
   "live": {
     "answered": "いま、{byline}が答えました",
-    "waiting": "先輩に質問を届けました"
+    "waiting": "先輩に質問を届けました",
+    "stamp": "{byline}のメモ"
   },
   "import": {
     "title": "資料・ファイル・トーク履歴から追加",
@@ -157,6 +158,7 @@
     "leaks": "漏れ {leaks} / {attempts} 回"
   },
   "mock": {
-    "newcomerAsks": "後輩が質問する（モック）"
+    "newcomerAsks": "後輩が質問する（モック）",
+    "predecessorAnswers": "先輩が答えて公開する（モック）"
   }
 }
