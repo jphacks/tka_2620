@@ -3,12 +3,16 @@
 // phone-sized panes side by side at 1920px — a26 (新しい会計) with a cited answer, a25 (去年の会計) with
 // 自分のメモ and 「撤回する」, and x (部外者) who sees nothing. Withdrawing a cited note drops it out of a26's
 // answer while the meter runs; it freezes in ink the moment the last pane has dropped it.
+// The live loop runs in the same panes: a26 asks in the ask field, the question reaches a25's inbox, and the signed
+// answer lands back in a26's pane (F4.1, #25). The outsider's pane stays empty.
 // Mocks only for now (NEXT_PUBLIC_USE_MOCKS=1): each pane's own signed-in client replaces createMockApi (#25)
 // once the withdraw route exists (#26).
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AbstainEntry } from "@/components/AbstainEntry";
 import { AnswerEntry } from "@/components/AnswerEntry";
+import { AskPanel } from "@/components/AskPanel";
+import { InboxPanel } from "@/components/InboxPanel";
 import { LeakCounter } from "@/components/LeakCounter";
 import { MyNotes, type NoteSeats, seatsOf } from "@/components/MyNotes";
 import {
@@ -56,6 +60,8 @@ export function TrustConsole({ leaks }: { leaks?: Metrics["leaks"] }) {
   const pending = useRef<Pending | undefined>(undefined);
   const started = useRef(0);
   const loadId = useRef(0);
+  // Bumped by reset so the live-loop panels mount again on the fresh mock state.
+  const [run, setRun] = useState(0);
 
   // The trust proof needs a cited answer under a26: the newcomer asks q01 (the 2025 deadline note).
   const load = useCallback(() => {
@@ -173,6 +179,7 @@ export function TrustConsole({ leaks }: { leaks?: Metrics["leaks"] }) {
 
   function reset() {
     resetMocks();
+    setRun((n) => n + 1);
     load();
   }
 
@@ -205,24 +212,38 @@ export function TrustConsole({ leaks }: { leaks?: Metrics["leaks"] }) {
         style={{ gap: "var(--s-5)", alignItems: "flex-start" }}
       >
         <PersonaPane label={t("console.newcomer")}>
-          {answer?.status === "answered" && (
-            <AnswerEntry question={QUESTION} answer={answer} />
-          )}
-          {answer?.status === "abstained" && seat && (
-            <AbstainEntry result={answer} seat={seat} />
-          )}
+          <div className="dd-col" style={{ gap: "var(--s-6)" }}>
+            <AskPanel key={run} slug={SEAT} mockShortcuts={false} />
+            <div className="dd-col" style={{ gap: 0 }}>
+              {answer?.status === "answered" && (
+                <AnswerEntry question={QUESTION} answer={answer} />
+              )}
+              {answer?.status === "abstained" && seat && (
+                <AbstainEntry result={answer} seat={seat} />
+              )}
+            </div>
+          </div>
         </PersonaPane>
 
         <PersonaPane label={t("console.predecessor")}>
-          {seats && notes && (
-            <MyNotes
-              notes={notes}
-              seats={seats}
-              withdrawing={withdrawing}
-              withdrawFailed={withdrawFailed}
-              onWithdraw={startWithdraw}
+          {/* 16px, not 32: the four notes fit the 844px pane below an empty inbox. */}
+          <div className="dd-col" style={{ gap: "var(--s-4)" }}>
+            <InboxPanel
+              key={run}
+              slug={SEAT}
+              mockShortcuts={false}
+              closeAfterPublish
             />
-          )}
+            {seats && notes && (
+              <MyNotes
+                notes={notes}
+                seats={seats}
+                withdrawing={withdrawing}
+                withdrawFailed={withdrawFailed}
+                onWithdraw={startWithdraw}
+              />
+            )}
+          </div>
         </PersonaPane>
 
         <PersonaPane label={t("console.outsider")}>
