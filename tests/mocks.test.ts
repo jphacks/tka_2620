@@ -364,11 +364,20 @@ describe("createMockApi", () => {
     const view = await outsider.seat(seat);
     expect(view.viewer.isHolder).toBe(false);
     expect(view.upcoming).toEqual([]);
-    expect(
-      await outsider.ask({ seat, question: mockQuestions.q01 }),
-    ).toMatchObject({ status: "abstained", routedTo: 0 });
+    const asked = await outsider.ask({ seat, question: mockQuestions.q01 });
+    expect(asked).toMatchObject({ status: "abstained", routedTo: 0 });
+    expect(asked).not.toHaveProperty("promptId"); // no seat, so no prompt (route_question)
     expect((await outsider.inbox({ seat })).items).toEqual([]);
     expect((await outsider.myNotes()).notes).toEqual([]);
+  });
+
+  it("names the prompt of a holder's question that reaches nobody, as route_question does", async () => {
+    // a25 is the seat's only reachable holder, and an asker never reaches themselves.
+    const senpai = createMockApi("a25", { latencyMs: 0 });
+    const asked = await senpai.ask({ seat, question: mockQuestions.q04 });
+    expect(asked).toMatchObject({ status: "abstained", routedTo: 0 });
+    expect(asked.status === "abstained" && asked.promptId).toBeTruthy();
+    expect((await senpai.inbox({ seat })).items).toEqual([]);
   });
 
   it("rejects what the real API would reject", async () => {
