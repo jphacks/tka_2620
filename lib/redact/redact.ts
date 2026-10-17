@@ -4,6 +4,7 @@
 // named with an honorific becomes [人]. Only the result leaves the browser. /api/import runs the same rules again and
 // rejects what they still find (#35), so a second pass over the output finds nothing. Nothing here is logged.
 import type { RedactionCounts } from "@/lib/contracts";
+import { MAX_TEXT, newest, recent, relevant } from "@/lib/redact/keep";
 import type { ChatMessage } from "@/lib/redact/parse";
 
 export const PLACEHOLDER = {
@@ -38,24 +39,84 @@ export function redactText(
   return { text: run.redact(text), counts: run.counts };
 }
 
-// A chat: each speaker column becomes its role, and each message is redacted on its own, so a [秘密] line never takes
-// the date or the speaker with it. text is the chat as the preview shows it and the request sends it.
+export type ChatOptions = RedactOptions & {
+  // Every message, not only what matters (for a 「全部使う」 choice in the preview). The request's cap still applies.
+  keepAll?: boolean;
+};
+
+export type RedactedChat = Redacted & {
+  messages: ChatMessage[]; // what is sent, oldest first, with roles in the speaker column
+  kept: number; // how many messages are sent
+  total: number; // of how many parsed
+};
+
+// A chat (docs/SPEC.md → adding knowledge, steps 2–4):
+// 1. Names before an honorific are learned from every message, also the ones that aren't sent.
+// 2. Every message is redacted in order, one at a time: a [秘密] line never takes the date or the speaker with it,
+//    and the value in the message after it is hidden, even when that message is then dropped or the keyword is
+//    older than the 12 months kept.
+// 3. lib/redact/keep.ts keeps the last 12 months and what matters (all of it with keepAll), then the newest messages
+//    that fit the request.
+// text is the chat as the preview shows it and the request sends it; counts are what the sent messages had hidden.
 export function redactChat(
   messages: ChatMessage[],
-  options: RedactOptions = {},
-): Redacted & { messages: ChatMessage[] } {
+  options: ChatOptions = {},
+): RedactedChat {
   const run = new Run(
     options,
     messages.map((message) => message.speaker),
   );
-  // 田中先輩 in one message hides 田中 in every other one too.
+  // 加藤先輩 in one message hides 加藤 in every other one, also when the first isn't sent.
   for (const message of messages) run.learn(normalize(message.text));
-  const redacted = messages.map((message) => ({
-    at: message.at,
-    speaker: message.speaker && run.role(message.speaker),
-    text: run.redact(message.text),
-  }));
-  return { messages: redacted, text: formatChat(redacted), counts: run.counts };
+  const window = options.keepAll ? undefined : new Set(recent(messages));
+  const redacted = messages.flatMap((message) => {
+    const before = { ...run.counts };
+    const sent: ChatMessage = {
+      at: message.at,
+      speaker: message.speaker && run.role(message.speaker),
+      text: run.redact(message.text),
+    };
+    return !window || window.has(message)
+      ? [{ message: sent, hidden: difference(run.counts, before) }]
+      : [];
+  });
+  const keep = options.keepAll
+    ? redacted.map(() => true)
+    : relevant(redacted.map(({ message }) => message));
+  const chosen = redacted.filter((_, index) => keep[index]);
+  const fits = newest(
+    chosen.map(({ message }) => formatChat([message]).length),
+    MAX_TEXT,
+  );
+  // One message alone over the cap (a long paste with no speakers) is cut to fit rather than sending nothing.
+  const sent =
+    fits === 0 && chosen.length > 0
+      ? [cut(chosen[chosen.length - 1], MAX_TEXT)]
+      : chosen.slice(chosen.length - fits);
+  const counts = noCounts();
+  for (const { hidden } of sent) {
+    for (const kind of KINDS) counts[kind] += hidden[kind];
+  }
+  const final = sent.map(({ message }) => message);
+  return {
+    messages: final,
+    text: formatChat(final),
+    counts,
+    kept: final.length,
+    total: messages.length,
+  };
+}
+
+// The start of a message, short enough to be sent alone: each character cut shortens its line by one or more, so
+// one cut is enough. Half an emoji (a lone high surrogate) at the cut goes too.
+function cut<T extends { message: ChatMessage }>(entry: T, max: number): T {
+  const { text } = entry.message;
+  const over = formatChat([entry.message]).length - max;
+  const start = text.slice(0, Math.max(0, text.length - over));
+  return {
+    ...entry,
+    message: { ...entry.message, text: start.replace(/[\uD800-\uDBFF]$/, "") },
+  };
 }
 
 // 2024-04-12 21:03 会計: 本文, with a message's further lines indented.
@@ -86,8 +147,8 @@ export function normalize(text: string): string {
 type Kind = keyof RedactionCounts;
 type Hide = (kind: Kind, value: string) => string;
 
-class Run {
-  readonly counts: RedactionCounts = {
+function noCounts(): RedactionCounts {
+  return {
     names: 0,
     phones: 0,
     emails: 0,
@@ -98,6 +159,21 @@ class Run {
     secrets: 0,
     people: 0,
   };
+}
+
+const KINDS = Object.keys(noCounts()) as Kind[];
+
+function difference(
+  after: RedactionCounts,
+  before: RedactionCounts,
+): RedactionCounts {
+  const counts = noCounts();
+  for (const kind of KINDS) counts[kind] = after[kind] - before[kind];
+  return counts;
+}
+
+class Run {
+  readonly counts: RedactionCounts = noCounts();
   private readonly values: string[] = [];
   private readonly roles = new Map<string, string>(); // a speaker as exported → their role
   private readonly names: RegExp | undefined;
