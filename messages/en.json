@@ -111,7 +111,8 @@
   },
   "live": {
     "answered": "{byline} just answered",
-    "waiting": "Sent to your predecessors"
+    "waiting": "Sent to your predecessors",
+    "stamp": "Note by {byline}"
   },
   "import": {
     "title": "Add from docs, files and chats",
@@ -152,5 +153,10 @@
   "trust": {
     "nothing": "There are no notes you can see here",
     "leaks": "Leaks {leaks} / {attempts} attempts"
+  },
+  "demo": {
+    "ask": "(Mock) the newcomer asks",
+    "deliver": "(Mock) last year's treasurer answers and publishes",
+    "reset": "(Mock) reset"
   }
 }

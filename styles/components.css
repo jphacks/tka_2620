@@ -65,6 +65,7 @@ body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(
 
 /* Answer */
 .dd-q { color: var(--blue); font-weight: 700; margin: 0 0 var(--s-2); }
+.dd-live-note { color: var(--blue); font-weight: 700; margin: var(--s-2) 0 0; }
 .dd-margin { position: relative; padding-left: var(--s-4); }
 .dd-margin::before { content: ""; position: absolute; left: 0; top: 6px; bottom: 6px; width: 6px; border: 1.5px solid var(--red); border-right: 0; }
 .dd-margin-note { color: var(--red); font-family: var(--font-ui); font-size: 13px; font-weight: 700; letter-spacing: .04em; white-space: nowrap; }
