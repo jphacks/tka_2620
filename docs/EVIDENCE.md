@@ -41,7 +41,11 @@ Would your club be open to trying it, for free, at the November handover?
 ## Quote log
 | # | Who (role only) | Quote (original) | English | OK to quote? | Date |
 |---|---|---|---|---|---|
-| 1 | 例：〇〇大学 サークル会計（3年） | 「…」 | "…" | yes / no | 10/16 |
+| 1 | 高校 運動会の放送担当の責任者・卒業誌制作の責任者（経験者）：引き継ぎで困ったこと | 「今までの仕事を思い返して自分が引き継ぐべき内容を考えようとしても、その内容を覚えてないなどの理由で、いざ引き継ぎのタイミングになっても十分な引き継ぎがかけない。」 | "When I look back to decide what to hand over, I can't remember it, so when the handover comes I can't write enough." | yes | 10/17 |
+| 2 | 高校 運動会の放送担当の責任者・卒業誌制作の責任者（経験者）：引き継ぎで困ったこと | 「だからと言って日々の仕事内容を何かしらにメモし続けるようなことも、なかなか続かない。」 | "But keeping notes on my day-to-day work doesn't last either." | yes | 10/17 |
+| 3 | 高校 運動会の放送担当の責任者・卒業誌制作の責任者（経験者）：引き継がれていなくて焦ったこと | 「部活で十分な引き継ぎが得られておらず、顧問の虎の尾を踏みまくった。」 | "I didn't get a proper handover in my club, and I kept stepping on our advisor's toes." | yes | 10/17 |
+| 4 | 高校 運動会の放送担当の責任者・卒業誌制作の責任者（経験者）：前の担当者に聞きたかったこと | 「仕事の記録を見たかったです。とくに顧問とのやりとりとか、この企画をやろうとして通らなかったとか、そういう試行錯誤を活かしたいので。」 | "I wanted to see their work records, especially their exchanges with the advisor and the plans that didn't get approved, so I could learn from that trial and error." | yes | 10/17 |
+| 5 | 高校 運動会の放送担当の責任者・卒業誌制作の責任者（経験者）：引き継ぎの情報がある場所 | 「基本ドライブのPDFや、昔のプロジェクトデータ、素材自体が引き継ぎという形が多かったです。（InDesignやAfter Effectsのプロジェクトのデータなど）」 | "Mostly PDFs on a shared drive, old project data, the source files themselves (InDesign and After Effects projects)." | yes | 10/17 |
 
 ## Old handover document
 | Source (role only) | Anonymised? | Where it is | OK to publish? |
