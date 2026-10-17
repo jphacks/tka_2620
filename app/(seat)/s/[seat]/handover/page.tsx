@@ -1,4 +1,5 @@
 import { InboxPanel } from "@/components/InboxPanel";
+import { SeatSignIn } from "@/components/SeatSignIn";
 import { USE_MOCKS } from "@/lib/mocks";
 
 export default async function HandoverPage({
@@ -10,8 +11,12 @@ export default async function HandoverPage({
       className="dd-pad"
       style={{ maxWidth: "640px", marginInline: "auto" }}
     >
-      {/* The inbox runs on mocks until the real API client exists. */}
-      {USE_MOCKS && <InboxPanel slug={seat} />}
+      {/* On mocks as a25; on real data as the persona in #key=…&as=… (components/SeatSignIn.tsx). */}
+      {USE_MOCKS ? (
+        <InboxPanel slug={seat} />
+      ) : (
+        <SeatSignIn slug={seat} panel="inbox" />
+      )}
     </main>
   );
 }
