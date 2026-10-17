@@ -155,7 +155,7 @@
   },
   "trust": {
     "nothing": "このページで見られるメモはありません",
-    "leaks": "漏れ {leaks} / {attempts} 回"
+    "leaks": "現在までの情報漏れ {leaks} / {attempts} 回"
   },
   "mock": {
     "newcomerAsks": "後輩が質問する（モック）",
