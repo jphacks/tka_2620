@@ -94,10 +94,6 @@ export function createDictation(options: DictationOptions): Dictation {
     return rec;
   }
 
-  function onStart() {
-    options.onStateChange?.("listening");
-  }
-
   function onResult(event: SpeechEvent) {
     for (let i = event.resultIndex; i < event.results.length; i += 1) {
       const result = event.results[i];
@@ -127,19 +123,28 @@ export function createDictation(options: DictationOptions): Dictation {
     );
   }
 
-  function attach() {
-    if (!recognition) return;
-    recognition.onstart = onStart;
-    recognition.onresult = onResult;
-    recognition.onerror = onError;
-    recognition.onend = onEnd;
+  // Bind the handlers to this exact instance, so a session we stopped never reports or restarts again.
+  function session(): SpeechRecognitionLike | undefined {
+    const rec = build();
+    if (!rec) return undefined;
+    rec.onstart = () => {
+      if (rec === recognition) options.onStateChange?.("listening");
+    };
+    rec.onresult = (event) => {
+      if (rec === recognition) onResult(event);
+    };
+    rec.onerror = (event) => {
+      if (rec === recognition) onError(event);
+    };
+    rec.onend = () => onEnd(rec);
+    return rec;
   }
 
-  function onEnd() {
+  function onEnd(rec: SpeechRecognitionLike) {
+    if (rec !== recognition) return; // a stopped or replaced instance: ignore its late end
     // Some phones ignore continuous and stop after the first pause: start a fresh session to keep going.
     if (wantListening) {
-      recognition = build();
-      attach();
+      recognition = session();
       begin();
     } else {
       options.onStateChange?.("idle");
@@ -167,13 +172,14 @@ export function createDictation(options: DictationOptions): Dictation {
       base = nextBase;
       finalized = "";
       interim = "";
-      recognition = build();
-      attach();
+      recognition = session();
       begin();
     },
     stop() {
       wantListening = false;
-      recognition?.stop();
+      const current = recognition;
+      recognition = undefined; // its late onend must not restart us
+      current?.stop();
       options.onStateChange?.("idle");
     },
   };
