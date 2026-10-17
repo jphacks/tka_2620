@@ -3,17 +3,21 @@
 -- through PostgREST with their own token too.
 --   seat_holders.byline   the byline a holder signs with for that term (「2025年度 会計」), written by scripts/seed.ts
 --                         from the label pack; may_sign() now wants exactly it, so nobody signs 「2025年度 部長」
---   notes guard           a note whose title, body or provenance holds an email, an @handle or a phone number is
---                         refused (the patterns of lib/engine/guard.ts); names and credentials stay with the route,
---                         which knows the wording
---   deliver_answer()      stores the answer rebuilt from known parts; anything else the caller sends is dropped
--- After applying, run `pnpm seed` (demo:reset) so every holder has a byline: until then may_sign() refuses everyone.
+--   notes guard           a note whose title, body or provenance holds contact details or credentials is refused, with
+--                         the patterns of lib/engine/guard.ts (emails, @handles, phone numbers, a value next to 電話,
+--                         TEL or LINE ID, or next to 暗証番号 or パスワード); names stay with the route, which knows the
+--                         roles that aren't names
+--   deliver_answer()      stores the answer rebuilt from known parts, anything else the caller sends dropped, and
+--                         refuses a sentence with contact details or credentials
+-- Apply after 0006 (its answers trigger is what keeps a withdrawal from slipping past deliver_answer's checks). Then
+-- run `pnpm seed` (demo:reset) so every holder has a byline: until then may_sign() refuses everyone.
 
 -- Bylines -------------------------------------------------------------------------------
 
 -- The wording stays in the label packs (messages/*.json → seatTypes.*.byline): the seed fills it in for each holder's
--- term, as it does for the seed notes, and whatever creates a holder later must do the same.
-alter table public.seat_holders add column byline text;
+-- term, as it does for the seed notes, and whatever creates a holder later must do the same. Never blank: a blank
+-- byline would sign blank notes.
+alter table public.seat_holders add column byline text check (btrim(byline) <> '');
 
 -- Whether the signed-in user may sign a note of the seat for that term: they held it then, and the byline is exactly
 -- the one their term signs with. The arguments are qualified because seat_holders now has a byline column too.
@@ -31,31 +35,72 @@ $$;
 
 -- The notes guard -----------------------------------------------------------------------
 
--- On every insert, and every edit of the text a reader sees. NFKC turns full-width letters, digits and symbols into
--- ASCII (０９０, ＠, ．), and kanji digits become digits too. Phone numbers are matched once up to three separators
--- between digits are gone (03-1234-5678, (0)90…, 090の1234…), as lib/engine/guard.ts does; dates and amounts don't
--- start with 0 or reach ten digits. DD001 lets the route answer unredacted.
+-- lib/engine/guard.ts nearValue(): a token of four or more letters, digits or symbols with a digit in it, within 12
+-- characters of the keyword, that isn't an amount, a year or a count (4821, smash2025, 1234-5678; not 10000円, 2026年).
+create function private.near_value(plain text, keyword text)
+returns boolean
+language sql
+immutable
+set search_path = ''
+as $$
+  select exists (
+    select 1
+    from generate_series(1, regexp_count(plain, keyword, 1, 'i')) as k (n)
+    cross join lateral (
+      select greatest(1, regexp_instr(plain, keyword, 1, k.n, 0, 'i') - 12) as head,
+        regexp_instr(plain, keyword, 1, k.n, 1, 'i') + 12 as tail
+    ) near
+    cross join lateral regexp_matches(
+      substr(plain, near.head, near.tail - near.head),
+      '(?<![A-Za-z0-9_!#$%&*+.-])[A-Za-z0-9_!#$%&*+.-]{4,}(?![A-Za-z0-9_!#$%&*+.-]|[年円月日人時分件%])',
+      'g'
+    ) as token
+    where token[1] ~ '[0-9]'
+  );
+$$;
+
+-- What lib/engine/guard.ts blockReason() refuses as contact details or credentials, pattern for pattern: change the
+-- two together. NFKC turns full-width letters, digits and symbols into ASCII (０９０, ＠, ．), and kanji digits become
+-- digits. Word characters are spelled out in ASCII, as JS's \w has them: [[:alnum:]] matches 時 and 部 here (ICU), and
+-- would refuse 「18時@部室に集合」, which the route lets through. Then, in order:
+--   - an email, or an @handle with a letter in it (＠500円 is a unit price);
+--   - a phone number as written, even right after another number (受付 9:00-17:00 03-1234-5678);
+--   - a phone number once up to three separators between digits are gone, but not a time's colon (〇九〇の一二三四…);
+--   - a value next to 電話, TEL, 携帯, FAX or LINE ID, or next to a credential word.
+create function private.holds_contact_or_secret(shown text)
+returns boolean
+language sql
+immutable
+set search_path = ''
+as $$
+  select plain ~ '[A-Za-z0-9_.+-][[:space:]]?@[[:space:]]?[A-Za-z0-9_-]'
+    or plain ~ '(?<![A-Za-z0-9_.])@(?=[A-Za-z0-9_.]*[A-Za-z_])[A-Za-z0-9_.]{2,}'
+    or plain ~ '(?<![0-9])(0[0-9]{1,4}|\+81[- ()・のー‐‑‒–—―−]{0,3}[0-9]{1,4})[- ()・のー‐‑‒–—―−]{1,3}[0-9]{1,4}[- ()・のー‐‑‒–—―−]{1,3}[0-9]{3,4}(?![0-9])'
+    or regexp_replace(plain, '([0-9])(?:[^[:alnum:]:]|[のー]){1,3}(?=[0-9])', '\1', 'g')
+      ~ '(?<![0-9])(\+?810?[0-9]{9,10}|0[0-9]{9,10})(?![0-9])'
+    or private.near_value(
+      plain,
+      '電話|(?<![A-Za-z0-9_])TEL(?![A-Za-z0-9_])|携帯|(?<![A-Za-z0-9_])FAX(?![A-Za-z0-9_])|LINE[[:space:]]?ID'
+    )
+    or private.near_value(
+      plain,
+      '暗証番号|口座番号|カード番号|パスワード|password|passcode|(?<![A-Za-z0-9_])PIN(?![A-Za-z0-9_])|ログインID'
+    )
+  from (select translate(normalize(shown, nfkc), '〇一二三四五六七八九', '0123456789') as plain) as normalized;
+$$;
+
+-- On every insert, and every edit of the text a reader sees, whoever writes (the service role too). Security definer
+-- only to reach the function above, which no API role may call; it reads no table. DD001 lets the route answer
+-- unredacted.
 create function private.reject_contact_details()
 returns trigger
 language plpgsql
+security definer
 set search_path = ''
 as $$
-declare
-  shown text := translate(
-    normalize(concat_ws(E'\n', new.title, new.body, new.provenance), nfkc),
-    '〇一二三四五六七八九',
-    '0123456789'
-  );
-  digits text;
 begin
-  if shown ~ '[[:alnum:]_.%+-][[:space:]]?@[[:space:]]?[[:alnum:]_-]'
-    or shown ~ '(^|[^[:alnum:]_.])@[A-Za-z0-9_.]{2,}'
-  then
-    raise exception 'notes: a note holds no email or @handle' using errcode = 'DD001';
-  end if;
-  digits := regexp_replace(shown, '([0-9])[[:space:]().,/・〜~_‐‑‒–—―−ーの-]{1,3}(?=[0-9])', '\1', 'g');
-  if digits ~ '(^|[^0-9])(\+?810?[0-9]{9,10}|0[0-9]{9,10})([^0-9]|$)' then
-    raise exception 'notes: a note holds no phone number' using errcode = 'DD001';
+  if private.holds_contact_or_secret(concat_ws(E'\n', new.title, new.body, new.provenance)) then
+    raise exception 'notes: a note holds no contact details or credentials' using errcode = 'DD001';
   end if;
   return new;
 end;
@@ -67,11 +112,13 @@ for each row execute function private.reject_contact_details();
 
 -- Delivering a live answer --------------------------------------------------------------
 
--- As 0003's, with two more checks (the language, and every sentence's text), and the answer stored from known parts
--- only: each sentence's text with its citations as the notes have them, the language and live.byline. Anything else
--- the caller sends is dropped, a rule-change flag included: a live answer cites one term's notes, so it never has
--- one, and the flag is never the caller's to set. The sentence text is still the caller's; the route writes it from
--- the notes, and only the asker the question was routed to reads it.
+-- As 0003's, with more checks (the language, and every sentence's text: there, and without contact details or
+-- credentials, as the notes guard has it), and the answer stored from known parts only: each sentence's text with its
+-- citations as the notes have them, the language and live.byline. Anything else the caller sends is dropped, a
+-- rule-change flag included: a live answer cites one term's notes, so it never has one, and the flag is never the
+-- caller's to set. The sentence text is still the caller's; the route writes it from the notes, and only the asker the
+-- question was routed to reads it. 0006's answers trigger locks the cited notes as the row is written, so a note
+-- withdrawn after the checks below still leaves the answer.
 create or replace function public.deliver_answer(question uuid, answer jsonb)
 returns void
 language plpgsql
@@ -110,6 +157,11 @@ begin
       or s -> 'citations' = '[]'::jsonb
   ) then
     raise exception 'deliver_answer: every sentence has text and cites at least one note' using errcode = '22023';
+  end if;
+  if exists (
+    select 1 from jsonb_array_elements(answer -> 'sentences') s where private.holds_contact_or_secret(s ->> 'text')
+  ) then
+    raise exception 'deliver_answer: a sentence holds no contact details or credentials' using errcode = 'DD001';
   end if;
 
   if exists (
@@ -186,5 +238,7 @@ begin
 end;
 $$;
 
--- A trigger function needs no execute grant to fire; nobody calls it directly.
-revoke all on function private.reject_contact_details() from public, anon, authenticated, service_role;
+-- Only the trigger and deliver_answer() use them; a trigger function needs no execute grant to fire.
+revoke all on function
+  private.near_value(text, text), private.holds_contact_or_secret(text), private.reject_contact_details()
+from public, anon, authenticated, service_role;

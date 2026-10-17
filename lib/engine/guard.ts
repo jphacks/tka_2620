@@ -1,6 +1,7 @@
 // The output guard (docs/SPEC.md → adding knowledge, step 8): a drafted card is checked again for contact details,
 // credentials and names before anyone can publish it. Heuristics on top of the model's own rules; a card that trips
-// one is blocked, never repaired. Card drafting uses it now; import and publish can run the same checks.
+// one is blocked, never repaired. Drafting and publishing use it, and the database refuses a note with what it finds
+// as contact details or credentials, whoever writes it (supabase/migrations/0007, the same patterns).
 
 export type BlockReason = "contact" | "secret" | "name";
 
@@ -25,13 +26,20 @@ const CREDENTIAL =
   /暗証番号|口座番号|カード番号|パスワード|password|passcode|\bPIN\b|ログインID/gi;
 const CONTACT_WORD = /電話|\bTEL\b|携帯|\bFAX\b|LINE\s?ID/gi;
 
-// Emails (also kaikei@example。com and kaikei@gmail), @handles, phone numbers once up to three non-alphanumeric
-// characters (or の, ー) between digits are gone, and a number next to 電話 or TEL.
+// A phone number as written (03-1234-5678, (03) 1234 5678, +81 90 1234 5678, 090の1234の5678), found even right
+// after another number (受付 9:00-17:00 03-1234-5678), where joining the digits would run the two together.
+const PHONE =
+  /(?<!\d)(?:0\d{1,4}|\+81[-‐‑‒–—―−ー ()・の]{0,3}\d{1,4})[-‐‑‒–—―−ー ()・の]{1,3}\d{1,4}[-‐‑‒–—―−ー ()・の]{1,3}\d{3,4}(?!\d)/;
+
+// Emails (also kaikei@example。com and kaikei@gmail), @handles (with a letter in them: ＠500円 is a unit price),
+// phone numbers as written or once up to three non-alphanumeric characters (or の, ー, but not the colon of a time)
+// between digits are gone, and a number next to 電話 or TEL. supabase/migrations/0007 holds the same patterns.
 function hasContactDetails(plain: string): boolean {
   if (/[\w.+-]+\s?@\s?[\w-]+/.test(plain)) return true;
-  if (/(?<![\w.])@[A-Za-z0-9_.]{2,}/.test(plain)) return true;
+  if (/(?<![\w.])@(?=[\w.]*[A-Za-z_])[\w.]{2,}/.test(plain)) return true;
+  if (PHONE.test(plain)) return true;
   const digits = plain.replace(
-    /(\d)(?:[^\p{L}\p{N}]|[のー]){1,3}(?=\d)/gu,
+    /(\d)(?:[^\p{L}\p{N}:]|[のー]){1,3}(?=\d)/gu,
     "$1",
   );
   if (/(?<!\d)(?:\+?810?\d{9,10}|0\d{9,10})(?!\d)/.test(digits)) return true;

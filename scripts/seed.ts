@@ -6,6 +6,7 @@ import { readFile } from "node:fs/promises";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { parse } from "csv-parse/sync";
 import { embed, noteText } from "@/lib/embed";
+import { blockReason } from "@/lib/engine/guard";
 
 type Status = "current" | "alumni";
 type Holding = {
@@ -242,6 +243,11 @@ function validate(notes: NoteRow[], questions: QuestionRow[]): string[] {
     }
     if (!note.title || !note.body)
       problems.push(`${where}: missing title or body`);
+    // The database refuses these too (0007), and by then everything has been deleted.
+    const reason = blockReason(`${note.title}\n${note.body}`);
+    if (reason === "contact" || reason === "secret") {
+      problems.push(`${where}: holds ${reason} details the database refuses`);
+    }
   }
   for (const question of questions) {
     const where = `questions.csv ${question.id}`;
@@ -313,6 +319,14 @@ async function seed() {
   console.log(
     `✓ ${notes.length} notes and ${questions.length} questions are consistent`,
   );
+  // Every holding gets its byline below; a database without the column (0007 not applied) would fail only after
+  // everything has been deleted.
+  const bylines = await db.from("seat_holders").select("byline").limit(0);
+  if (bylines.error) {
+    throw new Error(
+      `can't read seat_holders.byline (${bylines.error.code}): is supabase/migrations/0007 applied? Nothing was changed`,
+    );
+  }
   const vectors = await embed(notes.map(noteText));
   console.log(
     `✓ embedded ${vectors.length} notes (title and body) with ${env("EMBED_MODEL")}`,

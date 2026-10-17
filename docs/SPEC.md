@@ -111,8 +111,9 @@ They are the shared acceptance tests for F2–F4, and `lib/mocks.ts` is built fr
   - `kind`: `deadline | contact | rule_of_thumb | pitfall | unwritten_rule`; `deadline_date` required for `deadline`
   - `scope`: `successor | group | institution | public`; `status`: `live | withdrawn`; `source`: `handover | live | import | file | chat`
   - `provenance`: for added notes, the source without names, e.g. 「LINEグループ・2024年10月」, 「PDF・2026年10月」, 「貼り付け・2026年10月」
-  - A note's title, body and provenance never hold an email, an @handle or a phone number: the database refuses them
-    (0007), whoever writes; names and credentials are refused by the route, which knows the wording
+  - A note's title, body and provenance never hold contact details or credentials (emails, @handles, phone numbers, a
+    value next to 電話 / LINE ID or 暗証番号 / パスワード): the database refuses them whoever writes, with the same
+    patterns as `lib/engine/guard.ts` (0007); names are refused by the route, which knows the roles that aren't names
   - `superseded_by`: set when a later note updates this one; a superseded note leaves answers but stays as history
     (and still feeds the rule-change flag)
 - `questions(id, asker_user_id, seat_id, text, lang, status: answered|waiting, prompt_id, created_at)`

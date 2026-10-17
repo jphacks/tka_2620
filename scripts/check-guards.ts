@@ -2,10 +2,12 @@
 // applied and `pnpm seed` run since. Everything goes straight through PostgREST with a persona's own token, as
 // someone skipping the routes would, so only the database's rules stand:
 //   - a25 can sign only the byline its holding keeps (「2025年度 会計」): 「2025年度 部長」 or anything added is refused;
-//   - a note with an email, an @handle or a phone number in its title, body or provenance is refused (DD001);
-//   - deliver_answer stores the answer rebuilt from known parts: no rule-change flag, no extra keys.
+//   - a note with contact details or credentials in its title, body or provenance is refused (DD001), and one that
+//     lib/engine/guard.ts lets through (＠500円, opening hours) is accepted;
+//   - deliver_answer refuses a sentence with a phone number, and stores the answer rebuilt from known parts: no
+//     rule-change flag, no extra keys.
 //   pnpm test:guards
-// Writes: a26's question with its prompt and route, one note of a25's and a26's answers row, all removed afterwards.
+// Writes: a26's question with its prompt and route, two notes of a25's and a26's answers row, all removed afterwards.
 // Don't run it during a rehearsal: it puts a slip in a25's inbox.
 // Counts, ids, personas and error codes only: never a note's or a question's text, never an email.
 import { isDeepStrictEqual } from "node:util";
@@ -137,6 +139,17 @@ async function main(): Promise<void> {
         { title: "@smash_kaikei に聞く" },
         "DD001",
       ],
+      [
+        "with a phone number right after a time",
+        { body: "学生課の受付 9:00-17:00 03-1234-5678" },
+        "DD001",
+      ],
+      [
+        "with a LINE ID",
+        { body: "会計の LINE ID: smash2025 に送る。" },
+        "DD001",
+      ],
+      ["with a PIN", { body: "金庫の暗証番号は4821。" }, "DD001"],
     ] as const;
     for (const [what, fields, code] of attempts) {
       const { data, error } = await write(fields);
@@ -147,6 +160,16 @@ async function main(): Promise<void> {
         error ? error.code : "accepted",
       );
     }
+    // What the route lets through, the database does too: ＠ as a unit price, times next to a count.
+    const priced = await write({
+      body: "お弁当は単価＠500円。受付 09:00〜17:00、30人まで。",
+    });
+    if (priced.data) created.noteIds.push(...priced.data.map((row) => row.id));
+    check(
+      "a note with a unit price and opening hours is accepted",
+      !priced.error,
+      priced.error ? priced.error.code : "",
+    );
 
     // 3. deliver_answer: a26's question waits on a prompt routed to a25, and a25 answers it from its own note.
     const asked = await a26.db
@@ -201,6 +224,23 @@ async function main(): Promise<void> {
       "deliver_answer refuses a language that isn't ja or en",
       french.error?.code === "22023",
       french.error ? french.error.code : "accepted",
+    );
+    const phoned = await a25.db.rpc("deliver_answer", {
+      question: questionId,
+      answer: {
+        ...answer,
+        sentences: [
+          {
+            text: "会計の携帯 090-1234-5678 に電話する。",
+            citations: [citation],
+          },
+        ],
+      },
+    });
+    check(
+      "deliver_answer refuses a sentence with a phone number",
+      phoned.error?.code === "DD001",
+      phoned.error ? phoned.error.code : "accepted",
     );
     const delivered = await a25.db.rpc("deliver_answer", {
       question: questionId,

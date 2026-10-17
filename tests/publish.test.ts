@@ -388,6 +388,7 @@ describe("publishAsCaller", () => {
     });
     expect(insertedRows(signed.calls.notes)?.[0].byline).toBe("2025 byline");
 
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
     const unsigned = await run({
       tables: {
         seat_holders: [
@@ -397,6 +398,18 @@ describe("publishAsCaller", () => {
     });
     expect(unsigned.error).toMatchObject({ code: "forbidden" });
     expect(unsigned.calls.notes).toBeUndefined();
+    expect(log).toHaveBeenCalledWith(
+      "POST /api/handover/publish: the caller's holding has no byline yet; run `pnpm seed` after 0007",
+    );
+    log.mockRestore();
+  });
+
+  it("refuses someone who never held the seat without blaming a byline", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { error } = await run({ tables: { seat_holders: [ok([])] } });
+    expect(error).toMatchObject({ code: "forbidden" });
+    expect(log).not.toHaveBeenCalled();
+    log.mockRestore();
   });
 });
 

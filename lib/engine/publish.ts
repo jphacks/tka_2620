@@ -131,7 +131,15 @@ export async function publishAsCaller(
     .limit(1);
   if (termError) throw dbFailure(termError);
   const term = TermRow.safeParse(terms?.[0]);
-  if (!term.success) throw new ApiFailure("forbidden");
+  if (!term.success) {
+    // A holding seeded before 0007 has no byline: still forbidden, but whoever runs the server learns why.
+    if (terms?.[0] && terms[0].byline == null) {
+      console.error(
+        "POST /api/handover/publish: the caller's holding has no byline yet; run `pnpm seed` after 0007",
+      );
+    }
+    throw new ApiFailure("forbidden");
+  }
 
   let prompt: z.infer<typeof PromptRow> | undefined;
   if (request.promptId) {

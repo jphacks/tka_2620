@@ -25,6 +25,14 @@ describe("blockReason", () => {
     "〇九〇の一二三四の五六七八",
     "TEL 1234-5678",
     "電話は1234-5678まで",
+    "LINE ID: smash2025",
+    "@kaikei2025 に聞く",
+    "090、1234、5678",
+    // A phone number right after another number: joining the digits alone would run the two together.
+    "受付 9:00-17:00 03-1234-5678",
+    "10/20 03-1234-5678",
+    "〒113-0033 03-1234-5678",
+    "10/20 +81 90-1234-5678",
   ])("blocks contact details: %s", (text) => {
     expect(blockReason(text)).toBe("contact");
   });
@@ -57,6 +65,13 @@ describe("blockReason", () => {
     "パスワードはGoogleドライブの共有メモにある。",
     "電話番号は学生便覧に載っている。2026年度から窓口が変わった。",
     "業者さん、施設係さん、皆さん、OBさん、保健所さんに伝える。",
+    // @ as "at" and as a unit price, times next to counts
+    "18時@部室に集合",
+    "集合 @ 正門",
+    "単価＠500円、お弁当30個＠500円",
+    "受付 09:00〜17:00、30人まで",
+    "09:00-10:30 12人",
+    "日時 10/20 09:30 〜 10/21 12:00",
   ])("lets seat knowledge through: %s", (text) => {
     expect(blockReason(text)).toBeUndefined();
   });
