@@ -34,7 +34,7 @@ type QuestionRow = {
 };
 
 const BASE_URL = process.env.CHECK_BASE_URL ?? "http://localhost:3000";
-const SUBSCRIBE_MS = 10_000;
+const SUBSCRIBE_MS = 20_000; // longer than the server's postgres_changes wait (15 s)
 const ARRIVE_MS = 10_000; // a new question must reach the phone well inside this
 const GRACE_MS = 3_000; // how long the others' phones stay quiet before "nothing" counts
 
@@ -153,27 +153,24 @@ async function signIn(
 }
 
 // Listens to every prompt_routes and answers row this phone may read, with its own token (none when signed out) and no
-// filter. A channel is SUBSCRIBED as soon as it joins, which can be before Realtime streams changes from the database,
-// and a change in between is lost; so this waits for the replication-ready system event as well. Answers "refused"
-// when Realtime turns the subscription down and that's allowed (a signed-out client).
-async function listen(
-  phone: Phone,
-  refusable = false,
-): Promise<"listening" | "refused"> {
+// filter. A phone that hears nothing proves nothing unless it was really listening, so the join waits for the server to
+// confirm the postgres_changes subscription (an error otherwise), and this also waits for the replication-ready system
+// event: a channel can be subscribed before Realtime streams changes from the database, and a change in between is lost.
+async function listen(phone: Phone): Promise<void> {
   if (phone.token) await phone.db.realtime.setAuth(phone.token);
   return new Promise((resolve, reject) => {
     let subscribed = false;
     let replicating = false;
-    const settle = (outcome: "listening" | "refused" | Error) => {
+    const settle = (error?: Error) => {
       clearTimeout(timer);
-      if (outcome instanceof Error) reject(outcome);
-      else resolve(outcome);
+      if (error) reject(error);
+      else resolve();
     };
     const timer = setTimeout(
       () =>
         settle(
           new Error(
-            `${phone.persona}: Realtime not ready in time (${subscribed ? "joined" : "not joined"}, ${replicating ? "replicating" : "no replication"})`,
+            `${phone.persona}: Realtime not ready in time (${subscribed ? "subscribed" : "not subscribed"}, ${replicating ? "replicating" : "no replication"})`,
           ),
         ),
       SUBSCRIBE_MS,
@@ -189,7 +186,10 @@ async function listen(
         });
     phone.db
       .channel(`check-inbox-${phone.persona}`, {
-        config: { broadcast: { replication_ready: true } },
+        config: {
+          broadcast: { replication_ready: true },
+          postgres_changes_options: { wait: true },
+        },
       })
       .on(
         "postgres_changes",
@@ -205,25 +205,25 @@ async function listen(
         if (payload.extension !== "system") return;
         if (payload.status === "ok") {
           replicating = true;
-          if (subscribed) settle("listening");
+          if (subscribed) settle();
         } else {
           settle(
-            refusable
-              ? "refused"
-              : new Error(
-                  `${phone.persona}: Realtime replication ${payload.status}`,
-                ),
+            new Error(
+              `${phone.persona}: Realtime replication ${payload.status}`,
+            ),
           );
         }
       })
-      .subscribe((status) => {
+      .subscribe((status, error) => {
         if (status === "SUBSCRIBED") {
           subscribed = true;
-          if (replicating) settle("listening");
-        } else if (status === "CHANNEL_ERROR" && refusable) {
-          settle("refused");
+          if (replicating) settle();
         } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-          settle(new Error(`${phone.persona}: Realtime ${status}`));
+          settle(
+            new Error(
+              `${phone.persona}: Realtime ${status}${error ? ` (${error.message})` : ""}`,
+            ),
+          );
         }
       });
   });
@@ -338,16 +338,16 @@ async function main(): Promise<void> {
   };
   const created: Created = { questionIds: [] };
   let listening = false;
+  let finished = false; // every step ran: an early stop or a thrown error never reads as "all passed"
 
   try {
-    // 1. Every phone listens, and so does the signed-out client, unless Realtime refuses it.
-    await Promise.all(phones.map((phone) => listen(phone)));
-    const signedOutListens = await listen(signedOut, true);
+    // 1. Every phone listens, and so does the signed-out client; Realtime confirms each subscription.
+    await Promise.all([...phones, signedOut].map((phone) => listen(phone)));
     listening = true;
     check(
-      `${phones.length} phones listen by Realtime, each with its own token`,
+      `${phones.length} phones and a signed-out client listen by Realtime`,
       true,
-      `the signed-out client: ${signedOutListens}`,
+      "each subscription confirmed and replicating",
     );
 
     // 2. The newcomer asks q04 (POST /api/ask): nobody knew, so it goes to the reachable predecessor.
@@ -510,6 +510,20 @@ async function main(): Promise<void> {
         typeof stored.data?.seen_at === "string" &&
         Date.parse(stored.data.seen_at) === Date.parse(first.data.seenAt),
     );
+    // An update reaches the recipient too: without this, "the asker got no update" below would prove nothing.
+    const isOpened = (received: Received) =>
+      received.event === "UPDATE" &&
+      received.row.prompt_id === promptId &&
+      typeof received.row.seen_at === "string";
+    const marked = await waitFor(
+      () => recipient.routes.some(isOpened),
+      ARRIVE_MS,
+    );
+    check(
+      "a25's phone gets the slip marked opened by Realtime (an update)",
+      marked,
+      marked ? "" : `heard: ${heard(recipient)}`,
+    );
     for (const phone of bystanders) {
       const theirs = await call("/api/inbox/seen", {
         token: phone.token,
@@ -555,6 +569,7 @@ async function main(): Promise<void> {
         phone.answers.length > 0 ? `heard: ${heard(phone)}` : "0 answers rows",
       );
     }
+    finished = true;
   } finally {
     // 7. Leave the demo database as it was, with every phone still listening: a delete can't be checked against a
     //    policy, so 0005 publishes none, and the cleanup's deletes must reach nobody.
@@ -582,17 +597,29 @@ async function main(): Promise<void> {
           received > 0 ? `heard: ${heard(phone)}` : "0 rows",
         );
       }
+      // The asker gets its own answers row, but no route row ever: not the question arriving, nor the slip opened.
+      check(
+        `${asker.persona} got no route row in the whole run`,
+        asker.routes.length === 0,
+        asker.routes.length > 0 ? `heard: ${heard(asker)}` : "0 route rows",
+      );
     }
     for (const phone of [...phones, signedOut]) {
       await phone.db.removeAllChannels();
       phone.db.realtime.disconnect();
     }
+    const outcome = !finished
+      ? "stopped early"
+      : failed
+        ? "failed"
+        : "all passed";
+    const passed = finished && !failed && !problem;
     console.log(
       problem
-        ? `\n✗ #8 check: ${checks} checks, ${failed ? "failed" : "all passed"}, but the cleanup failed (${problem}): the demo data may not be as it was`
-        : `\n${failed ? "✗" : "✓"} #8 check: ${checks} checks, ${failed ? "failed" : "all passed"} (the demo data is back as it was)`,
+        ? `\n✗ #8 check: ${checks} checks, ${outcome}, but the cleanup failed (${problem}): the demo data may not be as it was`
+        : `\n${passed ? "✓" : "✗"} #8 check: ${checks} checks, ${outcome} (the demo data is back as it was)`,
     );
-    process.exitCode = failed || problem ? 1 : 0;
+    process.exitCode = passed ? 0 : 1;
   }
 }
 
