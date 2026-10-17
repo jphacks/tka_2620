@@ -6,7 +6,8 @@ argument-hint: "[seat_type] [one-line description]"
 
 Add the seat type `$0` ($1) to Daidai, keeping one interface for everyone.
 
-1. Add `$0` to the `seat_type` check constraint in a new migration.
+1. Add `$0` to the `seat_type` check constraint in a new migration, and to `SeatType` in `lib/contracts.ts`
+   (shared file: PR plus one line in Slack; `pnpm test` checks it matches the label packs).
 2. Add a label pack under `seatTypes.$0` in BOTH `messages/ja.json` and `messages/en.json`, with the same
    keys as `club_role`: `seat`, `term`, `byline`, `lineage`, `scope.{successor,group,institution,public}`, `abstain`.
    Ask the user to confirm the Japanese wording.
