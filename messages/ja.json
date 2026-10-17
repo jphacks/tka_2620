@@ -75,7 +75,8 @@
     "done": "撤回しました（{ms}ミリ秒で回答から消えました）"
   },
   "leak": {
-    "counter": "漏れ <safe>{leaks}</safe> / {probes} 回"
+    "counter": "漏れ <safe>{leaks}</safe> / {probes} 回",
+    "notRun": "漏れテストは未実施です"
   },
   "console": {
     "title": "信頼の証明",

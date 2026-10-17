@@ -5,24 +5,23 @@
 // the real client replaces createMockApi when /api/me/notes and the withdraw route exist (#26).
 import { useTranslations } from "next-intl";
 import { useEffect, useMemo, useState } from "react";
-import { MyNotes } from "@/components/MyNotes";
+import { MyNotes, type NoteSeats, seatsOf } from "@/components/MyNotes";
 import {
   COLLAPSE_MS,
   LINE_MS,
   type WithdrawPhase,
 } from "@/components/NoteEntry";
-import type { MyNote, SeatView } from "@/lib/contracts";
+import type { MyNote } from "@/lib/contracts";
 import { createMockApi } from "@/lib/mocks";
 import { useRealtime } from "@/lib/realtime";
 
-const SEAT = "smash-kaikei";
 const sleep = (ms: number) =>
   new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 export function MyNotesPanel() {
   const t = useTranslations();
   const api = useMemo(() => createMockApi("a25"), []);
-  const [seat, setSeat] = useState<SeatView["seat"]>();
+  const [seats, setSeats] = useState<NoteSeats>();
   const [notes, setNotes] = useState<MyNote[]>();
   const [failed, setFailed] = useState(false);
   const [withdrawFailed, setWithdrawFailed] = useState(false);
@@ -33,10 +32,12 @@ export function MyNotesPanel() {
 
   useEffect(() => {
     let alive = true;
-    Promise.all([api.seat(SEAT), api.myNotes()])
-      .then(([view, mine]) => {
+    api
+      .myNotes()
+      .then(async (mine) => {
+        const bySlug = await seatsOf(api, mine.notes);
         if (!alive) return;
-        setSeat(view.seat);
+        setSeats(bySlug);
         setNotes(mine.notes);
       })
       .catch(() => {
@@ -83,12 +84,12 @@ export function MyNotesPanel() {
       </p>
     );
   }
-  if (!seat || !notes) return null;
+  if (!seats || !notes) return null;
 
   return (
     <MyNotes
       notes={notes}
-      seat={seat}
+      seats={seats}
       withdrawing={withdrawing}
       withdrawFailed={withdrawFailed}
       onWithdraw={withdraw}

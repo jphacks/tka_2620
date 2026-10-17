@@ -14,7 +14,7 @@ import { AnswerEntry } from "@/components/AnswerEntry";
 import { AskPanel } from "@/components/AskPanel";
 import { InboxPanel } from "@/components/InboxPanel";
 import { LeakCounter } from "@/components/LeakCounter";
-import { MyNotes } from "@/components/MyNotes";
+import { MyNotes, type NoteSeats, seatsOf } from "@/components/MyNotes";
 import {
   COLLAPSE_MS,
   LINE_MS,
@@ -22,13 +22,11 @@ import {
 } from "@/components/NoteEntry";
 import { PersonaPane } from "@/components/PersonaPane";
 import { WithdrawMeter } from "@/components/WithdrawMeter";
-import type { AskResult, MyNote, SeatView } from "@/lib/contracts";
+import type { AskResult, Metrics, MyNote, SeatView } from "@/lib/contracts";
 import { createMockApi, mockQuestions, resetMocks } from "@/lib/mocks";
 import { useRealtime } from "@/lib/realtime";
 
 const SEAT = "smash-kaikei";
-// SPEC F4: the leak test's ≥50 outsider attempts (#28); the numbers land here from metrics/latest.json (#29).
-const PROBES = 50;
 // The newcomer's question whose answer cites the 2025 deadline note — the sentence withdrawal must remove.
 const QUESTION = mockQuestions.q01;
 const sleep = (ms: number) =>
@@ -39,12 +37,14 @@ const sleep = (ms: number) =>
 // Each flag is true while that pane is still waiting.
 type Pending = { id: string; api: boolean; answers: boolean };
 
-export function TrustConsole() {
+// leaks: the leak test's numbers from metrics/latest.json (app/console/page.tsx); undefined until it has run.
+export function TrustConsole({ leaks }: { leaks?: Metrics["leaks"] }) {
   const t = useTranslations();
   const newcomerApi = useMemo(() => createMockApi("a26"), []);
   const senpaiApi = useMemo(() => createMockApi("a25"), []);
   const [seat, setSeat] = useState<SeatView["seat"]>();
   const [notes, setNotes] = useState<MyNote[]>();
+  const [seats, setSeats] = useState<NoteSeats>();
   const [answer, setAnswer] = useState<AskResult>();
   const [withdrawing, setWithdrawing] = useState<{
     id: string;
@@ -77,9 +77,11 @@ export function TrustConsole() {
       newcomerApi.seat(SEAT),
       senpaiApi.myNotes(),
       newcomerApi.ask({ seat: SEAT, question: QUESTION }),
-    ]).then(([view, mine, asked]) => {
+    ]).then(async ([view, mine, asked]) => {
+      const bySlug = await seatsOf(senpaiApi, mine.notes);
       if (id !== loadId.current) return; // a reset superseded this load
       setSeat(view.seat);
+      setSeats(bySlug);
       setNotes(mine.notes);
       answerRef.current = asked;
       setAnswer(asked);
@@ -198,7 +200,7 @@ export function TrustConsole() {
         </h1>
         <div className="dd-row" style={{ gap: "var(--s-5)" }}>
           <WithdrawMeter ms={shownMs} running={meter.running} />
-          <LeakCounter leaks={0} probes={PROBES} />
+          <LeakCounter leaks={leaks} />
           <button type="button" className="dd-btn" onClick={reset}>
             {t("console.reset")}
           </button>
@@ -226,10 +228,10 @@ export function TrustConsole() {
         <PersonaPane label={t("console.predecessor")}>
           <div className="dd-col" style={{ gap: "var(--s-6)" }}>
             <InboxPanel key={run} slug={SEAT} mockShortcuts={false} />
-            {seat && notes && (
+            {seats && notes && (
               <MyNotes
                 notes={notes}
-                seat={seat}
+                seats={seats}
                 withdrawing={withdrawing}
                 withdrawFailed={withdrawFailed}
                 onWithdraw={startWithdraw}

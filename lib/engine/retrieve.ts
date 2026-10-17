@@ -5,6 +5,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { IsoDate, Lang, NoteKind } from "@/lib/contracts";
 import { embed } from "@/lib/embed";
+import { dbFailure } from "@/lib/engine/route";
 
 // Cosine similarity, measured with bge-m3 on seed/questions.csv against title-and-body embeddings (lib/embed.ts).
 // One threshold can't do it: q01's 2025 deadline note scores 0.589, but q04's closest note, about receipts without
@@ -50,7 +51,7 @@ export async function findNotes(
     query_embedding: JSON.stringify(vector),
     k: SEARCH_K,
   });
-  if (error) throw new Error(`search_notes failed: ${error.code}`);
+  if (error) throw dbFailure(error);
   return closeEnough(z.array(FoundNote).parse(data ?? []));
 }
 

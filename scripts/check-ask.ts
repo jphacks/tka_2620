@@ -1,12 +1,17 @@
-// #7 acceptance check (docs/SPEC.md → F3): asking q04 as the 2026 treasurer creates one route, for the 2025
-// treasurer and nobody else. Runs against the seeded database and a running dev server:
+// #7, #20 and #21 acceptance checks (docs/SPEC.md → F3, F2) through POST /api/ask: q04, asked by the 2026 treasurer,
+// creates one route, for the 2025 treasurer and nobody else; q01 is answered from the notes, every sentence citing the
+// 2024 or 2025 note, with the 2025 rule change flagged. Runs against the seeded database and a running dev server, with
+// Ollama for the search and the Claude key for q01's answer:
 //   pnpm dev          (in another terminal)
 //   pnpm test:ask
-// The ask goes over HTTP with a26's own token, as a phone would, so the route handler and RLS are exercised for
+// The asks go over HTTP with a26's own token, as a phone would, so the route handler and RLS are exercised for
 // real. The reads that must see past a persona's own rows use the service-role key, which only scripts/ may hold.
 // Everything this check creates is removed afterwards, and it says the demo data is back only when it is.
-// Counts, ids and personas only: never the question text, never an email.
+// Don't run it during a rehearsal: it puts a slip in a25's inbox, and its cleanup removes a26's q01 and q04 questions
+// from the last minutes.
+// Counts, ids and personas only: never the question or answer text, never an email.
 import { readFile } from "node:fs/promises";
+import { isDeepStrictEqual } from "node:util";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { parse } from "csv-parse/sync";
 import { AskResult } from "@/lib/contracts";
@@ -34,6 +39,9 @@ const STRANGER = "b"; // another club's member: holds no seat at smash-kaikei
 // The asker (holds the seat, but an asker is never a recipient), an earlier-term holder, another club's member and an
 // outsider.
 const MUST_SEE_NOTHING = ["a26", "a24", "b", "x"];
+// Every sentence of q01's answer cites one of these, and the deadline moved between them (docs/SPEC.md → F2).
+const Q01_NOTES = ["smash-2024-hokenjo", "smash-2025-hokenjo"];
+const Q01_RULE_CHANGE = { termLabel: "2025", summary: "10/27 → 10/20" };
 
 function email(persona: string): string {
   const key = EMAIL[persona];
@@ -54,6 +62,18 @@ function check(what: string, ok: boolean, detail = ""): void {
   checks += 1;
   if (!ok) failed = true;
   console.log(`${ok ? "✓" : "✗"} ${what}${detail ? ` — ${detail}` : ""}`);
+}
+
+// For a "sees nothing" check: only a query that worked and came back empty counts. A failed query proves nothing.
+function sawNothing(result: {
+  data: unknown[] | null;
+  error: { code: string } | null;
+}): { ok: boolean; detail: string } {
+  if (result.error) {
+    return { ok: false, detail: `query failed: ${result.error.code}` };
+  }
+  const rows = result.data?.length ?? 0;
+  return { ok: rows === 0, detail: `${rows} row(s)` };
 }
 
 async function readQuestions(): Promise<QuestionRow[]> {
@@ -118,12 +138,18 @@ async function openDemandPrompts(
   return count ?? 0;
 }
 
-type Created = { questionIds: string[]; promptIds: string[] };
-type Run = { askerIds: string[]; seatId: string; text: string; since: string };
+type Created = { questionIds: string[] };
+type Run = {
+  askerIds: string[];
+  seatId: string;
+  texts: string[];
+  since: string;
+};
 
-// Removes what this run created: every q04 question its askers saved at the seat since it started, also one from a
-// request that failed after the insert (routed or not), and the demand prompts those questions started (their routes
-// go with them). A prompt a question only joined is left alone. Answers what went wrong, or undefined.
+// Removes what this run created: every question it asked (q01, q04) that its askers saved at the seat since it
+// started, also one from a request that failed after the insert (routed or not), and the demand prompts those
+// questions started (their routes go with them; an answer goes with its question). A prompt a question only joined is
+// left alone. Answers what went wrong, or undefined.
 async function cleanUp(
   service: SupabaseClient,
   created: Created,
@@ -134,7 +160,7 @@ async function cleanUp(
     .select("id")
     .in("asker_user_id", run.askerIds)
     .eq("seat_id", run.seatId)
-    .eq("text", run.text)
+    .in("text", run.texts)
     .gte("created_at", run.since);
   if (asked.error) return `find the run's questions: ${asked.error.code}`;
   const questionIds = [
@@ -151,12 +177,8 @@ async function cleanUp(
     .select("id")
     .in("source_question_id", questionIds);
   if (started.error) return `find the run's prompts: ${started.error.code}`;
-  const promptIds = [
-    ...new Set([
-      ...created.promptIds,
-      ...(started.data ?? []).map((row) => row.id),
-    ]),
-  ];
+  // Only these: once dedupe (F2.5) lets a question join an open prompt, the prompt it joined isn't the run's to delete.
+  const promptIds = (started.data ?? []).map((row) => row.id);
   if (promptIds.length > 0) {
     const { error } = await service
       .from("prompts")
@@ -172,6 +194,76 @@ async function cleanUp(
   return undefined;
 }
 
+// q01 (F2, #20): answered from the notes the asker may read, every sentence citing the 2024 or 2025 note. The question
+// is saved as answered with its answer, both readable by the asker, and starts no demand prompt.
+async function checkAnswered(
+  question: QuestionRow,
+  asker: Session,
+  service: SupabaseClient,
+  created: Created,
+): Promise<void> {
+  const response = await ask(asker.token, question);
+  check(
+    `${question.id}: POST /api/ask answers 200`,
+    response.ok,
+    response.ok ? "" : `HTTP ${response.status}`,
+  );
+  if (!response.ok) return;
+  const result = AskResult.parse(await response.json());
+  created.questionIds.push(result.questionId);
+  check(
+    `${question.id}: it is answered from the notes`,
+    result.status === "answered",
+    result.status,
+  );
+  if (result.status !== "answered") return;
+
+  const cited = result.sentences.map((sentence) =>
+    sentence.citations.map((citation) => citation.noteId),
+  );
+  check(
+    `${question.id}: every sentence cites the 2024 or 2025 note`,
+    cited.every((ids) => ids.some((id) => Q01_NOTES.includes(id))),
+    cited.map((ids) => `[${ids.join(", ")}]`).join(" "),
+  );
+  check(
+    `${question.id}: the 2025 rule change is flagged (10/27 → 10/20)`,
+    isDeepStrictEqual(result.ruleChange, Q01_RULE_CHANGE),
+    result.ruleChange
+      ? `${result.ruleChange.termLabel}: ${result.ruleChange.summary}`
+      : "none",
+  );
+  check(
+    `${question.id}: in the asker's language`,
+    result.language === "ja",
+    result.language,
+  );
+
+  const saved = await asker.db
+    .from("questions")
+    .select("status, prompt_id")
+    .eq("id", result.questionId)
+    .maybeSingle();
+  check(
+    `${question.id}: the asker's question is saved as answered, linked to no prompt`,
+    saved.data?.status === "answered" && saved.data.prompt_id === null,
+  );
+  const stored = await asker.db
+    .from("answers")
+    .select("payload")
+    .eq("question_id", result.questionId)
+    .maybeSingle();
+  check(
+    `${question.id}: the asker reads the answer it was given`,
+    isDeepStrictEqual(stored.data?.payload, result),
+  );
+  const started = await service
+    .from("prompts")
+    .select("id", { count: "exact", head: true })
+    .eq("source_question_id", result.questionId);
+  check(`${question.id}: it starts no demand prompt`, started.count === 0);
+}
+
 async function main(): Promise<void> {
   const url = env("NEXT_PUBLIC_SUPABASE_URL");
   const anonKey = env("NEXT_PUBLIC_SUPABASE_ANON_KEY");
@@ -180,8 +272,11 @@ async function main(): Promise<void> {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  const question = (await readQuestions()).find((row) => row.id === "q04");
-  if (!question) throw new Error("seed/questions.csv has no q04");
+  const questions = await readQuestions();
+  const question = questions.find((row) => row.id === "q04");
+  const q01 = questions.find((row) => row.id === "q01");
+  if (!question || !q01)
+    throw new Error("seed/questions.csv needs q01 and q04");
 
   const seat = await service
     .from("seats")
@@ -196,9 +291,16 @@ async function main(): Promise<void> {
   const asker = await signIn(url, anonKey, question.persona, password);
   const reachable = await signIn(url, anonKey, REACHABLE, password);
   const stranger = await signIn(url, anonKey, STRANGER, password);
-  const created: Created = { questionIds: [], promptIds: [] };
+  const q01Asker =
+    q01.persona === question.persona
+      ? asker
+      : await signIn(url, anonKey, q01.persona, password);
+  const created: Created = { questionIds: [] };
 
   try {
+    // q01 first, so a failing q04 can't hide whether it's answered.
+    await checkAnswered(q01, q01Asker, service, created);
+
     // 1. The newcomer asks, with their own token: POST /api/ask.
     const response = await ask(asker.token, question);
     const responseError = response.ok
@@ -214,11 +316,13 @@ async function main(): Promise<void> {
     if (!response.ok) return;
 
     const result = AskResult.parse(await response.json());
-    check("it abstains (F2 isn't in yet)", result.status === "abstained");
+    check(
+      "it abstains: no note is close enough to answer it",
+      result.status === "abstained",
+    );
     if (result.status !== "abstained") return;
     created.questionIds.push(result.questionId);
     const promptId = result.promptId;
-    if (promptId) created.promptIds.push(promptId);
     check(
       "the question became one demand prompt that reached predecessors",
       result.routedTo === 1 && Boolean(promptId),
@@ -294,10 +398,13 @@ async function main(): Promise<void> {
         .from("prompts")
         .select("id")
         .eq("id", promptId);
-      check(`${persona} sees no route`, (seenRoute.data ?? []).length === 0);
+      const route = sawNothing(seenRoute);
+      check(`${persona} sees no route`, route.ok, route.detail);
+      const prompt = sawNothing(seenPrompt);
       check(
         `${persona} can't read the demand prompt`,
-        (seenPrompt.data ?? []).length === 0,
+        prompt.ok,
+        prompt.detail,
       );
     }
 
@@ -328,15 +435,15 @@ async function main(): Promise<void> {
   } finally {
     // 6. Leave the demo database as it was.
     const problem = await cleanUp(service, created, {
-      askerIds: [asker.userId, stranger.userId],
+      askerIds: [...new Set([asker.userId, q01Asker.userId, stranger.userId])],
       seatId,
-      text: question.question,
+      texts: [question.question, q01.question],
       since,
     });
     console.log(
       problem
-        ? `\n✗ #7 check: ${checks} checks, ${failed ? "failed" : "all passed"}, but the cleanup failed (${problem}): the demo data may not be as it was`
-        : `\n${failed ? "✗" : "✓"} #7 check: ${checks} checks, ${failed ? "failed" : "all passed"} (the demo data is back as it was)`,
+        ? `\n✗ /api/ask check (#7, #20, #21): ${checks} checks, ${failed ? "failed" : "all passed"}, but the cleanup failed (${problem}): the demo data may not be as it was`
+        : `\n${failed ? "✗" : "✓"} /api/ask check (#7, #20, #21): ${checks} checks, ${failed ? "failed" : "all passed"} (the demo data is back as it was)`,
     );
     process.exitCode = failed || problem ? 1 : 0;
   }
