@@ -114,7 +114,8 @@ They are the shared acceptance tests for F2–F4, and `lib/mocks.ts` is built fr
 - `questions(id, asker_user_id, seat_id, text, lang, status: answered|waiting, prompt_id, created_at)`
   - `prompt_id`: the demand prompt the question was merged into after an abstain (`prompts.source_question_id` is only the first)
 - `answers(question_id, payload jsonb, created_at)`: the latest answer per question (asker only), pushed by Realtime
-- `prompts(id, seat_id, kind: core|demand|gap|required, text, ask_count, source_question_id, retired)`
+- `prompts(id, seat_id, kind: core|demand|gap|required, text, ask_count, source_question_id, retired, listed)`
+  - `listed`: a demand prompt in Haiku's words, which the seat's later askers may join (F2.5, Scope rules)
 - `prompt_routes(prompt_id, user_id, created_at, seen_at)`: a demand prompt delivered to a reachable predecessor's inbox
 - `events(id, kind, payload jsonb, created_at)`: meter, leak test, live-loop timings and redaction counts (counts only, never text)
 - Not used on Hack Day (kept for later): `seat_invites`, `note_uses`
@@ -130,6 +131,13 @@ They are the shared acceptance tests for F2–F4, and `lib/mocks.ts` is built fr
   the asker is shown by seat and term (「2026年度 会計」), never by name. `answers` rows are readable only by the asker.
 - A question from someone who holds no seat at that seat routes nowhere: no demand prompt is created, the abstain
   carries no `promptId`, and `routedTo` is 0. The question remains readable only by the asker.
+- Demand prompts (F2.5): a routed question's prompt is the question reworded by Haiku about the seat, without names or
+  contact details (the asker's own `questions.text` stays as typed). So that a question can join an open prompt that
+  asks the same thing, a holder of the seat whose own question waits to be routed reads the seat's open, *listed*
+  demand prompts (id and text, never who asked) through `open_demand_prompts()`. Only the asker lists a prompt, only
+  the one their question started, and only when its text is Haiku's wording that passed the guard (`list_prompt()`); a
+  prompt as typed (Haiku down) is read only by its routed holders. A question with no prompt text free of contact
+  details, credentials and names routes nowhere.
 
 ## Adding knowledge: text, files and chats (F5)
 Club knowledge lives in old documents, forms, notices and, most of all, group chats. Daidai takes all of them
@@ -304,9 +312,10 @@ The `/hackday-log` skill copies them into the README with a table of Hack Day wo
   and money owed by individuals; keep placeholders like `[電話番号]` out of cards and say where to find the contact instead.
 - **Follow-up (Haiku):** input = prompt + answer. Output: `{ needs_followup: boolean, missing?: "date" | "contact" | "threshold", question?: string }`. At most one per answer.
 - **Dedupe and classification (Haiku):** merge similar demand prompts; reframe questions about individuals to the seat.
-  Input = the new question + the seat's open demand prompts in `<prompt id=…>` tags. Output:
-  `{ duplicate_of: string | null, prompt: string }` (the prompt it joins, checked against the given ids, and the
-  question as a demand prompt about the seat).
+  Two calls side by side, so another holder's prompt text never reaches the wording. Match: input = the new question +
+  the seat's open, listed demand prompts in `<prompt id=…>` tags, output `{ duplicate_of: string | null }` (the prompt
+  it joins, checked against the given ids). Wording: input = the new question alone, output `{ prompt: string }` (the
+  question as a demand prompt about the seat, checked by the guard).
 - **All model outputs** (Zod in `lib/contracts.ts`) have no minimums: the code checks each sentence and card, so one
   bad item is dropped instead of failing the call. Cards carry `lang`; their dates are plain strings there, checked
   per card, and a bad or missing deadline date becomes a `missing` item or a follow-up.
