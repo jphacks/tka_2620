@@ -1,13 +1,25 @@
-// POST /api/ask (F3.5): the newcomer asks at a seat. The question is saved with its lang and, when nobody could
-// answer it, it becomes a demand prompt that reaches the seat's reachable predecessors (docs/SPEC.md → F3).
+// POST /api/ask (F2, F3.5): the newcomer asks at a seat. The notes they may read answer it, every sentence citing one
+// (docs/SPEC.md → F2); when they can't, the question becomes a demand prompt that reaches the seat's reachable
+// predecessors (docs/SPEC.md → F3). Either way the question is saved with its lang.
 //
-// Everything here runs as the caller (lib/engine/route.ts), so the database does the scope work: questions and answers
-// are the asker's own rows, and route_question() (0003) creates the prompt and the prompt_routes rows, refusing
-// anyone who holds no seat at the seat they asked — their question routes nowhere and no prompt is created.
+// Everything here runs as the caller (lib/engine/route.ts), so the database does the scope work: search_notes (0004)
+// finds only notes the asker may read, questions and answers are the asker's own rows, and route_question() (0003)
+// creates the prompt and the prompt_routes rows, refusing anyone who holds no seat at the seat they asked — their
+// question routes nowhere and no prompt is created.
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { LanguageModel } from "ai";
 import { z } from "zod";
-import { AskRequest, type AskResult, Uuid } from "@/lib/contracts";
+import { sonnet } from "@/lib/ai";
+import {
+  type AnsweredResult,
+  AskRequest,
+  type AskResult,
+  Uuid,
+} from "@/lib/contracts";
+import { embed } from "@/lib/embed";
+import { answerFromNotes } from "@/lib/engine/answer";
 import { questionLang } from "@/lib/engine/lang";
+import { findNotes } from "@/lib/engine/retrieve";
 import {
   ApiFailure,
   apiError,
@@ -16,6 +28,13 @@ import {
   dbFailure,
   failed,
 } from "@/lib/engine/route";
+
+// The models behind an answer, passed in so a test can fake them: bge-m3 for the search, Sonnet for the answer. The
+// answer model is made only once notes are found, so an abstain, and with it the live loop, never needs the Claude key.
+export type AskModels = {
+  embed: (texts: string[]) => Promise<number[][]>;
+  answer: () => LanguageModel;
+};
 
 export async function handleAsk(request: Request): Promise<Response> {
   const token = bearerToken(request);
@@ -29,7 +48,10 @@ export async function handleAsk(request: Request): Promise<Response> {
     const caller = await callerFor(token);
     if (!caller) return apiError("unauthorized");
     return Response.json(
-      await askAsCaller(caller.db, caller.userId, parsed.data),
+      await askAsCaller(caller.db, caller.userId, parsed.data, {
+        embed,
+        answer: sonnet,
+      }),
     );
   } catch (error) {
     // The code only: no question text, ever (docs/SPEC.md → Scope rules).
@@ -43,12 +65,14 @@ const Routed = z.object({
   routed_to: z.number().int().nonnegative(),
 });
 
-// The flow, as the asker. Split from the handler so a test can drive it with a client of its own.
-// F2 puts retrieval and the grounded answer here; until it lands, every question abstains and takes the live loop.
+// The flow, as the asker. Split from the handler so a test can drive it with a client and models of its own.
+// The search and the answer come before anything is saved, so a stopped Ollama or a failed Claude call leaves no
+// question behind; a failure answers unavailable, never a made-up abstain.
 export async function askAsCaller(
   client: SupabaseClient,
   askerUserId: string,
   request: AskRequest,
+  models: AskModels,
 ): Promise<AskResult> {
   const { data: seat, error: seatError } = await client
     .from("seats")
@@ -58,6 +82,21 @@ export async function askAsCaller(
   if (seatError) throw dbFailure(seatError);
   if (!seat) throw new ApiFailure("not_found");
 
+  const notes = await findNotes(
+    client,
+    request.seat,
+    request.question,
+    models.embed,
+  );
+  const answer =
+    notes.length > 0
+      ? await answerFromNotes({
+          model: models.answer(),
+          question: request.question,
+          notes,
+        })
+      : undefined;
+
   const { data: question, error: questionError } = await client
     .from("questions")
     .insert({
@@ -65,10 +104,25 @@ export async function askAsCaller(
       seat_id: seat.id,
       text: request.question,
       lang: questionLang(request.question),
+      status: answer ? "answered" : "waiting",
     })
     .select("id")
     .single();
   if (questionError || !question) throw dbFailure(questionError);
+
+  if (answer) {
+    const result: AnsweredResult = {
+      status: "answered",
+      questionId: question.id,
+      ...answer,
+    };
+    // Kept as the asker's latest answer, so a withdrawal can answer again without the withdrawn note (F4).
+    const { error: answerError } = await client
+      .from("answers")
+      .insert({ question_id: question.id, payload: result });
+    if (answerError) throw dbFailure(answerError);
+    return result;
+  }
 
   // Nobody knew: the question becomes a new demand prompt of the seat, worded as the newcomer asked it. Joining an
   // open prompt that asks the same thing (route_question's join_prompt) and rewording the question about the seat

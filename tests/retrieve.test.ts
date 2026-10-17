@@ -99,7 +99,7 @@ describe("findNotes", () => {
     expect(found.map((n) => n.id)).toEqual(["smash-2024-hokenjo"]);
   });
 
-  it("fails with the error code only, never the question", async () => {
+  it("fails with a code only, never the question: a policy refusal is forbidden", async () => {
     const failure = await findNotes(
       stubClient(
         {
@@ -113,9 +113,9 @@ describe("findNotes", () => {
       async () => [[0]],
     ).then(
       () => undefined,
-      (error: Error) => error,
+      (error: Error & { code?: string }) => error,
     );
-    expect(failure?.message).toContain("42501");
+    expect(failure).toMatchObject({ name: "ApiFailure", code: "forbidden" });
     expect(failure?.message).not.toContain(QUESTION);
   });
 

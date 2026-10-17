@@ -27,9 +27,20 @@ export const sonnetOptions = {
   } satisfies AnthropicLanguageModelOptions,
 };
 
-// Untrusted text (note bodies, pasted docs, spoken answers) as data inside a tag. Angle brackets become full-width,
-// so the text can't close its tag or open another one.
-export function untrusted(tag: string, text: string): string {
-  const inert = text.replaceAll("<", "＜").replaceAll(">", "＞");
-  return `<${tag}>\n${inert}\n</${tag}>`;
+// Untrusted text (note bodies, pasted docs, spoken answers) as data inside a tag, with attributes when the tag needs
+// them (a note's id, byline and term). Angle brackets become full-width, and so do double quotes in a value, so
+// neither the text nor a value can close its tag or open another one.
+export function untrusted(
+  tag: string,
+  text: string,
+  attributes: Record<string, string> = {},
+): string {
+  const values = Object.entries(attributes)
+    .map(([name, value]) => ` ${name}="${inert(value).replaceAll('"', "＂")}"`)
+    .join("");
+  return `<${tag}${values}>\n${inert(text)}\n</${tag}>`;
+}
+
+function inert(text: string): string {
+  return text.replaceAll("<", "＜").replaceAll(">", "＞");
 }

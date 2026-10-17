@@ -1,11 +1,15 @@
-// The engine's side of the live loop: POST /api/ask saves the question and routes it (issue #7, docs/SPEC.md → F3).
+// POST /api/ask: answered from the notes (F2.2, issue #20), or saved and routed to the live loop (F3.5, issue #7).
 // These tests run offline: the handler returns before it touches Supabase unless the request is well-formed, and the
-// flow itself is driven through a stub client, so the database's own rules are checked by scripts/check-ask.ts.
+// flow itself is driven through a stub client and fake models, so the database's own rules are checked by
+// scripts/check-ask.ts.
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { LanguageModel } from "ai";
 import { describe, expect, it } from "vitest";
-import { ApiError, AskResult } from "@/lib/contracts";
-import { askAsCaller, handleAsk } from "@/lib/engine/ask";
+import { type AnswerOutput, ApiError, AskResult } from "@/lib/contracts";
+import { type AskModels, askAsCaller, handleAsk } from "@/lib/engine/ask";
 import { questionLang } from "@/lib/engine/lang";
+import { mockAnswer, mockModelReplies, mockQuestions } from "@/lib/mocks";
+import { fakeModel, q01Notes } from "./fakes";
 
 // seed/questions.csv q04, asked by a26.
 const QUESTION = "決算後に申請された領収書はどうすれば良いですか？";
@@ -14,15 +18,22 @@ const PROMPT_ID = "22222222-2222-4222-8222-222222222222";
 
 type Stub = {
   seat: { id: string } | null;
-  routed: unknown; // route_question's reply, as PostgREST hands it over
+  found?: unknown[]; // search_notes' rows: none by default, so the question abstains
+  routed?: unknown; // route_question's reply, as PostgREST hands it over
   seatError?: { code: string } | null;
+  searchError?: { code: string } | null;
   routeError?: { code: string } | null;
-  inserted?: Record<string, unknown>;
+  inserted?: Record<string, Record<string, unknown>[]>; // rows by table
+  called?: string[]; // database functions, in order
 };
 
 function stubClient(stub: Stub): SupabaseClient {
+  const inserted: Record<string, Record<string, unknown>[]> = {};
+  const called: string[] = [];
+  stub.inserted = inserted;
+  stub.called = called;
   const client = {
-    from() {
+    from(table: string) {
       return {
         select: () => ({
           eq: () => ({
@@ -32,20 +43,41 @@ function stubClient(stub: Stub): SupabaseClient {
             }),
           }),
         }),
+        // Awaited as it is (answers), or with .select().single() for the new id (questions).
         insert: (row: Record<string, unknown>) => {
-          stub.inserted = row;
-          return {
+          inserted[table] = [...(inserted[table] ?? []), row];
+          return Object.assign(Promise.resolve({ data: null, error: null }), {
             select: () => ({
               single: async () => ({ data: { id: QUESTION_ID }, error: null }),
             }),
-          };
+          });
         },
       };
     },
-    rpc: async () => ({ data: stub.routed, error: stub.routeError ?? null }),
+    rpc: async (name: string) => {
+      called.push(name);
+      return name === "search_notes"
+        ? { data: stub.found ?? [], error: stub.searchError ?? null }
+        : { data: stub.routed, error: stub.routeError ?? null };
+    },
   };
   return client as unknown as SupabaseClient;
 }
+
+const embed = async (texts: string[]) => texts.map(() => [0.25, -0.5]);
+
+// Nothing close enough was found, so the answer model must not even be made.
+const noAnswer: AskModels = {
+  embed,
+  answer: (): LanguageModel => {
+    throw new Error("the answer model was made without a note to answer from");
+  },
+};
+
+const replying = (reply: AnswerOutput): AskModels => ({
+  embed,
+  answer: () => fakeModel(reply),
+});
 
 function post(body: BodyInit, token?: string): Request {
   return new Request("http://localhost/api/ask", {
@@ -103,22 +135,93 @@ describe("handleAsk", () => {
 });
 
 describe("askAsCaller", () => {
-  it("saves the question with its lang, then routes it", async () => {
+  const q01 = { seat: "smash-kaikei", question: mockQuestions.q01 };
+  const q04 = { seat: "smash-kaikei", question: QUESTION };
+
+  it("answers from the notes it found: saved as answered with its answer, and routed nowhere", async () => {
+    const stub: Stub = { seat: { id: "seat-1" }, found: q01Notes };
+    const result = await askAsCaller(
+      stubClient(stub),
+      "asker-1",
+      q01,
+      replying(mockModelReplies.answer),
+    );
+
+    expect(AskResult.parse(result)).toEqual({
+      status: "answered",
+      questionId: QUESTION_ID,
+      sentences: mockAnswer.sentences,
+      language: "ja",
+    });
+    expect(stub.inserted).toEqual({
+      questions: [
+        {
+          asker_user_id: "asker-1",
+          seat_id: "seat-1",
+          text: mockQuestions.q01,
+          lang: "ja",
+          status: "answered",
+        },
+      ],
+      answers: [{ question_id: QUESTION_ID, payload: result }],
+    });
+    expect(stub.called).toEqual(["search_notes"]);
+  });
+
+  it("abstains when no sentence keeps a citation: saved waiting, then routed", async () => {
     const stub: Stub = {
       seat: { id: "seat-1" },
+      found: q01Notes,
       routed: { prompt_id: PROMPT_ID, routed_to: 1 },
     };
-    const result = await askAsCaller(stubClient(stub), "asker-1", {
-      seat: "smash-kaikei",
-      question: QUESTION,
+    const result = await askAsCaller(
+      stubClient(stub),
+      "asker-1",
+      q01,
+      replying({
+        answerable: true,
+        sentences: [{ text: "わかりません。", note_ids: ["no-such-note"] }],
+        language: "ja",
+      }),
+    );
+
+    expect(result).toEqual({
+      status: "abstained",
+      questionId: QUESTION_ID,
+      promptId: PROMPT_ID,
+      routedTo: 1,
     });
+    expect(stub.inserted?.questions).toMatchObject([{ status: "waiting" }]);
+    expect(stub.inserted?.answers).toBeUndefined();
+    expect(stub.called).toEqual(["search_notes", "route_question"]);
+  });
+
+  it("abstains without the answer model when no note is close enough: saves the question with its lang, then routes it", async () => {
+    const stub: Stub = {
+      seat: { id: "seat-1" },
+      // q04's closest note, about receipts, scores under MATCH (lib/engine/retrieve.ts).
+      found: [{ ...q01Notes[0], similarity: 0.626 }],
+      routed: { prompt_id: PROMPT_ID, routed_to: 1 },
+    };
+    const result = await askAsCaller(
+      stubClient(stub),
+      "asker-1",
+      q04,
+      noAnswer,
+    );
 
     expect(stub.inserted).toEqual({
-      asker_user_id: "asker-1",
-      seat_id: "seat-1",
-      text: QUESTION,
-      lang: "ja",
+      questions: [
+        {
+          asker_user_id: "asker-1",
+          seat_id: "seat-1",
+          text: QUESTION,
+          lang: "ja",
+          status: "waiting",
+        },
+      ],
     });
+    expect(stub.called).toEqual(["search_notes", "route_question"]);
     expect(AskResult.parse(result)).toEqual({
       status: "abstained",
       questionId: QUESTION_ID,
@@ -127,15 +230,40 @@ describe("askAsCaller", () => {
     });
   });
 
+  it("saves nothing when the search fails", async () => {
+    const ollamaDown: AskModels = {
+      ...noAnswer,
+      embed: async () => {
+        throw new Error("Ollama answered 500 for bge-m3");
+      },
+    };
+    const stub: Stub = { seat: { id: "seat-1" } };
+    await expect(
+      askAsCaller(stubClient(stub), "asker-1", q04, ollamaDown),
+    ).rejects.toThrow();
+    expect(stub.inserted).toEqual({});
+
+    const refused: Stub = {
+      seat: { id: "seat-1" },
+      searchError: { code: "42501" },
+    };
+    await expect(
+      askAsCaller(stubClient(refused), "asker-1", q04, noAnswer),
+    ).rejects.toMatchObject({ name: "ApiFailure", code: "forbidden" });
+    expect(refused.inserted).toEqual({});
+  });
+
   it("names no prompt when the asker holds no seat, so nothing was routed", async () => {
     const stub: Stub = {
       seat: { id: "seat-1" },
       routed: { prompt_id: null, routed_to: 0 },
     };
-    const result = await askAsCaller(stubClient(stub), "outsider", {
-      seat: "smash-kaikei",
-      question: QUESTION,
-    });
+    const result = await askAsCaller(
+      stubClient(stub),
+      "outsider",
+      q04,
+      noAnswer,
+    );
     expect(AskResult.parse(result)).toEqual({
       status: "abstained",
       questionId: QUESTION_ID,
@@ -148,10 +276,12 @@ describe("askAsCaller", () => {
       seat: { id: "seat-1" },
       routed: [{ prompt_id: PROMPT_ID, routed_to: 1 }],
     };
-    const result = await askAsCaller(stubClient(stub), "asker-1", {
-      seat: "smash-kaikei",
-      question: QUESTION,
-    });
+    const result = await askAsCaller(
+      stubClient(stub),
+      "asker-1",
+      q04,
+      noAnswer,
+    );
     expect(result).toMatchObject({ promptId: PROMPT_ID, routedTo: 1 });
   });
 
@@ -163,25 +293,27 @@ describe("askAsCaller", () => {
       { prompt_id: PROMPT_ID, routed_to: -1 },
     ]) {
       await expect(
-        askAsCaller(stubClient({ seat: { id: "seat-1" }, routed }), "asker-1", {
-          seat: "smash-kaikei",
-          question: QUESTION,
-        }),
+        askAsCaller(
+          stubClient({ seat: { id: "seat-1" }, routed }),
+          "asker-1",
+          q04,
+          noAnswer,
+        ),
       ).rejects.toMatchObject({ name: "ApiFailure", code: "unavailable" });
     }
   });
 
-  it("404s a seat that doesn't exist", async () => {
-    const stub: Stub = {
-      seat: null,
-      routed: { prompt_id: null, routed_to: 0 },
-    };
+  it("404s a seat that doesn't exist, before searching", async () => {
+    const stub: Stub = { seat: null };
     await expect(
-      askAsCaller(stubClient(stub), "asker-1", {
-        seat: "no-such-seat",
-        question: QUESTION,
-      }),
+      askAsCaller(
+        stubClient(stub),
+        "asker-1",
+        { seat: "no-such-seat", question: QUESTION },
+        noAnswer,
+      ),
     ).rejects.toMatchObject({ name: "ApiFailure", code: "not_found" });
+    expect(stub.called).toEqual([]);
   });
 
   it("turns a policy refusal into forbidden, never into text", async () => {
@@ -190,10 +322,12 @@ describe("askAsCaller", () => {
       routed: { prompt_id: null, routed_to: 0 },
       routeError: { code: "42501" },
     };
-    const failure = await askAsCaller(stubClient(stub), "asker-1", {
-      seat: "smash-kaikei",
-      question: QUESTION,
-    }).then(
+    const failure = await askAsCaller(
+      stubClient(stub),
+      "asker-1",
+      q04,
+      noAnswer,
+    ).then(
       () => undefined,
       (error: { code?: string; message?: string }) => error,
     );
