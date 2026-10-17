@@ -55,7 +55,9 @@
     "outdated": "Outdated?",
     "outdatedDone": "We'll ask the next handover to check this",
     "ruleChange": "The rule changed in {term}",
-    "sourceChip": "{byline}"
+    "sourceChip": "{byline}",
+    "changedIn": "Changed in {term}",
+    "source": "Source: a note by {byline}"
   },
   "abstain": {
     "routed": "Added to the next handover."

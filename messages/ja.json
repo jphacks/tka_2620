@@ -55,7 +55,9 @@
     "outdated": "古い？",
     "outdatedDone": "次の引き継ぎで確認してもらいます",
     "ruleChange": "{term}にルールが変わりました",
-    "sourceChip": "{byline}"
+    "sourceChip": "{byline}",
+    "changedIn": "{term}年に変更",
+    "source": "根拠：{byline}のメモ"
   },
   "abstain": {
     "routed": "この質問を次の引き継ぎに追加しました。"
