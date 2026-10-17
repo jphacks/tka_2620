@@ -1,7 +1,8 @@
 // The pure side of 「＋ 追加」 (docs/SPEC.md → adding knowledge, steps 1–5): what a piece of text is, and how the
-// redaction preview shows and limits what will be sent. No React, so tests/add-panel.test.ts runs it on the seed files.
+// redaction preview shows what will be sent. No React, so tests/add-panel.test.ts runs it on the seed files. What a
+// chat keeps (step 2: the last 12 months, what matters, the request's cap) is lib/redact's redactChat.
 import type { RedactionCounts } from "@/lib/contracts";
-import { type FileType, MAX_TEXT_CHARS } from "@/lib/ingest/types";
+import type { FileType } from "@/lib/ingest/types";
 import {
   type ChatMessage,
   type ChatPlatform,
@@ -10,7 +11,7 @@ import {
   parsePaste,
   speakers,
 } from "@/lib/redact/parse";
-import { formatChat, PLACEHOLDER } from "@/lib/redact/redact";
+import { PLACEHOLDER } from "@/lib/redact/redact";
 
 // What the preview redacts and the request sends. A chat keeps its messages, so each speaker can get a role.
 export type Source =
@@ -177,24 +178,6 @@ export function hiddenKinds(
     kind,
     count: kind === "names" ? counts.names + counts.people : counts[kind],
   })).filter(({ count }) => count > 0);
-}
-
-// The newest messages whose text fits the request (lib/contracts.ts → ImportRequest.text). It runs on the redacted
-// chat: redacting only the kept messages would forget a name learned from one that was dropped (田中先輩 hides 田中
-// everywhere). formatChat joins messages with one newline.
-export function fitChat(
-  messages: ChatMessage[],
-  max: number = MAX_TEXT_CHARS,
-): ChatMessage[] {
-  let length = -1;
-  let start = messages.length;
-  while (start > 0) {
-    const next = length + 1 + formatChat([messages[start - 1]]).length;
-    if (next > max) break;
-    length = next;
-    start--;
-  }
-  return messages.slice(start);
 }
 
 // メンバーA … Z, then AA, AB: the default role of the speaker at this place (messages → import.member).

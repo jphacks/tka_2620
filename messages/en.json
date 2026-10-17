@@ -244,7 +244,10 @@
       "addresses": "{count, plural, one {<fig>#</fig> address} other {<fig>#</fig> addresses}}",
       "urls": "{count, plural, one {<fig>#</fig> URL} other {<fig>#</fig> URLs}}"
     },
-    "trimmed": "{count, plural, one {It's long, so only the newest message will be sent} other {It's long, so only the newest # messages will be sent}}",
+    "used": "{kept} of {total, plural, one {# message} other {# messages}} will be sent",
+    "useAll": "Use them all",
+    "useKept": "Use only what looks like handover knowledge",
+    "noneKept": "No message looked like handover knowledge",
     "tooLong": "This is too long (up to 100,000 characters). Add it in parts",
     "sending": "Sending",
     "unredacted": "A phone number or email was still in the text, so nothing was sent. Add it to \"Other words to hide\"",

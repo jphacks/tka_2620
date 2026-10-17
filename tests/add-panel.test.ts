@@ -1,13 +1,12 @@
 // F5.4 (issue #34): the pure side of 「＋ 追加」 (components/redaction.ts). A chat is a chat wherever it arrives, so its
 // speakers become roles even when it's pasted into 貼り付け or saved as another file type; a chat that can't be read
 // safely (WhatsApp, LINE rows without their date line, nobody speaking) is refused rather than sent as text. The
-// preview shows each placeholder as a black bar; the counts line names what was found; a long chat keeps its newest
-// messages within the request's limit.
+// preview shows each placeholder as a black bar; the counts line names what was found. What a chat keeps (the last 12
+// months, what matters, the request's cap) is lib/redact's, tested in tests/redact-keep.test.ts.
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   blackoutSegments,
-  fitChat,
   hiddenKinds,
   hideWords,
   memberLetter,
@@ -16,8 +15,8 @@ import {
 } from "@/components/redaction";
 import type { RedactionCounts } from "@/lib/contracts";
 import { extractFile } from "@/lib/ingest/extract";
-import { type ChatMessage, speakers } from "@/lib/redact/parse";
-import { formatChat, redactChat } from "@/lib/redact/redact";
+import { speakers } from "@/lib/redact/parse";
+import { redactChat } from "@/lib/redact/redact";
 
 const seed = (name: string) =>
   readFileSync(new URL(`../seed/${name}`, import.meta.url));
@@ -237,26 +236,6 @@ describe("hiddenKinds", () => {
       { kind: "secrets", count: 1 },
       { kind: "ids", count: 1 },
     ]);
-  });
-});
-
-describe("fitChat", () => {
-  const messages: ChatMessage[] = Array.from({ length: 10 }, (_, index) => ({
-    at: `2024-04-${String(index + 1).padStart(2, "0")}T21:00`,
-    speaker: "会計",
-    text: `メッセージ${index + 1}`,
-  }));
-
-  it("keeps the whole chat when it fits", () => {
-    expect(fitChat(messages)).toEqual(messages);
-  });
-
-  it("keeps the newest messages whose text fits the limit", () => {
-    const max = formatChat(messages.slice(6)).length;
-    const kept = fitChat(messages, max);
-    expect(kept).toEqual(messages.slice(6));
-    expect(formatChat(kept).length).toBeLessThanOrEqual(max);
-    expect(fitChat(messages, max - 1)).toEqual(messages.slice(7));
   });
 });
 

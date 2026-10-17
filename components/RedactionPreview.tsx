@@ -4,7 +4,6 @@ import { useTranslations } from "next-intl";
 import { Fragment, useEffect, useId, useMemo, useRef, useState } from "react";
 import {
   blackoutSegments,
-  fitChat,
   hiddenKinds,
   hideWords,
   memberLetter,
@@ -14,7 +13,7 @@ import type { RedactionCounts } from "@/lib/contracts";
 import { questionLang } from "@/lib/engine/lang";
 import { MAX_TEXT_CHARS } from "@/lib/ingest/types";
 import { speakers } from "@/lib/redact/parse";
-import { formatChat, redactChat, redactText } from "@/lib/redact/redact";
+import { redactChat, redactText } from "@/lib/redact/redact";
 
 // RedactionPreview (docs/SPEC.md → adding knowledge, steps 3–5; docs/DESIGN.md): a chat first gives each speaker a
 // role, the only place a name shows. Then the preview is exactly the text the request sends, every hidden value a black
@@ -61,20 +60,22 @@ export function RedactionPreview({
   const countsLine = useRef<HTMLParagraphElement>(null);
   const speakersHeading = useRef<HTMLHeadingElement>(null);
 
-  // What the request sends. A chat over the request's limit keeps its newest messages, cut after redacting all of it;
-  // its counts then describe the whole export (lib/redact counts per run, and redacting only the kept messages would
-  // forget names learned from the dropped ones).
+  // What the request sends. A chat keeps the last 12 months and what looks like handover knowledge, within the request's
+  // cap (lib/redact → redactChat, docs/SPEC.md → F5 step 2); 「全部使う」 keeps every message instead. Its counts are
+  // what the sent messages hid.
+  const [keepAll, setKeepAll] = useState(false);
   const sent = useMemo(() => {
     if (step === "roles") return undefined;
     if (source.kind !== "chat") {
-      return { ...redactText(source.text, { hide }), kept: undefined };
+      return { ...redactText(source.text, { hide }), chat: undefined };
     }
-    const run = redactChat(source.messages, { roles, hide });
-    const kept = fitChat(run.messages);
-    return kept.length === run.messages.length
-      ? { text: run.text, counts: run.counts, kept: undefined }
-      : { text: formatChat(kept), counts: run.counts, kept: kept.length };
-  }, [step, source, roles, hide]);
+    const run = redactChat(source.messages, { roles, hide, keepAll });
+    return {
+      text: run.text,
+      counts: run.counts,
+      chat: { kept: run.kept, total: run.total },
+    };
+  }, [step, source, roles, hide, keepAll]);
 
   // The preview body changes only with the text, not with each keystroke in the field below it (a long chat is
   // thousands of nodes). Its lang follows the text, as notes' and questions' do (docs/DESIGN.md → Japanese settings).
@@ -184,7 +185,8 @@ export function RedactionPreview({
 
   const kinds = hiddenKinds(sent.counts);
   const separator = t("listSeparator");
-  const tooLong = !sent.text.trim() || sent.text.length > MAX_TEXT_CHARS;
+  const empty = !sent.text.trim(); // a chat where nothing looked like handover knowledge
+  const tooLong = sent.text.length > MAX_TEXT_CHARS;
   const shownRoles = [...new Set(people.map(({ name }) => roles[name]))];
   // lib/redact hides a one-character word only before an honorific (翔くん, not 翔に聞く): say which words are still
   // there, and wait to send until the person types them with more around them or takes them out of the field.
@@ -235,9 +237,21 @@ export function RedactionPreview({
           </button>
         </p>
       )}
-      {sent.kept !== undefined && (
-        <p className="dd-cap" style={{ margin: 0 }}>
-          {t("trimmed", { count: sent.kept })}
+      {sent.chat && (
+        <p className="dd-phrase" style={{ margin: 0 }}>
+          {sent.chat.kept === 0
+            ? t("noneKept")
+            : t("used", { kept: sent.chat.kept, total: sent.chat.total })}{" "}
+          {(keepAll || sent.chat.kept < sent.chat.total) && (
+            <button
+              type="button"
+              className="dd-link"
+              style={{ minHeight: "44px" }}
+              onClick={() => setKeepAll(!keepAll)}
+            >
+              {t(keepAll ? "useKept" : "useAll")}
+            </button>
+          )}
         </p>
       )}
       <div className="dd-col" style={{ gap: "var(--s-1)" }}>
@@ -307,7 +321,12 @@ export function RedactionPreview({
         className="dd-btn dd-btn-primary"
         style={{ justifySelf: "start" }}
         disabled={
-          !consent || sending || tooLong || pending || missed.length > 0
+          !consent ||
+          sending ||
+          empty ||
+          tooLong ||
+          pending ||
+          missed.length > 0
         }
         onClick={() => onSend(sent.text, sent.counts)}
       >
