@@ -275,6 +275,10 @@ test hasn't run when it's missing; no screen shows a typed-in number.
 - Live loop: runs, failures and median seconds from abstain to the signed answer
 - Privacy: synthetic chats and files added, names / contact details / secrets hidden, and canaries that left the browser (target 0)
 The `/hackday-log` skill copies them into the README with a table of Hack Day work vs setup, with commit links.
+The file's shape is `Metrics` in `lib/contracts.ts`, and every number is one a check measured: `pnpm metrics`
+(`scripts/metrics.ts`) runs the checks and reads back a partial `Metrics` from each check's `METRICS {...}` line
+(`scripts/metrics-line.ts`). A section no check measured stays missing, and the README says "not measured" — a
+missing number is never shown as 0.
 
 ## LLM contracts
 - **Answer (Sonnet):** input = question + retrieved notes wrapped in `<note id=… byline=… term=…>` tags.
