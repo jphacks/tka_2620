@@ -3,7 +3,21 @@
 // created, as the service role reads them — so nothing here trusts the RLS it checks. A finding names ids and reasons
 // only, never the text that leaked.
 import { isDeepStrictEqual } from "node:util";
-import { reads, seedIds } from "./visibility-table";
+import { reads, seedIds, viewers } from "./visibility-table";
+
+// The length of a quoted passage that counts as a leak, in normalised characters: long enough that two notes don't
+// share it by chance (strings shared with a note the viewer reads are left out anyway).
+export const PASSAGE = 16;
+
+// Every PASSAGE-character window of a text, or the text itself when it is shorter.
+function passages(text: string): string[] {
+  if (text.length <= PASSAGE) return [text];
+  const out = new Set<string>();
+  for (let at = 0; at + PASSAGE <= text.length; at++) {
+    out.add(text.slice(at, at + PASSAGE));
+  }
+  return [...out];
+}
 
 export type Finding = {
   reason: string;
@@ -26,11 +40,32 @@ export type World = {
   seedNotes: SeedNote[];
   noteAuthors: Map<string, string | null>; // every note's author_user_id
   seatsHeld: Map<string, Set<string>>; // user id → the seats they hold
+  reachable: Set<string>; // `${seat_id} ${user_id}` of each holder who agreed to get newcomers' questions
   questions: Map<string, { askerUserId: string; promptId: string | null }>;
-  prompts: Map<string, { seatId: string; kind: string }>;
-  routes: Set<string>; // `${prompt_id} ${user_id}`
+  // askerUserId: who asked the question that started the prompt (null once that question is gone)
+  prompts: Map<
+    string,
+    { seatId: string; kind: string; askerUserId: string | null }
+  >;
+  routes: Set<string>; // `${prompt_id} ${user_id}`, as the database made them
   personas: Map<string, string>; // user id → viewer key (a24 … x), for checking an asker's view
 };
+
+// The scope rule a route must follow (docs/SPEC.md → Scope rules), whatever the database did: a newcomer's question
+// reaches only reachable holders of the same seat, never the asker.
+export function routeAllowed(
+  world: World,
+  promptId: string,
+  userId: string | undefined,
+): boolean {
+  const prompt = world.prompts.get(promptId);
+  return (
+    prompt !== undefined &&
+    userId !== undefined &&
+    world.reachable.has(`${prompt.seatId} ${userId}`) &&
+    prompt.askerUserId !== userId
+  );
+}
 
 // The viewer an answer went to: a key of tests/visibility-table.ts and, when signed in, the user id.
 export type Viewpoint = { key: string; userId?: string };
@@ -128,36 +163,47 @@ export function judgeFor(world: World, viewer: Viewpoint) {
     pattern: new RegExp(`(?<![a-z0-9-])${escapeRegExp(id)}(?![a-z0-9-])`),
   }));
 
-  // The canaries and bodies of the seed notes this viewer can't read. A string that also occurs in a note it can read
-  // is left out (it would prove nothing), and so is one too short to be specific.
+  // What must never reach this viewer as text: the canaries of the seed notes it can't read, every passage of
+  // PASSAGE characters of their bodies (a quote need not be whole), and the other personas' emails. A string that also
+  // occurs in a note it can read is left out (it would prove nothing), and so is one too short to be specific.
   const readable = world.seedNotes
     .filter((note) => canRead(note.id))
     .map((note) => normalise(`${note.title}\n${note.body}`));
-  const forbidden = world.seedNotes
-    .filter((note) => canRead(note.id) === false)
-    .flatMap((note) => [
-      {
-        ref: note.id,
-        reason: "the canary of a note it can't read",
-        text: normalise(note.canary),
-      },
-      {
-        ref: note.id,
-        reason: "the text of a note it can't read",
-        text: normalise(note.body),
-      },
-    ])
-    .filter(
-      (item) =>
-        item.text.length >= 6 &&
-        !readable.some((text) => text.includes(item.text)),
-    );
+  const forbidden = [
+    ...world.seedNotes
+      .filter((note) => canRead(note.id) === false)
+      .flatMap((note) => [
+        {
+          ref: note.id,
+          reason: "the canary of a note it can't read",
+          text: normalise(note.canary),
+        },
+        ...passages(normalise(note.body)).map((text) => ({
+          ref: note.id,
+          reason: "a passage of a note it can't read",
+          text,
+        })),
+      ]),
+    ...viewers
+      .filter((other) => other.email && other.key !== viewer.key)
+      .map((other) => ({
+        ref: other.key,
+        reason: "another persona's email",
+        text: normalise(other.email ?? ""),
+      })),
+  ].filter(
+    (item) =>
+      item.text.length >= 6 &&
+      !readable.some((text) => text.includes(item.text)),
+  );
 
   const holds = (seatId: string) =>
     viewer.userId !== undefined &&
     (world.seatsHeld.get(viewer.userId)?.has(seatId) ?? false);
+  // A prompt reached the viewer, and the rules say it may: a route the database made to anyone else is itself a leak.
   const routedToViewer = (promptId: string) =>
-    world.routes.has(`${promptId} ${viewer.userId}`);
+    world.routes.has(`${promptId} ${viewer.userId}`) &&
+    routeAllowed(world, promptId, viewer.userId);
   const own = (userId: unknown) =>
     viewer.userId !== undefined && userId === viewer.userId;
 
@@ -189,7 +235,7 @@ export function judgeFor(world: World, viewer: Viewpoint) {
           findings.push({ reason: item.reason, ref: item.ref });
       }
     }
-    return findings;
+    return unique(findings);
   }
 
   // One table row, by the scope rules of docs/SPEC.md: whose row it is, not what RLS said.
@@ -248,15 +294,29 @@ export function judgeFor(world: World, viewer: Viewpoint) {
           ? []
           : [{ reason: "a prompt it may not read", ref: String(fields.id) }];
       }
-      case "prompt_routes":
-        return own(fields.user_id)
+      case "prompt_routes": {
+        const promptId = String(fields.prompt_id);
+        if (!own(fields.user_id)) {
+          return [{ reason: "someone else's inbox route", ref: promptId }];
+        }
+        if (!world.prompts.has(promptId)) {
+          return [
+            {
+              reason: "a route the run didn't see",
+              ref: promptId,
+              unknown: true,
+            },
+          ];
+        }
+        return routeAllowed(world, promptId, viewer.userId)
           ? []
           : [
               {
-                reason: "someone else's inbox route",
-                ref: String(fields.prompt_id),
+                reason: "a question routed to it that it shouldn't get",
+                ref: promptId,
               },
             ];
+      }
       case "seat_holders":
         return own(fields.user_id)
           ? []
@@ -334,9 +394,14 @@ export function judgeFor(world: World, viewer: Viewpoint) {
             ref: promptId,
             unknown: true,
           });
-        } else if (!routedToViewer(promptId)) {
+        } else if (!world.routes.has(`${promptId} ${viewer.userId}`)) {
           findings.push({
             reason: "an inbox item routed to someone else",
+            ref: promptId,
+          });
+        } else if (!routedToViewer(promptId)) {
+          findings.push({
+            reason: "a question routed to it that it shouldn't get",
             ref: promptId,
           });
         }

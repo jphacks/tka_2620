@@ -67,15 +67,22 @@ const world: World = {
     [user.a25, new Set([seat.smash])],
     [user.a26, new Set([seat.smash])],
   ]),
+  reachable: new Set([`${seat.smash} ${user.a25}`]),
   questions: new Map([
     [question.a26, { askerUserId: user.a26, promptId: prompt.routed }],
     [question.a25, { askerUserId: user.a25, promptId: prompt.unrouted }],
     [question.x, { askerUserId: user.x, promptId: null }],
   ]),
   prompts: new Map([
-    [prompt.routed, { seatId: seat.smash, kind: "demand" }],
-    [prompt.unrouted, { seatId: seat.smash, kind: "demand" }],
-    [prompt.core, { seatId: seat.smash, kind: "core" }],
+    [
+      prompt.routed,
+      { seatId: seat.smash, kind: "demand", askerUserId: user.a26 },
+    ],
+    [
+      prompt.unrouted,
+      { seatId: seat.smash, kind: "demand", askerUserId: user.a25 },
+    ],
+    [prompt.core, { seatId: seat.smash, kind: "core", askerUserId: null }],
   ]),
   routes: new Set([`${prompt.routed} ${user.a25}`]),
   personas: new Map(Object.entries(user).map(([key, id]) => [id, key])),
@@ -108,8 +115,24 @@ describe("text anywhere in a response", () => {
 
   it("finds the body of a note the viewer can't read, and an unreadable id as a whole token only", () => {
     expect(x.text(["…予約は合言葉で取れる。テスト用の本文です。…"])).toEqual([
-      { reason: "the text of a note it can't read", ref: "smash-2025-uchiage" },
+      {
+        reason: "a passage of a note it can't read",
+        ref: "smash-2025-uchiage",
+      },
     ]);
+    // Part of the body is enough: 16 characters of it, inside a sentence of something else.
+    expect(
+      x.text(["答えは合言葉で取れる。テスト用の本文、と書いてあります"]),
+    ).toEqual([
+      {
+        reason: "a passage of a note it can't read",
+        ref: "smash-2025-uchiage",
+      },
+    ]);
+    expect(x.text(["合言葉で取れる。"])).toEqual([]); // too short to tell
+    expect(a26.text(["…予約は合言葉で取れる。テスト用の本文です。…"])).toEqual(
+      [],
+    );
     expect(x.text({ noteId: "smash-2025-hokenjo" })).toEqual([
       { reason: "a note it can't read", ref: "smash-2025-hokenjo" },
     ]);
@@ -373,7 +396,10 @@ describe("Realtime messages", () => {
         reason: "the canary of a note it can't read",
         ref: "smash-2025-uchiage",
       },
-      { reason: "the text of a note it can't read", ref: "smash-2025-uchiage" },
+      {
+        reason: "a passage of a note it can't read",
+        ref: "smash-2025-uchiage",
+      },
     ]);
   });
 
@@ -438,5 +464,44 @@ describe("the answers trigger oracle", () => {
         },
       ),
     ).toBe(false); // nested fields count
+  });
+});
+
+describe("routing by the rules, not by what the database did", () => {
+  // A broken route_question() that also sent a26's question to x and back to a26 itself.
+  const broken: World = {
+    ...world,
+    routes: new Set([
+      `${prompt.routed} ${user.a25}`,
+      `${prompt.routed} ${user.x}`,
+      `${prompt.routed} ${user.a26}`,
+    ]),
+  };
+
+  it("flags a question that reached someone who isn't a reachable holder, or its own asker", () => {
+    const outsider = judgeFor(broken, { key: "x", userId: user.x });
+    const asker = judgeFor(broken, { key: "a26", userId: user.a26 });
+    const holder = judgeFor(broken, { key: "a25", userId: user.a25 });
+    const route = (userId: string) => [
+      { prompt_id: prompt.routed, user_id: userId },
+    ];
+    const shouldnt = {
+      reason: "a question routed to it that it shouldn't get",
+      ref: prompt.routed,
+    };
+    expect(outsider.rows("prompt_routes", route(user.x))).toEqual([shouldnt]);
+    expect(outsider.inbox([{ prompt_id: prompt.routed }])).toEqual([shouldnt]);
+    expect(asker.inbox([{ promptId: prompt.routed }])).toEqual([shouldnt]);
+    expect(holder.rows("prompt_routes", route(user.a25))).toEqual([]);
+    expect(holder.inbox([{ promptId: prompt.routed }])).toEqual([]);
+  });
+});
+
+describe("names", () => {
+  it("flags another persona's email, not the viewer's own", () => {
+    expect(x.text({ askedBy: "smash-kaikei-2026@example.com" })).toEqual([
+      { reason: "another persona's email", ref: "a26" },
+    ]);
+    expect(a26.text({ email: "smash-kaikei-2026@example.com" })).toEqual([]);
   });
 });

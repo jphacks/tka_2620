@@ -170,11 +170,17 @@ async function readCsv<Row>(file: string): Promise<Row[]> {
     new URL(`../seed/${file}`, import.meta.url),
     "utf8",
   );
-  return parse(text, {
-    columns: true,
-    skip_empty_lines: true,
-    bom: true,
-  }) as Row[];
+  try {
+    return parse(text, {
+      columns: true,
+      skip_empty_lines: true,
+      bom: true,
+    }) as Row[];
+  } catch (error) {
+    // The parser's message can quote the field it choked on, which may be a note body: its code only.
+    const code = (error as { code?: string }).code ?? "parse error";
+    throw new Error(`read seed/${file}: ${code}`);
+  }
 }
 
 // HTTP ---------------------------------------------------------------------------------------
@@ -205,8 +211,8 @@ async function http(
   }
 }
 
-// The reply has one of the expected statuses, as JSON, and an error is the routes' own ({ error: code }), so a
-// mistyped path (Next's HTML 404) or a crash can't pass for a refusal.
+// The reply has one of the expected statuses, as JSON, and an error is exactly the routes' own ({ error: code }, and
+// nothing else that could carry a note), so a mistyped path (Next's HTML 404) or a crash can't pass for a refusal.
 function expectReply(reply: Reply, statuses: number[]): void {
   if (!statuses.includes(reply.status)) {
     throw new Inconclusive(
@@ -214,8 +220,8 @@ function expectReply(reply: Reply, statuses: number[]): void {
     );
   }
   if (!reply.json) throw new Inconclusive(`HTTP ${reply.status} without JSON`);
-  if (reply.status >= 400 && !ApiError.safeParse(reply.body).success) {
-    throw new Inconclusive(`HTTP ${reply.status} without an error code`);
+  if (reply.status >= 400 && !ApiError.strict().safeParse(reply.body).success) {
+    throw new Inconclusive(`HTTP ${reply.status} with more than an error code`);
   }
 }
 
@@ -350,6 +356,7 @@ async function listen(session: Session): Promise<void> {
 type Snapshot = {
   counts: Record<string, number>;
   statuses: Record<string, string>;
+  questionIds: Set<string>; // never deleted by the cleanup: they were there before the run
 };
 
 async function snapshot(service: SupabaseClient): Promise<Snapshot> {
@@ -378,14 +385,21 @@ async function snapshot(service: SupabaseClient): Promise<Snapshot> {
       row.status,
     ]),
   );
-  return { counts, statuses };
+  const questions = await service.from("questions").select("id");
+  if (questions.error) {
+    throw new Error(`read the questions: ${questions.error.code}`);
+  }
+  const questionIds = new Set(
+    (questions.data as { id: string }[]).map((row) => row.id),
+  );
+  return { counts, statuses, questionIds };
 }
 
 // What the run's questions created: who asked each, which prompts exist and to whom they were routed.
 async function readRun(service: SupabaseClient, world: World): Promise<void> {
   const [questions, prompts, routes] = await Promise.all([
     service.from("questions").select("id, asker_user_id, prompt_id"),
-    service.from("prompts").select("id, seat_id, kind"),
+    service.from("prompts").select("id, seat_id, kind, source_question_id"),
     service.from("prompt_routes").select("prompt_id, user_id"),
   ]);
   if (questions.error || prompts.error || routes.error) {
@@ -407,8 +421,15 @@ async function readRun(service: SupabaseClient, world: World): Promise<void> {
     id: string;
     seat_id: string;
     kind: string;
+    source_question_id: string | null;
   }[]) {
-    world.prompts.set(row.id, { seatId: row.seat_id, kind: row.kind });
+    world.prompts.set(row.id, {
+      seatId: row.seat_id,
+      kind: row.kind,
+      askerUserId: row.source_question_id
+        ? (world.questions.get(row.source_question_id)?.askerUserId ?? null)
+        : null,
+    });
   }
   world.routes.clear();
   for (const row of routes.data as { prompt_id: string; user_id: string }[]) {
@@ -424,6 +445,10 @@ type Context = {
   asks: { label: string; seat: string; text: string }[];
   personaIds: Map<string, string>; // viewer key → user id
   readIds: Map<string, string[]>; // viewer key → the seed notes its select returned
+  // What the run created or changed, so the cleanup removes exactly that.
+  runQuestions: Set<string>; // ids from the replies and inserts
+  probeQuestions: Map<string, string[]>; // viewer key → its waiting, unrouted probe questions
+  withdrawnByProbe: Set<string>; // seed notes a withdraw probe got through on (a leak)
 };
 
 async function questions(session: Session, context: Context): Promise<void> {
@@ -439,8 +464,9 @@ async function questions(session: Session, context: Context): Promise<void> {
         });
         expectReply(reply, session.token ? [200] : [401]);
         if (reply.status !== 200) return [];
-        if (!AskResult.safeParse(reply.body).success)
-          throw new Inconclusive("not an AskResult");
+        const result = AskResult.safeParse(reply.body);
+        if (!result.success) throw new Inconclusive("not an AskResult");
+        context.runQuestions.add(result.data.questionId);
         return session.judge.ask(reply.body, context.seats.get(ask.seat) ?? "");
       },
     );
@@ -471,14 +497,13 @@ async function savedRows(session: Session, context: Context): Promise<void> {
           .select("id"),
         "refused",
       );
-      return rows === undefined
-        ? []
-        : [
-            {
-              reason: "saved a question in someone else's name",
-              ref: "questions",
-            },
-          ];
+      if (rows === undefined) return [];
+      for (const row of rows as { id: string }[]) {
+        context.runQuestions.add(row.id);
+      }
+      return [
+        { reason: "saved a question in someone else's name", ref: "questions" },
+      ];
     },
   );
   if (!session.userId) return;
@@ -505,8 +530,13 @@ async function savedRows(session: Session, context: Context): Promise<void> {
         "rows",
       );
       const [real, madeUp] = (saved ?? []) as { id: string }[];
+      for (const row of [real, madeUp]) {
+        if (row) context.runQuestions.add(row.id);
+      }
       if (!real || !madeUp)
         throw new Inconclusive("the two questions weren't saved");
+      // Waiting and routed nowhere: what route_question() would take, if it took someone else's question.
+      context.probeQuestions.set(session.key, [real.id, madeUp.id]);
       const answer = (questionId: string, noteIds: string[]) => ({
         status: "answered",
         questionId,
@@ -751,8 +781,10 @@ async function oracles(session: Session, context: Context): Promise<void> {
       `POST /api/notes/${id}/withdraw`,
       async () => {
         const reply = await http(session, "POST", `/api/notes/${id}/withdraw`);
-        if (reply.status === 200)
+        if (reply.status === 200) {
+          context.withdrawnByProbe.add(id); // the cleanup puts it back
           return [{ reason: "withdrew a note it didn't write", ref: id }];
+        }
         expectReply(reply, refused);
         return isDeepStrictEqual(reply, madeUp)
           ? []
@@ -767,12 +799,11 @@ async function oracles(session: Session, context: Context): Promise<void> {
     );
   }
 
-  // route_question with someone else's waiting, unrouted question.
-  const others = [...world.questions].filter(
-    ([, question]) =>
-      question.askerUserId !== session.userId && question.promptId === null,
-  );
-  const otherQuestion = others[0]?.[0];
+  // route_question with another persona's waiting, unrouted probe question: only its asker may route it. Never a
+  // question this run didn't make.
+  const otherQuestion = [...context.probeQuestions].find(
+    ([key]) => key !== session.key,
+  )?.[1][0];
   if (otherQuestion) {
     const call = (question: string) =>
       session.db.rpc("route_question", { question, prompt_text: PROBE_TEXT });
@@ -960,14 +991,15 @@ function judgeRealtime(
 
 // Removes what the run created: the events probe, the prompts its questions started and the questions themselves
 // (their answers and routes go with them; Realtime sends no deletes). A seed note a withdraw probe took is restored.
-// Then the counts and the seed notes' statuses must be what they were before. Answers what isn't.
+// Then the counts and the seed notes' statuses must be what they were before. Answers what isn't; never throws.
 async function cleanUp(
   service: SupabaseClient,
   before: Snapshot,
   run: {
     since: string;
-    texts: Set<string>;
     askers: string[];
+    questions: Set<string>;
+    withdrawnByProbe: Set<string>;
     probeEventId?: number;
   },
 ): Promise<string[]> {
@@ -979,16 +1011,26 @@ async function cleanUp(
       .eq("id", run.probeEventId);
     if (error) problems.push(`delete the events probe: ${error.code}`);
   }
-  const asked = await service
+  // The questions the run made: the ids its replies and inserts gave, and probe-text rows from an insert whose reply
+  // was lost. Never a question that was there before the run, and never someone else's real question: one asked during
+  // the run with the same text stays, and the counts below then say the database isn't as the run found it.
+  const probes = await service
     .from("questions")
-    .select("id, text")
+    .select("id")
     .in("asker_user_id", run.askers)
+    .eq("text", PROBE_TEXT)
     .gte("created_at", run.since);
-  if (asked.error)
-    return [...problems, `find the run's questions: ${asked.error.code}`];
-  const ids = (asked.data as { id: string; text: string }[])
-    .filter((row) => run.texts.has(row.text))
-    .map((row) => row.id);
+  if (probes.error)
+    return [
+      ...problems,
+      `find the run's probe questions: ${probes.error.code}`,
+    ];
+  const ids = [
+    ...new Set([
+      ...run.questions,
+      ...(probes.data as { id: string }[]).map((row) => row.id),
+    ]),
+  ].filter((id) => !before.questionIds.has(id));
   for (let at = 0; at < ids.length; at += 50) {
     const chunk = ids.slice(at, at + 50);
     // Before the questions go: deleting one sets its prompts' source_question_id to null.
@@ -1012,24 +1054,16 @@ async function cleanUp(
     if (error) problems.push(`delete questions: ${error.code}`);
   }
 
-  // Only when a withdraw probe got through (a leak already reported): put the note back and drop its events row.
-  const now = await snapshot(service);
-  const taken = Object.keys(before.statuses).filter(
-    (id) => before.statuses[id] === "live" && now.statuses[id] !== "live",
-  );
+  // Only the notes a withdraw probe got through on (a leak, already reported) go back to live; a withdrawal anyone
+  // else made during the run stays. Its events row stays too, and so do the answers it rewrote, so the counts below
+  // say the database isn't as the run found it.
+  const taken = [...run.withdrawnByProbe];
   if (taken.length > 0) {
     const { error } = await service
       .from("notes")
       .update({ status: "live", withdrawn_at: null })
       .in("id", taken);
     if (error) problems.push(`restore ${taken.join(", ")}: ${error.code}`);
-    const events = await service
-      .from("events")
-      .delete()
-      .eq("kind", "withdraw")
-      .gte("created_at", run.since);
-    if (events.error)
-      problems.push(`delete the withdraw events: ${events.error.code}`);
   }
 
   const after = await snapshot(service);
@@ -1137,7 +1171,7 @@ async function main(): Promise<void> {
   );
   const [authors, holders] = await Promise.all([
     service.from("notes").select("id, author_user_id"),
-    service.from("seat_holders").select("user_id, seat_id"),
+    service.from("seat_holders").select("user_id, seat_id, reachable"),
   ]);
   if (authors.error || holders.error)
     throw new Error("read the notes' authors and the seat holders");
@@ -1150,15 +1184,21 @@ async function main(): Promise<void> {
       ),
     ),
     seatsHeld: new Map(),
+    reachable: new Set(),
     questions: new Map(),
     prompts: new Map(),
     routes: new Set(),
     personas: new Map(),
   };
-  for (const row of holders.data as { user_id: string; seat_id: string }[]) {
+  for (const row of holders.data as {
+    user_id: string;
+    seat_id: string;
+    reachable: boolean;
+  }[]) {
     const held = world.seatsHeld.get(row.user_id) ?? new Set<string>();
     held.add(row.seat_id);
     world.seatsHeld.set(row.user_id, held);
+    if (row.reachable) world.reachable.add(`${row.seat_id} ${row.user_id}`);
   }
 
   const sessions = await Promise.all(
@@ -1189,7 +1229,15 @@ async function main(): Promise<void> {
     );
   }
 
+  // The visibility table is the seed state: with a seed note withdrawn (an F4 rehearsal without a reset), a policy that
+  // still served it would look allowed.
   const before = await snapshot(service);
+  const notLive = [...seedIds].filter((id) => before.statuses[id] !== "live");
+  if (notLive.length > 0) {
+    throw new Error(
+      `seed note(s) not live: ${notLive.join(", ")}. The visibility table is the seed state: run pnpm demo:reset first`,
+    );
+  }
   const context: Context = {
     world,
     seats,
@@ -1207,11 +1255,15 @@ async function main(): Promise<void> {
     ],
     personaIds,
     readIds: new Map(),
+    runQuestions: new Set(),
+    probeQuestions: new Map(),
+    withdrawnByProbe: new Set(),
   };
   const run = {
     since: new Date(Date.now() - 60_000).toISOString(), // a minute of slack for the clocks
-    texts: new Set([...context.asks.map((ask) => ask.text), PROBE_TEXT]),
     askers: [...personaIds.values()],
+    questions: context.runQuestions,
+    withdrawnByProbe: context.withdrawnByProbe,
     probeEventId: undefined as number | undefined,
   };
 
@@ -1281,7 +1333,14 @@ async function main(): Promise<void> {
     // Still clean up below: the run may have written something before the error.
     stopped = error instanceof Error ? error.message : String(error);
   } finally {
-    problems = await cleanUp(service, before, run);
+    // Whatever happens here, the channels still close below, or the open sockets keep the process alive.
+    try {
+      problems = await cleanUp(service, before, run);
+    } catch (error) {
+      problems = [
+        `the cleanup stopped: ${error instanceof Error ? error.message : "error"}`,
+      ];
+    }
     await pause(SETTLE_MS);
     for (const session of sessions) {
       session.closing = true;
