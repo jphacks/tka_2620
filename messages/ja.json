@@ -16,7 +16,8 @@
         "institution": "{institution}の全サークル",
         "public": "一般公開"
       },
-      "abstain": "歴代の{seat}は誰も知りません。"
+      "abstain": "歴代の{seat}は誰も知りません。",
+      "routed": "去年の{seat}に届けました。"
     },
     "exchange_route": {
       "seat": "留学ルート",
@@ -29,7 +30,8 @@
         "institution": "{institution}の留学生全員",
         "public": "一般公開"
       },
-      "abstain": "このルートの先輩は誰も知りません。"
+      "abstain": "このルートの先輩は誰も知りません。",
+      "routed": "前の留学生に届けました。"
     },
     "lab_duty": {
       "seat": "担当",
@@ -42,7 +44,8 @@
         "institution": "{institution}の全研究室",
         "public": "一般公開"
       },
-      "abstain": "歴代の{seat}は誰も知りません。"
+      "abstain": "歴代の{seat}は誰も知りません。",
+      "routed": "前の{seat}に届けました。"
     }
   },
   "ask": {
