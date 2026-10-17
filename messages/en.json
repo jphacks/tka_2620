@@ -61,9 +61,9 @@
     "routed": "Added to the next handover."
   },
   "handover": {
-    "reasonDemand": "{n} newcomers asked this",
+    "reasonDemand": "{n, plural, one {# newcomer asked this} other {# newcomers asked this}}",
     "reasonRequired": "Required by {group}",
-    "readers": "{n} people can read this",
+    "readers": "{n, plural, one {# person can read this} other {# people can read this}}",
     "publish": "Publish",
     "invite": "Hand the seat to the next person",
     "inviteHint": "This link works once",
@@ -102,12 +102,15 @@
   "inbox": {
     "title": "Questions from newcomers",
     "arrived": "A newcomer asked you something",
+    "from": "From",
     "askedBy": "Asked by {byline}",
-    "askCount": "{n} people asked this",
+    "askCount": "{n, plural, one {<fig>#</fig> person asked this} other {<fig>#</fig> people asked this}}",
     "answerByVoice": "Answer by voice",
     "answerByText": "Answer in text",
     "listening": "Listening…",
-    "publish": "Publish"
+    "publish": "Publish",
+    "empty": "No questions yet.",
+    "failed": "Couldn't load the questions. Check your connection and reopen this page."
   },
   "live": {
     "answered": "{byline} just answered",
@@ -152,5 +155,8 @@
   "trust": {
     "nothing": "There are no notes you can see here",
     "leaks": "Leaks {leaks} / {attempts} attempts"
+  },
+  "mock": {
+    "newcomerAsks": "Newcomer asks (mock)"
   }
 }
