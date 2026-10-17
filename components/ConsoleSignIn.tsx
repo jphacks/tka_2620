@@ -15,7 +15,7 @@ import { createMockApi, resetMocks, USE_MOCKS } from "@/lib/mocks";
 const KEY_STORE = "daidai-console-key";
 
 // The passphrase from #key=…, moved into this tab's sessionStorage (a reload keeps working) and out of the URL.
-function consoleKey(): string | undefined {
+export function consoleKey(): string | undefined {
   const fromHash = new URLSearchParams(window.location.hash.slice(1)).get(
     "key",
   );

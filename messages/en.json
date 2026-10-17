@@ -103,7 +103,10 @@
   },
   "seat": {
     "upcoming": "Coming up",
-    "upcomingItem": "{title} by {date} · {byline}"
+    "upcomingItem": "{title} by {date} · {byline}",
+    "signingIn": "Signing in",
+    "signInOff": "Sign-in is off on this server. On the presenting laptop, set CONSOLE_SIGN_IN to a passphrase (16+ characters) and open this page with #key=<passphrase>&as=a26 (or a25).",
+    "signInFailed": "Couldn't sign in. Check DEMO_PASSWORD and reopen this page."
   },
   "kinds": {
     "deadline": "Deadline",
