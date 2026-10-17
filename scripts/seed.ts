@@ -142,7 +142,10 @@ const people: Person[] = [
   },
 ];
 
-// Children before parents. Every row goes, so a reset also clears live-loop questions, answers and meter events.
+// Children before parents. Every row goes, so a reset also clears live-loop questions, answers and meter events. Only
+// the test records in events stay (numbers only, readable by nobody signed in): the live-loop timings (kind "loop",
+// `pnpm test:loop` records them and then resets) and the leak test's counts (kind "leak", `pnpm test:leak`). They are
+// a record of every run, not demo data.
 const tablesInDeleteOrder = [
   ["answers", "question_id"],
   ["prompt_routes", "prompt_id"],
@@ -154,7 +157,6 @@ const tablesInDeleteOrder = [
   ["seats", "id"],
   ["groups", "id"],
   ["institutions", "id"],
-  ["events", "id"],
 ] as const;
 
 const kinds = [
@@ -325,6 +327,12 @@ async function seed() {
     const { error } = await db.from(table).delete().not(column, "is", null);
     if (error) throw new Error(`delete from ${table}: ${error.message}`);
   }
+  const { error: eventsError } = await db
+    .from("events")
+    .delete()
+    .not("kind", "in", "(loop,leak)");
+  if (eventsError)
+    throw new Error(`delete from events: ${eventsError.message}`);
   const previous = await demoUsers(db);
   for (const user of previous) {
     const { error } = await db.auth.admin.deleteUser(user.id);
@@ -455,7 +463,7 @@ async function seed() {
     ["answers", await count(db, "answers")],
     ["prompts", await count(db, "prompts")],
     ["prompt_routes", await count(db, "prompt_routes")],
-    ["events", await count(db, "events")],
+    ["events", await count(db, "events"), "loop and leak test records, kept"],
   ];
   console.log("\nDatabase now:");
   for (const [name, rowCount, detail] of rows) {

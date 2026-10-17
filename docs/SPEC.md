@@ -114,7 +114,8 @@ They are the shared acceptance tests for F2–F4, and `lib/mocks.ts` is built fr
 - `questions(id, asker_user_id, seat_id, text, lang, status: answered|waiting, prompt_id, created_at)`
   - `prompt_id`: the demand prompt the question was merged into after an abstain (`prompts.source_question_id` is only the first)
 - `answers(question_id, payload jsonb, created_at)`: the latest answer per question (asker only), pushed by Realtime
-- `prompts(id, seat_id, kind: core|demand|gap|required, text, ask_count, source_question_id, retired)`
+- `prompts(id, seat_id, kind: core|demand|gap|required, text, ask_count, source_question_id, retired, listed)`
+  - `listed`: a demand prompt in Haiku's words, which the seat's later askers may join (F2.5, Scope rules)
 - `prompt_routes(prompt_id, user_id, created_at, seen_at)`: a demand prompt delivered to a reachable predecessor's inbox
 - `events(id, kind, payload jsonb, created_at)`: meter, leak test, live-loop timings and redaction counts (counts only, never text)
 - Not used on Hack Day (kept for later): `seat_invites`, `note_uses`
@@ -130,6 +131,13 @@ They are the shared acceptance tests for F2–F4, and `lib/mocks.ts` is built fr
   the asker is shown by seat and term (「2026年度 会計」), never by name. `answers` rows are readable only by the asker.
 - A question from someone who holds no seat at that seat routes nowhere: no demand prompt is created, the abstain
   carries no `promptId`, and `routedTo` is 0. The question remains readable only by the asker.
+- Demand prompts (F2.5): a routed question's prompt is the question reworded by Haiku about the seat, without names or
+  contact details (the asker's own `questions.text` stays as typed). So that a question can join an open prompt that
+  asks the same thing, a holder of the seat whose own question waits to be routed reads the seat's open, *listed*
+  demand prompts (id and text, never who asked) through `open_demand_prompts()`. Only the asker lists a prompt, only
+  the one their question started, and only when its text is Haiku's wording that passed the guard (`list_prompt()`); a
+  prompt as typed (Haiku down) is read only by its routed holders. A question with no prompt text free of contact
+  details, credentials and names routes nowhere.
 
 ## Adding knowledge: text, files and chats (F5)
 Club knowledge lives in old documents, forms, notices and, most of all, group chats. Daidai takes all of them
@@ -239,7 +247,12 @@ type AskResult =
 //   → { cards: (CardDraft & { source: "import" | "file" | "chat"; provenance?: string })[]; missing: { topic: string; reason: string; prompt: string }[];
 //       blocked: { title: string; reason: string }[]; duplicates: { card: number; noteId: string; title: string; byline: string; similarity: number }[] }
 // POST /api/notes/[id]/withdraw          → { withdrawnAt: string }
-// GET  /api/me/notes                     → { notes: { id: string; title: string; scope: Scope; status: "live" | "withdrawn"; lang: Lang }[] }
+// POST /api/console/session { persona: "a26" | "a25" | "x" } + header x-console-key → { accessToken: string; refreshToken: string }
+//   the console only: not_found unless the server's CONSOLE_SIGN_IN passphrase (16+ characters) matches x-console-key
+// GET  /api/me/notes                     → { notes: { id: string; seat: string; title: string; scope: Scope; status: "live" | "withdrawn"; lang: Lang }[] }
+//   seat: the slug of the seat the note was written at (its scope label uses that seat's words)
+// GET  /api/notes/[id]                   → { id: string; kind: NoteKind; title: string; body: string; deadlineDate?: string; lang: Lang; byline: string }
+//   the source a citation's stamp opens: one live note the caller may read (RLS); otherwise not_found
 // Any error                              → { error: "invalid_request" | "unauthorized" | "forbidden" | "not_found" | "unredacted" | "unavailable" }
 // Realtime `notes` → { id, status }; `events` → { id, kind, payload: Record<string, number>, created_at }
 ```
@@ -247,7 +260,14 @@ type AskResult =
 - **Auth:** every API call sends `Authorization: Bearer <access token>`; route handlers create a Supabase
   client with that token so RLS runs as the caller.
 - **Console panes:** each pane creates its own Supabase client signed in as its persona
-  (`persistSession: false`), so three personas run side by side in one browser.
+  (`persistSession: false`), so three personas run side by side in one browser. The session comes from
+  `POST /api/console/session`, which signs in with `DEMO_PASSWORD` on the server, so the password never reaches the
+  browser. The route exists only where the server-only env `CONSOLE_SIGN_IN` holds a passphrase (16+ characters, the
+  presenting laptop alone), and only for requests carrying it: open the console as `/console#key=<passphrase>` (the
+  fragment never reaches a server, and the page takes it out of the address bar). `next dev` listens on every
+  interface and the repo is public, so the passphrase, not the network, keeps the venue Wi-Fi out.
+  `lib/api.ts` is the real client behind each pane. Reset on the real database is `pnpm demo:reset` in a terminal,
+  then a reload (the service-role key stays out of the app); the console's リセット button is for mocks.
 - **Realtime:** clients subscribe to `answers`, `prompt_routes`, `notes` (status changes) and `events` (meter); nothing polls.
   Only inserts and updates are sent: Realtime can't check a deleted row against RLS, so deletes never go out (0005).
 - **Publishing for a routed prompt** re-runs every waiting question linked to it (`questions.prompt_id`) and writes an `answers` row per asker.
@@ -266,6 +286,8 @@ type AskResult =
 Build order: contracts → F1 + F3 screens on mocks → F2 → F3 end to end (14:00 go/no-go) → F4 → F5 → F6 → F7 polish.
 
 ## Numbers for the README (`pnpm metrics` → `metrics/latest.json`, committed)
+Shape: `Metrics` in `lib/contracts.ts`. The console's leak counter reads the leak numbers from this file and says the
+test hasn't run when it's missing; no screen shows a typed-in number.
 - Leaks: outsider attempts (≥50), total attempts, leaks found (target 0)
 - Withdrawal: 10 runs, median and max seconds from click to absent in every pane
 - Citations: share of answer sentences with a valid source note across `seed/questions.csv` (target 100%)
@@ -294,9 +316,10 @@ missing number is never shown as 0.
   and money owed by individuals; keep placeholders like `[電話番号]` out of cards and say where to find the contact instead.
 - **Follow-up (Haiku):** input = prompt + answer. Output: `{ needs_followup: boolean, missing?: "date" | "contact" | "threshold", question?: string }`. At most one per answer.
 - **Dedupe and classification (Haiku):** merge similar demand prompts; reframe questions about individuals to the seat.
-  Input = the new question + the seat's open demand prompts in `<prompt id=…>` tags. Output:
-  `{ duplicate_of: string | null, prompt: string }` (the prompt it joins, checked against the given ids, and the
-  question as a demand prompt about the seat).
+  Two calls side by side, so another holder's prompt text never reaches the wording. Match: input = the new question +
+  the seat's open, listed demand prompts in `<prompt id=…>` tags, output `{ duplicate_of: string | null }` (the prompt
+  it joins, checked against the given ids). Wording: input = the new question alone, output `{ prompt: string }` (the
+  question as a demand prompt about the seat, checked by the guard).
 - **All model outputs** (Zod in `lib/contracts.ts`) have no minimums: the code checks each sentence and card, so one
   bad item is dropped instead of failing the call. Cards carry `lang`; their dates are plain strings there, checked
   per card, and a bad or missing deadline date becomes a `missing` item or a follow-up.

@@ -4,25 +4,35 @@ import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type AnswerMode, InboxSlip } from "@/components/InboxSlip";
 import { VoiceAnswer } from "@/components/VoiceAnswer";
-import type { InboxItem } from "@/lib/contracts";
+import type { Api, InboxItem } from "@/lib/contracts";
 import { createMockApi, mockNewcomerAsks } from "@/lib/mocks";
 import { useRealtime } from "@/lib/realtime";
 
+// Long enough to read 「公開しました」 and the card, short enough that the pane is clear before the next step.
+const CLOSE_AFTER_PUBLISH_MS = 3000;
 const newestFirst = (a: InboxItem, b: InboxItem) =>
   Date.parse(b.askedAt) - Date.parse(a.askedAt);
 
 // The inbox on the predecessor's phone (残す): newcomers' questions nobody could answer, arriving without a reload.
 // Mocks only for now (NEXT_PUBLIC_USE_MOCKS=1), as last year's treasurer (a25); the real client replaces
-// createMockApi when /api/inbox exists (#8).
+// createMockApi when /api/inbox exists (#8). The console hides the one-phone shortcut (the a26 pane asks instead)
+// and closes the published card by itself, so 自分のメモ is back in view for the withdrawal.
 export function InboxPanel({
   slug,
   onAnswer,
+  mockShortcuts = true,
+  closeAfterPublish = false,
+  api: given,
 }: {
   slug: string;
   onAnswer?: (item: InboxItem, mode: AnswerMode) => void;
+  mockShortcuts?: boolean;
+  closeAfterPublish?: boolean;
+  /** The signed-in predecessor's client (a console pane's); mocks as a25 when left out. */
+  api?: Api;
 }) {
   const t = useTranslations();
-  const api = useMemo(() => createMockApi("a25"), []);
+  const api = useMemo(() => given ?? createMockApi("a25"), [given]);
   const [items, setItems] = useState<InboxItem[]>();
   const [arrived, setArrived] = useState<ReadonlySet<string>>(new Set());
   const [asking, setAsking] = useState(false);
@@ -111,12 +121,24 @@ export function InboxPanel({
           item={answering.item}
           seat={slug}
           mode={answering.mode}
-          onPublished={load}
+          api={api}
+          onPublished={() => {
+            load();
+            if (!closeAfterPublish) return;
+            const { promptId } = answering.item;
+            setTimeout(
+              () =>
+                setAnswering((current) =>
+                  current?.item.promptId === promptId ? undefined : current,
+                ),
+              CLOSE_AFTER_PUBLISH_MS,
+            );
+          }}
           onClose={() => setAnswering(undefined)}
         />
       )}
       {/* Plays the newcomer asking q04 in this tab (lib/mocks.ts), so the loop works on one phone. */}
-      {items?.length === 0 && (
+      {mockShortcuts && items?.length === 0 && (
         <button
           type="button"
           className="dd-link"

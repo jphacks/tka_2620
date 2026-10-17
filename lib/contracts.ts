@@ -339,8 +339,11 @@ export type WithdrawResponse = z.infer<typeof WithdrawResponse>;
 
 // GET /api/me/notes ------------------------------------------------------------------------
 
+// seat: the slug of the seat the note was written at, so 自分のメモ says each note's scope in that seat's words
+// (「次の会計だけ」), also for an author who holds more than one seat.
 export const MyNote = z.object({
   id: NoteId,
+  seat: SeatSlug,
   title: z.string(),
   scope: Scope,
   status: NoteStatus,
@@ -350,6 +353,38 @@ export type MyNote = z.infer<typeof MyNote>;
 
 export const MyNotesResponse = z.object({ notes: z.array(MyNote) });
 export type MyNotesResponse = z.infer<typeof MyNotesResponse>;
+
+// GET /api/notes/[id] -----------------------------------------------------------------------
+
+// One live note the caller may read: the source a citation's stamp opens (docs/DESIGN.md → AnswerEntry). The notes
+// policy decides, so a note out of the caller's scope, a withdrawn one and a missing one are all not_found. The seat
+// and term speak in the byline; nothing names a person.
+export const NoteView = z.object({
+  id: NoteId,
+  kind: NoteKind,
+  title: z.string(),
+  body: z.string(),
+  deadlineDate: IsoDate.optional(),
+  lang: Lang,
+  byline: z.string(),
+});
+export type NoteView = z.infer<typeof NoteView>;
+
+// POST /api/console/session (the console only) --------------------------------------------
+// The console's three panes sign in as these demo personas, one session each (docs/SPEC.md → Console panes).
+
+export const ConsolePersona = z.enum(["a26", "a25", "x"]);
+export type ConsolePersona = z.infer<typeof ConsolePersona>;
+
+export const ConsoleSessionRequest = z.object({ persona: ConsolePersona });
+export type ConsoleSessionRequest = z.infer<typeof ConsoleSessionRequest>;
+
+// The persona's own session, for one pane's Supabase client (persistSession: false). Never stored.
+export const ConsoleSession = z.object({
+  accessToken: z.string().min(1),
+  refreshToken: z.string().min(1),
+});
+export type ConsoleSession = z.infer<typeof ConsoleSession>;
 
 // Errors -------------------------------------------------------------------------------------
 
@@ -481,13 +516,17 @@ export const FollowupOutput = z.object({
 });
 export type FollowupOutput = z.infer<typeof FollowupOutput>;
 
-// Dedupe and classification (Haiku): a new question + the seat's open demand prompts in <prompt id=…> tags.
-// duplicate_of is the prompt it joins (checked against the given ids) or null; prompt is the question as a
-// demand prompt about the seat, reframed when it asked about a person.
-export const DedupeOutput = z.object({
-  duplicate_of: z.string().nullable(),
-  prompt: z.string(),
-});
+// Dedupe and classification (Haiku), two calls side by side, so another holder's prompt text can't steer the wording:
+// - match: a new question + the seat's open demand prompts in <prompt id=…> tags. duplicate_of is the prompt it joins
+//   (checked against the given ids) or null.
+// - wording: the new question alone. prompt is the question as a demand prompt about the seat, reframed when it asked
+//   about a person.
+export const DedupeMatch = z.object({ duplicate_of: z.string().nullable() });
+export type DedupeMatch = z.infer<typeof DedupeMatch>;
+export const DedupeWording = z.object({ prompt: z.string() });
+export type DedupeWording = z.infer<typeof DedupeWording>;
+// Both replies together, as the mocks give them.
+export const DedupeOutput = DedupeMatch.extend(DedupeWording.shape);
 export type DedupeOutput = z.infer<typeof DedupeOutput>;
 
 // The client ---------------------------------------------------------------------------------
@@ -506,6 +545,7 @@ export type Api = {
   import(request: ImportRequest): Promise<ImportResponse>; // POST /api/import
   withdraw(noteId: string): Promise<WithdrawResponse>; // POST /api/notes/[id]/withdraw
   myNotes(): Promise<MyNotesResponse>; // GET /api/me/notes
+  note(noteId: string): Promise<NoteView>; // GET /api/notes/[id]
   // Realtime: calls onRow for each row this session may see; returns the unsubscribe function.
   subscribe<C extends keyof RealtimeRows>(
     channel: C,

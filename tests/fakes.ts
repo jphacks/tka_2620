@@ -1,7 +1,63 @@
-// Fakes for the engine's offline tests: a model that gives one reply (no network, no key), and q01's notes as
-// findNotes() returns them to a26 from the seed (seed/notes.csv; similarities from tests/retrieve.test.ts's live run).
+// Fakes for the engine's offline tests: a model that gives one reply (no network, no key), a Supabase client that
+// answers from a script, and q01's notes as findNotes() returns them to a26 from the seed (seed/notes.csv; similarities
+// from tests/retrieve.test.ts's live run).
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { MockLanguageModelV4 } from "ai/test";
 import type { FoundNote } from "@/lib/engine/retrieve";
+
+export type Result = { data: unknown; error: { code: string } | null };
+export type Call = [method: string, ...args: unknown[]];
+
+// A PostgREST query: every call is recorded, and it answers with one result, awaited or through maybeSingle().
+function query(result: Result, calls: Call[]) {
+  const record =
+    (method: string) =>
+    (...args: unknown[]) => {
+      calls.push([method, ...args]);
+      return chain;
+    };
+  const chain = Object.assign(Promise.resolve(result), {
+    select: record("select"),
+    insert: record("insert"),
+    update: record("update"),
+    eq: record("eq"),
+    is: record("is"),
+    in: record("in"),
+    or: record("or"),
+    order: record("order"),
+    limit: record("limit"),
+    maybeSingle: async () => result,
+    single: async () => result,
+  });
+  return chain;
+}
+
+// A client whose queries answer in order, per table, and whose functions answer per name: one result for every call,
+// or a list taken in order. Every query and call is recorded, so a test can see what was read and written.
+export function stubClient(
+  tables: Record<string, Result[]>,
+  functions: Record<string, Result | Result[]> = {},
+) {
+  const calls: Record<string, Call[][]> = {};
+  const rpcCalls: [name: string, args: unknown][] = [];
+  const client = {
+    from(table: string) {
+      const result = tables[table]?.shift();
+      if (!result) throw new Error(`unexpected query on ${table}`);
+      const queryCalls: Call[] = [];
+      calls[table] = [...(calls[table] ?? []), queryCalls];
+      return query(result, queryCalls);
+    },
+    rpc: async (name: string, args: unknown) => {
+      rpcCalls.push([name, args]);
+      const scripted = functions[name];
+      const result = Array.isArray(scripted) ? scripted.shift() : scripted;
+      if (!result) throw new Error(`unexpected call to ${name}`);
+      return result;
+    },
+  };
+  return { client: client as unknown as SupabaseClient, calls, rpcCalls };
+}
 
 export function fakeModel(reply: unknown, finish: "stop" | "length" = "stop") {
   return new MockLanguageModelV4({
@@ -19,11 +75,17 @@ export function fakeModel(reply: unknown, finish: "stop" | "length" = "stop") {
 
 // What the model was asked: the user message's text.
 export function promptText(model: ReturnType<typeof fakeModel>): string {
-  const [call] = model.doGenerateCalls;
-  return call.prompt
-    .flatMap((message) => (message.role === "user" ? message.content : []))
-    .flatMap((part) => (part.type === "text" ? [part.text] : []))
-    .join("\n");
+  return promptTexts(model)[0];
+}
+
+// What the model was asked in each call, in order.
+export function promptTexts(model: ReturnType<typeof fakeModel>): string[] {
+  return model.doGenerateCalls.map((call) =>
+    call.prompt
+      .flatMap((message) => (message.role === "user" ? message.content : []))
+      .flatMap((part) => (part.type === "text" ? [part.text] : []))
+      .join("\n"),
+  );
 }
 
 // The seats' ids: Smash's 会計 is the seat q01 is asked at.
