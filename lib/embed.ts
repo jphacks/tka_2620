@@ -2,6 +2,12 @@
 // Error messages never include the texts (they can be note bodies).
 export const EMBEDDING_DIMENSIONS = 1024;
 
+// What a note is embedded as, wherever notes are written: its title and its body. A body often leaves its topic to
+// the title (「保健所申請の締切が早くなった」 → 「2025年から締切が…」), so the body alone misses questions about it.
+export function noteText(note: { title: string; body: string }): string {
+  return `${note.title}\n${note.body}`;
+}
+
 export async function embed(texts: string[]): Promise<number[][]> {
   if (texts.length === 0) return [];
   const baseUrl = process.env.OLLAMA_BASE_URL;
