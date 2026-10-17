@@ -39,7 +39,7 @@ author usage log, Bluesky, deploy. No hardware beyond the QR code / NFC sticker 
 2. **Ask (10–25 s):** the 2026 treasurer taps the NFC sticker on the club-room key (`/s/smash-kaikei`) and asks
    「模擬店の保健所申請、いつまで？」. Every sentence of the answer cites the 2024 or 2025 note, and
    「2025年にルールが変わりました」 shows.
-3. **Live loop (25–50 s):** the newcomer asks 「部室の鍵を無くしたら、誰に連絡する？」 → 「歴代の会計は誰も知りません」 →
+3. **Live loop (25–50 s):** the newcomer asks 「決算後に申請された領収書はどうすれば良いですか？」 → 「歴代の会計は誰も知りません」 →
    last year's treasurer's phone shows 「後輩から質問が届きました」 → the answer is spoken → 公開 →
    the newcomer's screen shows the answer signed 「2025年度 会計」 with 「いま、2025年度 会計が答えました」.
 4. **Trust proof (50–60 s):** the outsider pane shows nothing; withdrawing a cited note removes it from the
