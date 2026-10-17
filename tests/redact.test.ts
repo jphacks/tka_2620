@@ -1,40 +1,20 @@
 // Redaction on the device (F5.1): after redacting the seed chat and files, none of seed/chat-canaries.txt is left,
 // the knowledge is, and a second pass finds nothing (what /api/import's re-run relies on). Nothing here prints a
 // canary: a leak is reported by the canary's line in seed/chat-canaries.txt, a seed check by its label, and the
-// rule cases use other made-up names and numbers.
+// rule cases use other made-up names and numbers. These cases test the redaction of every message, so the chats
+// pass keepAll; what a chat keeps by default is tests/redact-keep.test.ts (F5.9).
 import { readFileSync } from "node:fs";
 import mammoth from "mammoth";
 import { describe, expect, it } from "vitest";
 import { parseLine, speakers } from "@/lib/redact/parse";
 import { redactChat, redactText } from "@/lib/redact/redact";
+import { canaryCount, leaked, nothing } from "./canaries";
 
 const seed = (path: string) => new URL(`../seed/${path}`, import.meta.url);
-
-const canaries = readFileSync(seed("chat-canaries.txt"), "utf8")
-  .split("\n")
-  .map((text, index) => ({ line: index + 1, text: text.trim() }))
-  .filter(({ text }) => text && !text.startsWith("#"));
-
-const leaked = (text: string) =>
-  canaries
-    .filter(({ text: canary }) => text.includes(canary))
-    .map(({ line }) => line);
 
 // A failing check names its label, not the text it searched.
 const has = (text: string, part: string, label: string) =>
   expect(text.includes(part), label).toBe(true);
-
-const nothing = {
-  names: 0,
-  phones: 0,
-  emails: 0,
-  urls: 0,
-  ids: 0,
-  addresses: 0,
-  accounts: 0,
-  secrets: 0,
-  people: 0,
-};
 
 describe("the seed chat, seed/chat-line.sample.txt", () => {
   const messages = parseLine(
@@ -45,16 +25,16 @@ describe("the seed chat, seed/chat-line.sample.txt", () => {
   const roles = Object.fromEntries(
     names.map((name, index) => [name, ["会計", "副会計", "部長"][index]]),
   );
-  const result = redactChat(messages, { roles });
+  const result = redactChat(messages, { roles, keepAll: true });
 
   it("leaves none of seed/chat-canaries.txt in the text or the messages", () => {
-    expect(canaries.length).toBeGreaterThan(10);
+    expect(canaryCount).toBeGreaterThan(10);
     expect(leaked(result.text)).toEqual([]);
     expect(leaked(JSON.stringify(result.messages))).toEqual([]);
   });
 
   it("leaves none either when no role was picked", () => {
-    expect(leaked(redactChat(messages).text)).toEqual([]);
+    expect(leaked(redactChat(messages, { keepAll: true }).text)).toEqual([]);
   });
 
   it("finds the three speakers the roles are picked for", () => {
@@ -242,11 +222,18 @@ describe("redactText rules", () => {
   });
 
   it("secret: the value in the chat's next message goes too", () => {
-    const { text } = redactChat([
-      { at: "2025-03-10T21:00", speaker: "a", text: "金庫の暗証番号は?" },
-      { at: "2025-03-10T21:01", speaker: "b", text: "9876だよ" },
-      { at: "2025-03-10T21:02", speaker: "a", text: "ありがとう、2月に変える" },
-    ]);
+    const { text } = redactChat(
+      [
+        { at: "2025-03-10T21:00", speaker: "a", text: "金庫の暗証番号は?" },
+        { at: "2025-03-10T21:01", speaker: "b", text: "9876だよ" },
+        {
+          at: "2025-03-10T21:02",
+          speaker: "a",
+          text: "ありがとう、2月に変える",
+        },
+      ],
+      { keepAll: true },
+    );
     expect(text).toBe(
       "2025-03-10 21:00 [人]: [秘密]\n2025-03-10 21:01 [人]: [秘密]\n2025-03-10 21:02 [人]: ありがとう、2月に変える",
     );
@@ -278,10 +265,13 @@ describe("redactText rules", () => {
   });
 
   it("person: a name seen with an honorific in one message is hidden in the others too", () => {
-    const { text } = redactChat([
-      { at: "2024-09-20T22:12", speaker: "a", text: "加藤先輩に聞けばいい?" },
-      { at: "2024-09-20T22:13", speaker: "b", text: "加藤は会計ゆるすぎる" },
-    ]);
+    const { text } = redactChat(
+      [
+        { at: "2024-09-20T22:12", speaker: "a", text: "加藤先輩に聞けばいい?" },
+        { at: "2024-09-20T22:13", speaker: "b", text: "加藤は会計ゆるすぎる" },
+      ],
+      { keepAll: true },
+    );
     expect(text).toBe(
       "2024-09-20 22:12 [人]: [人]に聞けばいい?\n2024-09-20 22:13 [人]: [人]は会計ゆるすぎる",
     );
