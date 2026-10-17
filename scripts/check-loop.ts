@@ -31,6 +31,7 @@ import {
   type Metrics,
   PublishResponse,
 } from "@/lib/contracts";
+import { reportMetrics } from "@/scripts/metrics-line";
 
 type QuestionRow = {
   id: string;
@@ -589,7 +590,7 @@ async function main(): Promise<void> {
         ? `  leaves ${Math.floor(STAGE_S - slowest)} s of the ${STAGE_S} s on stage for a25 to speak, even in the slowest run`
         : `  the slowest run alone takes longer than the ${STAGE_S} s on stage`,
     );
-    console.log(`  Metrics.loop ${JSON.stringify(loop)}`);
+    reportMetrics({ loop }); // the line `pnpm metrics` reads
   }
   console.log();
 

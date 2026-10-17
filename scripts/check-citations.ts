@@ -1,19 +1,24 @@
 // F4.5 (#29): citation coverage, the README's "Answer sentences with a source note" number (docs/SPEC.md → F2, F4).
 // Asks every question in seed/questions.csv, each as its own persona with that persona's token, through POST /api/ask,
-// and counts the answer sentences and those citing at least one retrieved note. The engine already drops a sentence
-// whose citation doesn't validate, so coverage below 100% means a sentence got through without a source.
+// and counts the answer sentences and those whose sources are valid: every note a sentence cites is one its asker may
+// read, by the hand-written visibility table (tests/visibility-table.ts), never by what the engine says. The contract
+// already refuses a sentence without a citation, so "has a citation" would be 100% by construction; a citation of a
+// note the asker can't read, or of a note that doesn't exist, is what this catches.
 //
 //   pnpm dev          (in another terminal, with Ollama and the Claude key)
 //   pnpm metrics      (runs this check; or run this file directly)
 //
-// Needs the seeded database and a running dev server. Everything it creates is removed afterwards, so it leaves no
-// question, answer, prompt or route behind: the demo data is as it was. Counts and ids only: never a question or
-// answer text, never an email.
+// Needs the seeded database (the table is the seed state) and a running dev server. It writes nothing unless a25's
+// inbox is empty: q04 abstains and reaches a25's inbox for a moment. It removes exactly the questions its replies
+// named (their answers, prompts and routes go with them), so a rehearsal's own questions are never touched, and says
+// the demo data is back only when the counts are what they were. Counts and ids only: never a question or answer
+// text, never an email.
 import { readFile } from "node:fs/promises";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { parse } from "csv-parse/sync";
-import { AskResult } from "@/lib/contracts";
+import { AskResult, InboxResponse, type Metrics } from "@/lib/contracts";
 import { reportMetrics } from "@/scripts/metrics-line";
+import { reads, viewers } from "@/tests/visibility-table";
 
 type QuestionRow = {
   id: string;
@@ -23,21 +28,7 @@ type QuestionRow = {
 };
 
 const BASE_URL = process.env.CHECK_BASE_URL ?? "http://localhost:3000";
-
-// scripts/seed.ts gives every persona one account at <key>@example.com; seed/questions.csv calls them by alias.
-const EMAIL: Record<string, string> = {
-  a24: "smash-kaikei-2024",
-  a25: "smash-kaikei-2025",
-  a26: "smash-kaikei-2026",
-  b: "keion-member",
-  x: "yamate-outsider",
-};
-
-function email(persona: string): string {
-  const key = EMAIL[persona];
-  if (!key) throw new Error(`unknown persona ${persona}: add it to EMAIL`);
-  return `${key}@example.com`;
-}
+const REACHABLE = "a25"; // the seat's reachable holder: q04's slip lands in this inbox
 
 function env(name: string): string {
   const value = process.env[name];
@@ -59,49 +50,69 @@ async function readQuestions(): Promise<QuestionRow[]> {
 
 type Session = { token: string; userId: string };
 
-// One signed-in persona per client, as a browser pane would be.
+// One signed-in persona per client, as a browser pane would be. The emails are scripts/seed.ts's, as the visibility
+// table lists them.
 async function signIn(
   url: string,
   anonKey: string,
   persona: string,
   password: string,
 ): Promise<Session> {
+  const email = viewers.find((viewer) => viewer.key === persona)?.email;
+  if (!email) throw new Error(`no demo account for persona ${persona}`);
   const db = createClient(url, anonKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
   const { data, error } = await db.auth.signInWithPassword({
-    email: email(persona),
+    email,
     password,
   });
   if (error || !data.session) {
-    throw new Error(`sign in as ${persona}: ${error?.message ?? "no session"}`);
+    throw new Error(`sign in as ${persona}: ${error?.code ?? "no session"}`);
   }
   return { token: data.session.access_token, userId: data.user.id };
 }
 
-// Removes every question this run created (and the demand prompts those questions started; their routes and answers
-// go with them). A prompt a question only joined is left alone. Answers what went wrong, or undefined.
+async function call(
+  path: string,
+  token: string,
+  body?: unknown,
+): Promise<{ status: number; body: unknown }> {
+  const response = await fetch(`${BASE_URL}${path}`, {
+    method: body === undefined ? "GET" : "POST",
+    headers: {
+      authorization: `Bearer ${token}`,
+      ...(body !== undefined && { "content-type": "application/json" }),
+    },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  return {
+    status: response.status,
+    body: await response.json().catch(() => undefined),
+  };
+}
+
+async function countQuestions(service: SupabaseClient): Promise<number> {
+  const { count, error } = await service
+    .from("questions")
+    .select("id", { count: "exact", head: true });
+  if (error || count === null) {
+    throw new Error(`count the questions: ${error?.code}`);
+  }
+  return count;
+}
+
+// Removes the questions this run's replies named, and the demand prompts those questions started (their routes and
+// answers go with them). Answers what went wrong, or undefined.
 async function cleanUp(
   service: SupabaseClient,
   questionIds: string[],
-  run: { askerIds: string[]; texts: string[]; since: string },
 ): Promise<string | undefined> {
-  const asked = await service
-    .from("questions")
-    .select("id")
-    .in("asker_user_id", run.askerIds)
-    .in("text", run.texts)
-    .gte("created_at", run.since);
-  if (asked.error) return `find the run's questions: ${asked.error.code}`;
-  const ids = [
-    ...new Set([...questionIds, ...(asked.data ?? []).map((row) => row.id)]),
-  ];
-  if (ids.length === 0) return undefined;
-
+  if (questionIds.length === 0) return undefined;
   const started = await service
     .from("prompts")
     .select("id")
-    .in("source_question_id", ids);
+    .in("source_question_id", questionIds);
   if (started.error) return `find the run's prompts: ${started.error.code}`;
   const promptIds = (started.data ?? []).map((row) => row.id);
   if (promptIds.length > 0) {
@@ -111,9 +122,35 @@ async function cleanUp(
       .in("id", promptIds);
     if (error) return `delete prompts: ${error.code}`;
   }
-  const { error } = await service.from("questions").delete().in("id", ids);
+  const { error } = await service
+    .from("questions")
+    .delete()
+    .in("id", questionIds);
   if (error) return `delete questions: ${error.code}`;
   return undefined;
+}
+
+// One answer's sentences, and those whose every citation is a note its asker may read. A note the seed doesn't have
+// can't be judged by the table, so the answer is left unjudged rather than counted either way.
+function judge(
+  persona: string,
+  result: AskResult,
+): { sentences: number; cited: number; unknown: string[] } {
+  if (result.status !== "answered")
+    return { sentences: 0, cited: 0, unknown: [] };
+  const unknown = result.sentences.flatMap((sentence) =>
+    sentence.citations
+      .map((citation) => citation.noteId)
+      .filter((noteId) => reads(persona, noteId) === undefined),
+  );
+  const cited = result.sentences.filter(
+    (sentence) =>
+      sentence.citations.length > 0 &&
+      sentence.citations.every(
+        (citation) => reads(persona, citation.noteId) === true,
+      ),
+  ).length;
+  return { sentences: result.sentences.length, cited, unknown };
 }
 
 async function main(): Promise<void> {
@@ -125,96 +162,101 @@ async function main(): Promise<void> {
   });
 
   const questions = await readQuestions();
-  const since = new Date(Date.now() - 60_000).toISOString();
   const sessions = new Map<string, Session>();
+  for (const persona of new Set([
+    REACHABLE,
+    ...questions.map((q) => q.persona),
+  ])) {
+    sessions.set(persona, await signIn(url, anonKey, persona, password));
+  }
+
+  // Nothing is written unless a25's inbox is empty, as the seed leaves it: otherwise someone may be rehearsing.
+  const seat = questions[0]?.seat_slug ?? "smash-kaikei";
+  const reachable = sessions.get(REACHABLE);
+  if (!reachable) throw new Error(`no ${REACHABLE} session`);
+  const inbox = await call(`/api/inbox?seat=${seat}`, reachable.token);
+  const items = InboxResponse.safeParse(inbox.body);
+  if (!items.success) {
+    throw new Error(
+      `read ${REACHABLE}'s inbox: HTTP ${inbox.status} (is pnpm dev running?)`,
+    );
+  }
+  if (items.data.items.length > 0) {
+    throw new Error(
+      `${REACHABLE}'s inbox holds ${items.data.items.length} question(s): someone may be rehearsing. If not, run pnpm demo:reset first`,
+    );
+  }
+
+  const before = await countQuestions(service);
   const questionIds: string[] = [];
-  const answers: {
-    id: string;
-    status: string;
-    sentences: number;
-    cited: number;
-  }[] = [];
-  let failed = false;
+  let sentences = 0;
+  let cited = 0;
+  let measured = true; // every question got an answer the table could judge
+  let problem: string | undefined;
 
   try {
     for (const question of questions) {
-      let session = sessions.get(question.persona);
-      if (!session) {
-        session = await signIn(url, anonKey, question.persona, password);
-        sessions.set(question.persona, session);
-      }
-
-      const response = await fetch(`${BASE_URL}/api/ask`, {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          authorization: `Bearer ${session.token}`,
-        },
-        body: JSON.stringify({
-          seat: question.seat_slug,
-          question: question.question,
-        }),
+      const session = sessions.get(question.persona);
+      if (!session) throw new Error(`no ${question.persona} session`);
+      const reply = await call("/api/ask", session.token, {
+        seat: question.seat_slug,
+        question: question.question,
       });
-      if (!response.ok) {
-        // Not measured, and no partial coverage: a check that couldn't finish hands the README nothing.
-        failed = true;
-        const body = (await response.json().catch(() => ({}))) as {
-          error?: string;
-        };
+      const result = AskResult.safeParse(reply.body);
+      if (reply.status !== 200 || !result.success) {
+        // No partial coverage: a check that couldn't ask every question hands the README nothing.
+        measured = false;
+        const code = (reply.body as { error?: string } | undefined)?.error;
         console.log(
-          `✗ ${question.id}: POST /api/ask answered HTTP ${response.status}${body.error ? ` (${body.error})` : ""}: no coverage measured`,
+          `✗ ${question.id}: POST /api/ask answered HTTP ${reply.status}${code ? ` (${code})` : ""}`,
         );
-        return;
+        break;
       }
-
-      const result = AskResult.parse(await response.json());
-      questionIds.push(result.questionId);
-      if (result.status === "answered") {
-        // Every sentence the engine kept cites a retrieved note (docs/SPEC.md → F2); the check counts the ones that
-        // still do, so a sentence without a source would show up here as coverage under 100%.
-        const sentences = result.sentences.length;
-        const cited = result.sentences.filter(
-          (sentence) => sentence.citations.length > 0,
-        ).length;
-        answers.push({ id: question.id, status: "answered", sentences, cited });
+      questionIds.push(result.data.questionId);
+      const counted = judge(question.persona, result.data);
+      if (counted.unknown.length > 0) {
+        measured = false;
         console.log(
-          `✓ ${question.id}: answered — ${sentences} sentence(s), ${cited} with a source`,
+          `✗ ${question.id}: cites a note the seed doesn't have (${counted.unknown.join(", ")}): run pnpm demo:reset first`,
         );
-      } else {
-        answers.push({
-          id: question.id,
-          status: "abstained",
-          sentences: 0,
-          cited: 0,
-        });
-        console.log(`✓ ${question.id}: abstained — no sentence to cite`);
+        continue;
+      }
+      sentences += counted.sentences;
+      cited += counted.cited;
+      console.log(
+        result.data.status === "answered"
+          ? `${counted.cited === counted.sentences ? "✓" : "✗"} ${question.id} (${question.persona}): ${counted.sentences} sentence(s), ${counted.cited} with valid sources`
+          : `✓ ${question.id} (${question.persona}): abstained, no sentence to cite`,
+      );
+    }
+  } finally {
+    problem = await cleanUp(service, questionIds);
+    if (!problem) {
+      const after = await countQuestions(service);
+      if (after !== before) {
+        problem = `${after - before} question(s) more than before the run`;
       }
     }
+    console.log(
+      problem
+        ? `✗ the demo data isn't as it was (${problem})`
+        : "✓ the demo data is back as it was",
+    );
+  }
 
-    const sentences = answers.reduce((sum, row) => sum + row.sentences, 0);
-    const cited = answers.reduce((sum, row) => sum + row.cited, 0);
+  if (measured) {
     const coverage =
       sentences === 0 ? "—" : `${Math.round((cited / sentences) * 100)}%`;
     console.log(
-      `\n${cited} / ${sentences} sentences cite a source note (${coverage}) over ${questions.length} questions`,
+      `\n${cited} / ${sentences} sentences cite only notes their asker may read (${coverage}) over ${questions.length} questions`,
     );
-    reportMetrics({ citations: { sentences, cited } });
-  } finally {
-    const problem = await cleanUp(service, questionIds, {
-      askerIds: [...new Set([...sessions.values()].map((s) => s.userId))],
-      texts: questions.map((question) => question.question),
-      since,
-    });
-    if (problem) {
-      failed = true;
-      console.log(
-        `✗ the cleanup failed (${problem}): the demo data may not be as it was`,
-      );
-    } else {
-      console.log("✓ the demo data is back as it was");
-    }
-    process.exitCode = failed ? 1 : 0;
+    const citations: NonNullable<Metrics["citations"]> = { sentences, cited };
+    reportMetrics({ citations });
+  } else {
+    console.log("\n— citations: not measured");
   }
+  process.exitCode =
+    measured && !problem && sentences > 0 && cited === sentences ? 0 : 1;
 }
 
 try {

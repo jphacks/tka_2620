@@ -7,8 +7,9 @@
 //
 // Sections is a partial Metrics: report only the sections the check measured. metrics.ts validates every line against
 // it before writing, so a typo leaves that section out (the README then says "not measured") instead of putting a
-// wrong number on a slide. Every check that feeds the README ends with one reportMetrics call:
-//   scripts/check-leak.ts (F4.4), check-withdraw.ts and check-citations.ts (F4.5), check-redact.ts (F5), check-loop.ts (F3.9).
+// wrong number on a slide. Every check that feeds the README makes one reportMetrics call: scripts/check-leak.ts
+// (F4.4), check-withdraw.ts (F4.2), check-citations.ts (F4.5), check-loop.ts (F3.9), and check-redact.ts once F5.8
+// (#38) builds it.
 import { Metrics } from "@/lib/contracts";
 
 export const MARKER = "METRICS";
