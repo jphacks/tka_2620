@@ -39,8 +39,11 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   const locale = await getLocale();
   return (
     // Browser extensions add attributes to <html> before React loads; this ignores them on this element only.
+    // translate="no": Chrome/Safari translation rewrites text React owns (hydration error, then crashes on update).
+    // English comes from the NEXT_LOCALE cookie instead.
     <html
       lang={locale}
+      translate="no"
       className={`${hand.variable} ${ui.variable} ${figures.variable} ${marker.variable}`}
       suppressHydrationWarning
     >
