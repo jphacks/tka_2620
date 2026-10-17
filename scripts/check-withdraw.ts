@@ -17,7 +17,8 @@
 // The cleanup uses the service-role key, which only scripts/ may hold, and removes exactly what each run created (its
 // note, a26's two questions with their answers, the run's events row) before the next run starts. It never touches the
 // demo's own notes, so it is safe next to a rehearsal, though a25's 自分のメモ shows a throwaway note while it runs and
-// the console's meter moves once per run.
+// the console's meter moves once per run. Ctrl-C stops it after the run in flight, cleanup included; a run killed
+// harder leaves its note and questions, which the next run sweeps away first (by the texts only this check writes).
 // Counts, ids, personas and timings only: never note, question or answer text, never an email.
 import {
   createClient,
@@ -40,6 +41,18 @@ const ARRIVE_MS = 10_000; // the withdrawal is one function call; SPEC F4 wants 
 const GRACE_MS = 3_000; // how long the other phones stay quiet before "nothing" counts
 const RUNS = 10; // SPEC F4: the median over 10 runs
 const MEDIAN_LIMIT_S = 1; // SPEC F4: under a second
+const REQUEST_MS = 60_000; // one request: a hung server stops the check instead of blocking pnpm metrics
+// The texts only this check writes: an interrupted run's leftovers are found by them (sweep below).
+const NOTE_TITLE = "撤回チェック用のメモ";
+const QUESTION_TEXT = "撤回チェック";
+
+// Ctrl-C (or pnpm metrics stopping) ends the check after the run in flight, and the cleanup still runs.
+let stopping = false;
+for (const signal of ["SIGINT", "SIGTERM"] as const) {
+  process.once(signal, () => {
+    stopping = true;
+  });
+}
 
 // scripts/seed.ts gives every persona one account at <key>@example.com.
 const EMAIL: Record<string, string> = {
@@ -229,6 +242,7 @@ async function call(
   const response = await fetch(`${BASE_URL}${path}`, {
     method: options.post ? "POST" : "GET",
     headers: options.token ? { authorization: `Bearer ${options.token}` } : {},
+    signal: AbortSignal.timeout(REQUEST_MS),
   });
   return {
     status: response.status,
@@ -236,7 +250,8 @@ async function call(
   };
 }
 
-// eventsBefore: the newest withdraw row's id just before the withdrawal (0 for none), for finding the run's own row.
+// eventsBefore: the newest withdraw row's id just before the withdrawal (0 for none), for finding the run's own row;
+// set only once the withdrawal succeeded, so a failed one never removes a row it didn't make.
 // cleaned: the run's rows are gone already (each run cleans up before the next one starts).
 type Run = {
   noteId?: string;
@@ -263,24 +278,50 @@ async function cleanUp(
     if (error) return `delete the note: ${error.code}`;
   }
   if (run.eventsBefore !== undefined) {
-    // The run's row, found in the table rather than in what a phone heard: the first withdraw row after the request
-    // with this run's counts (two answers, one abstained). One only, so a rehearsal's own withdrawal is never removed.
+    // The run's row, found in the table rather than in what a phone heard: the withdraw row after the request with this
+    // run's counts (two answers, one abstained). Only when exactly one matches, so a rehearsal's own withdrawal with
+    // the same counts is never removed by mistake.
     const found = await service
       .from("events")
       .select("id")
       .eq("kind", "withdraw")
       .gt("id", run.eventsBefore)
-      .contains("payload", { answers: 2, abstained: 1 })
-      .order("id")
-      .limit(1);
+      .contains("payload", { answers: 2, abstained: 1 });
     if (found.error) return `find the events row: ${found.error.code}`;
-    const id = found.data?.[0]?.id;
+    if (found.data.length > 1) {
+      return `${found.data.length} withdraw rows could be this run's: left them`;
+    }
+    const id = found.data[0]?.id;
     if (id !== undefined) {
       const { error } = await service.from("events").delete().eq("id", id);
       if (error) return `delete the events row: ${error.code}`;
     }
   }
   return undefined;
+}
+
+// What an interrupted run (killed before its cleanup) left: a25's throwaway notes and a26's check questions, found by
+// the texts only this check writes. A rehearsal never makes them. Their withdraw events rows can't be told apart from
+// a rehearsal's, so they stay. Answers how many rows went.
+async function sweep(world: World): Promise<number> {
+  const notes = await world.service
+    .from("notes")
+    .delete()
+    .eq("author_user_id", world.author.userId)
+    .eq("title", NOTE_TITLE)
+    .select("id");
+  const questions = await world.service
+    .from("questions")
+    .delete()
+    .eq("asker_user_id", world.asker.userId)
+    .eq("text", QUESTION_TEXT)
+    .select("id");
+  if (notes.error || questions.error) {
+    throw new Error(
+      `sweep an earlier run's rows: ${notes.error?.code ?? questions.error?.code}`,
+    );
+  }
+  return notes.data.length + questions.data.length;
 }
 
 // a26's saved answer, as POST /api/ask stores one: an AnsweredResult whose sentences cite the given notes.
@@ -319,7 +360,7 @@ async function prepare(world: World, run: Run): Promise<Prepared> {
       author_user_id: author.userId,
       byline: BYLINE,
       kind: "rule_of_thumb",
-      title: "撤回チェック用のメモ",
+      title: NOTE_TITLE,
       body: "撤回チェックのためのメモです。",
       lang: "ja",
       scope: "successor",
@@ -344,7 +385,7 @@ async function prepare(world: World, run: Run): Promise<Prepared> {
       .insert({
         asker_user_id: asker.userId,
         seat_id: world.seatId,
-        text: "撤回チェック",
+        text: QUESTION_TEXT,
         lang: "ja",
         status: "answered",
       })
@@ -407,7 +448,7 @@ async function withdraw(
     .order("id", { ascending: false })
     .limit(1);
   if (newest.error) return { problem: `read the events: ${newest.error.code}` };
-  run.eventsBefore = Number(newest.data?.[0]?.id ?? 0);
+  const eventsBefore = Number(newest.data?.[0]?.id ?? 0);
 
   const started = performance.now();
   const withdrawn = await call(prepared.path, {
@@ -426,6 +467,7 @@ async function withdraw(
           : `withdrawing answered HTTP ${withdrawn.status}`,
     };
   }
+  run.eventsBefore = eventsBefore; // withdrawn: the run's events row exists, and the cleanup may look for it
   const back = (questionId: string) =>
     answersBack(world.asker, questionId, started);
   const arrived = await waitFor(
@@ -623,6 +665,14 @@ async function main(): Promise<void> {
   let problem: string | undefined;
 
   try {
+    // An earlier run that was killed before its cleanup leaves its throwaway rows; they go first.
+    const swept = await sweep(world);
+    if (swept > 0) {
+      console.log(
+        `✓ removed ${swept} row(s) an interrupted earlier run left behind`,
+      );
+    }
+
     // 3. Every phone listens through all the runs; Realtime confirms each subscription.
     await Promise.all(phones.map((phone) => listen(phone)));
     listening = true;
@@ -633,6 +683,10 @@ async function main(): Promise<void> {
     );
 
     for (let n = 1; n <= RUNS; n += 1) {
+      if (stopping) {
+        check(`stopped after ${n - 1} of ${RUNS} runs`, false);
+        break;
+      }
       const run: Run = { questionIds: [] };
       runs.push(run);
       const prepared = await prepare(world, run);

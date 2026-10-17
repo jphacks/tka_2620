@@ -23,10 +23,11 @@
 // those lines in SPEC order and validates the result against Metrics (lib/contracts.ts), so metrics/latest.json
 // always matches the contract the console and the README read. Counts and seconds only: never note, chat or
 // canary text.
-import { spawn } from "node:child_process";
+import { type ChildProcess, spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import type { Readable } from "node:stream";
 import { fileURLToPath } from "node:url";
 import { Metrics } from "@/lib/contracts";
 import { MARKER, readMetricsLine, Sections } from "@/scripts/metrics-line";
@@ -66,34 +67,58 @@ const CHECKS: Check[] = [
 
 // Runs one check with this repo's own env, as `pnpm test:ask` does, and shows its output as it comes (the leak and
 // loop checks take minutes), except the METRICS line: that number is shown in the table at the end. Both streams are
-// kept: a failing check still reports the numbers it measured (a leak count above 0 is a number the README must
-// show), and anything it printed before the METRICS line explains the failure.
-function run(file: string): Promise<{ output: string; failed: boolean }> {
+// shown: a failing check still reports the numbers it measured (a leak count above 0 is a number the README must
+// show), and anything it printed explains the failure. The METRICS line is read from stdout only, and each stream has
+// its own line buffer, so a line cut between two chunks is never mixed with the other stream's output.
+let running: ChildProcess | undefined;
+function run(file: string): Promise<{ stdout: string; failed: boolean }> {
   return new Promise((resolve) => {
     const child = spawn(
       process.execPath,
       ["--env-file-if-exists=.env.local", "--import", "tsx", file],
       { cwd: ROOT, stdio: ["ignore", "pipe", "pipe"] },
     );
-    let output = "";
-    let pending = "";
-    const show = (chunk: Buffer) => {
-      const text = chunk.toString("utf8");
-      output += text;
-      pending += text;
-      const lines = pending.split("\n");
-      pending = lines.pop() ?? "";
-      for (const line of lines) {
-        if (!line.startsWith(`${MARKER} `)) console.log(line);
-      }
+    running = child;
+    let stdout = "";
+    const relay = (stream: Readable, keep: boolean) => {
+      let pending = "";
+      stream.setEncoding("utf8"); // a character cut between two chunks stays whole
+      stream.on("data", (text: string) => {
+        if (keep) stdout += text;
+        pending += text;
+        const lines = pending.split("\n");
+        pending = lines.pop() ?? "";
+        for (const line of lines) {
+          if (!line.startsWith(`${MARKER} `)) console.log(line);
+        }
+      });
+      stream.on("end", () => {
+        if (pending && !pending.startsWith(`${MARKER} `)) console.log(pending);
+      });
     };
-    child.stdout.on("data", show);
-    child.stderr.on("data", show);
-    child.on("error", () => resolve({ output, failed: true }));
+    relay(child.stdout, true);
+    relay(child.stderr, false);
+    child.on("error", () => resolve({ stdout, failed: true }));
     child.on("close", (code) => {
-      if (pending && !pending.startsWith(`${MARKER} `)) console.log(pending);
-      resolve({ output, failed: code !== 0 });
+      running = undefined;
+      resolve({ stdout, failed: code !== 0 });
     });
+  });
+}
+
+// Ctrl-C reaches the running check as well (same terminal): every check stops after what it has in flight and cleans
+// up. This command waits for it, starts nothing more, and leaves metrics/latest.json as it was. A SIGTERM reaches
+// only this process, so it is passed on.
+let interrupted = false;
+for (const signal of ["SIGINT", "SIGTERM"] as const) {
+  process.on(signal, () => {
+    if (!interrupted) {
+      console.log(
+        `\n${signal}: stopping after the check that is running (it cleans up first); latest.json stays as it was`,
+      );
+    }
+    interrupted = true;
+    if (signal === "SIGTERM") running?.kill(signal);
   });
 }
 
@@ -109,11 +134,13 @@ async function main(): Promise<void> {
   const measured: Partial<Sections> = {};
   const rows: [keyof Sections, string][] = [];
   let missing = 0; // built checks that measured nothing
+  let failures = 0; // checks that measured their section but failed something else (see their output)
 
   console.log(
     "pnpm metrics: the checks below run one after another; the last one resets the demo (pnpm demo:reset).",
   );
   for (const check of CHECKS) {
+    if (interrupted) break;
     const file = path.join(ROOT, "scripts", check.file);
     if (!existsSync(file)) {
       console.log(
@@ -126,8 +153,8 @@ async function main(): Promise<void> {
     console.log(
       `\n=== ${check.section} — scripts/${check.file} (${check.does}) ===`,
     );
-    const { output, failed } = await run(file);
-    const reported = readMetricsLine(output);
+    const { stdout, failed } = await run(file);
+    const reported = readMetricsLine(stdout);
     const parsed = Sections.safeParse(reported);
     if (!parsed.success || !(check.section in parsed.data)) {
       missing += 1;
@@ -144,10 +171,17 @@ async function main(): Promise<void> {
     }
     // Only the section this check owns: a check can't overwrite another's numbers.
     Object.assign(measured, { [check.section]: parsed.data[check.section] });
+    if (failed) failures += 1;
     rows.push([
       check.section,
       `${shown(check.section, parsed.data[check.section])}${failed ? " (the check failed: see above)" : ""}`,
     ]);
+  }
+
+  if (interrupted) {
+    console.log("\nStopped: metrics/latest.json is as it was.");
+    process.exitCode = 1;
+    return;
   }
 
   // SPEC order, whether or not every section is there. measuredAt is now, in UTC.
@@ -166,8 +200,14 @@ async function main(): Promise<void> {
   console.log(
     'A section left out is one no check measured here: the README says "not measured", never 0.',
   );
-  // Every check that exists measured its section; a check not built yet doesn't fail the run.
-  process.exitCode = missing === 0 && count > 0 ? 0 : 1;
+  // 0 only when every check that exists measured its section and passed; a check not built yet doesn't fail the run.
+  // A check that measured but failed keeps its numbers in the file (a leak count is the truth), and fails the run.
+  if (failures > 0) {
+    console.log(
+      `${failures} check(s) measured their numbers but failed something else: see their output above.`,
+    );
+  }
+  process.exitCode = missing === 0 && failures === 0 && count > 0 ? 0 : 1;
 }
 
 try {

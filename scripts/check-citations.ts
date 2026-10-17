@@ -9,15 +9,17 @@
 //   pnpm metrics      (runs this check; or run this file directly)
 //
 // Needs the seeded database (the table is the seed state) and a running dev server. It writes nothing unless a25's
-// inbox is empty: q04 abstains and reaches a25's inbox for a moment. It removes exactly the questions its replies
-// named (their answers, prompts and routes go with them), so a rehearsal's own questions are never touched, and says
-// the demo data is back only when the counts are what they were. Counts and ids only: never a question or answer
-// text, never an email.
+// inbox is empty: q04 abstains and reaches a25's inbox for a moment. It removes exactly the questions it asked (the
+// ids its replies named, or the one a failed reply still saved) and the prompts they started, unless a rehearsal's
+// question joined one (scripts/remove-questions.ts), and says the demo data is back only when no question is left
+// that wasn't there before. Ctrl-C stops it after the question in flight, cleanup included. Counts and ids only:
+// never a question or answer text, never an email.
 import { readFile } from "node:fs/promises";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { parse } from "csv-parse/sync";
 import { AskResult, InboxResponse, type Metrics } from "@/lib/contracts";
 import { reportMetrics } from "@/scripts/metrics-line";
+import { removeQuestions } from "@/scripts/remove-questions";
 import { reads, viewers } from "@/tests/visibility-table";
 
 type QuestionRow = {
@@ -29,6 +31,15 @@ type QuestionRow = {
 
 const BASE_URL = process.env.CHECK_BASE_URL ?? "http://localhost:3000";
 const REACHABLE = "a25"; // the seat's reachable holder: q04's slip lands in this inbox
+const REQUEST_MS = 60_000; // one question, Sonnet included: a hung server stops the check instead of blocking it
+
+// Ctrl-C (or pnpm metrics stopping) ends the check after the question in flight, and the cleanup still runs.
+let stopping = false;
+for (const signal of ["SIGINT", "SIGTERM"] as const) {
+  process.once(signal, () => {
+    stopping = true;
+  });
+}
 
 function env(name: string): string {
   const value = process.env[name];
@@ -85,6 +96,7 @@ async function call(
       ...(body !== undefined && { "content-type": "application/json" }),
     },
     body: body === undefined ? undefined : JSON.stringify(body),
+    signal: AbortSignal.timeout(REQUEST_MS),
   });
   return {
     status: response.status,
@@ -92,42 +104,31 @@ async function call(
   };
 }
 
-async function countQuestions(service: SupabaseClient): Promise<number> {
-  const { count, error } = await service
-    .from("questions")
-    .select("id", { count: "exact", head: true });
-  if (error || count === null) {
-    throw new Error(`count the questions: ${error?.code}`);
-  }
-  return count;
+// Every question's id, read with the service role: the ones there before the run are never removed.
+async function allQuestionIds(service: SupabaseClient): Promise<Set<string>> {
+  const { data, error } = await service.from("questions").select("id");
+  if (error) throw new Error(`read the questions: ${error.code}`);
+  return new Set((data as { id: string }[]).map((row) => row.id));
 }
 
-// Removes the questions this run's replies named, and the demand prompts those questions started (their routes and
-// answers go with them). Answers what went wrong, or undefined.
-async function cleanUp(
+// POST /api/ask saves the question before it answers or routes it, so a reply that failed may still have left the
+// question behind: the asker's question at that seat with that text, saved since the run began and not there before.
+// The text is compared here and never printed.
+async function savedBeforeFailing(
   service: SupabaseClient,
-  questionIds: string[],
-): Promise<string | undefined> {
-  if (questionIds.length === 0) return undefined;
-  const started = await service
-    .from("prompts")
-    .select("id")
-    .in("source_question_id", questionIds);
-  if (started.error) return `find the run's prompts: ${started.error.code}`;
-  const promptIds = (started.data ?? []).map((row) => row.id);
-  if (promptIds.length > 0) {
-    const { error } = await service
-      .from("prompts")
-      .delete()
-      .in("id", promptIds);
-    if (error) return `delete prompts: ${error.code}`;
-  }
-  const { error } = await service
+  asked: { userId: string; seatId: string; text: string; since: string },
+  before: Set<string>,
+): Promise<string[]> {
+  const { data, error } = await service
     .from("questions")
-    .delete()
-    .in("id", questionIds);
-  if (error) return `delete questions: ${error.code}`;
-  return undefined;
+    .select("id, text")
+    .eq("asker_user_id", asked.userId)
+    .eq("seat_id", asked.seatId)
+    .gte("created_at", asked.since);
+  if (error) return [];
+  return (data as { id: string; text: string }[])
+    .filter((row) => row.text === asked.text && !before.has(row.id))
+    .map((row) => row.id);
 }
 
 // One answer's sentences, and those whose every citation is a note its asker may read. A note the seed doesn't have
@@ -187,28 +188,57 @@ async function main(): Promise<void> {
     );
   }
 
-  const before = await countQuestions(service);
+  const seats = await service.from("seats").select("id, slug");
+  if (seats.error) throw new Error(`read the seats: ${seats.error.code}`);
+  const seatIds = new Map(
+    (seats.data as { id: string; slug: string }[]).map((row) => [
+      row.slug,
+      row.id,
+    ]),
+  );
+  const before = await allQuestionIds(service);
+  const since = new Date(Date.now() - 60_000).toISOString(); // a minute of slack for the clocks
   const questionIds: string[] = [];
   let sentences = 0;
   let cited = 0;
   let measured = true; // every question got an answer the table could judge
-  let problem: string | undefined;
+  let problems: string[] = [];
 
   try {
     for (const question of questions) {
+      if (stopping) {
+        measured = false;
+        console.log("✗ stopped before every question was asked");
+        break;
+      }
       const session = sessions.get(question.persona);
       if (!session) throw new Error(`no ${question.persona} session`);
       const reply = await call("/api/ask", session.token, {
         seat: question.seat_slug,
         question: question.question,
-      });
+      }).catch((error: unknown) => ({
+        status: 0,
+        body: { error: error instanceof Error ? error.name : "error" },
+      }));
       const result = AskResult.safeParse(reply.body);
       if (reply.status !== 200 || !result.success) {
         // No partial coverage: a check that couldn't ask every question hands the README nothing.
         measured = false;
         const code = (reply.body as { error?: string } | undefined)?.error;
         console.log(
-          `✗ ${question.id}: POST /api/ask answered HTTP ${reply.status}${code ? ` (${code})` : ""}`,
+          `✗ ${question.id}: POST /api/ask answered ${reply.status ? `HTTP ${reply.status}` : "nothing"}${code ? ` (${code})` : ""}`,
+        );
+        questionIds.push(
+          ...(await savedBeforeFailing(
+            service,
+            {
+              userId: session.userId,
+              seatId: seatIds.get(question.seat_slug) ?? "",
+              text: question.question,
+              since,
+            },
+            before,
+          )),
         );
         break;
       }
@@ -230,33 +260,39 @@ async function main(): Promise<void> {
       );
     }
   } finally {
-    problem = await cleanUp(service, questionIds);
-    if (!problem) {
-      const after = await countQuestions(service);
-      if (after !== before) {
-        problem = `${after - before} question(s) more than before the run`;
-      }
+    // The questions and the prompts they started, unless a rehearsal's question joined one (remove-questions.ts).
+    problems = await removeQuestions(service, [...new Set(questionIds)]);
+    const left = [...(await allQuestionIds(service))].filter(
+      (id) => !before.has(id),
+    ).length;
+    if (left > 0) {
+      problems.push(`${left} question(s) more than before the run`);
     }
     console.log(
-      problem
-        ? `✗ the demo data isn't as it was (${problem})`
+      problems.length > 0
+        ? `✗ the demo data isn't as it was:\n  ${problems.join("\n  ")}`
         : "✓ the demo data is back as it was",
     );
   }
 
-  if (measured) {
-    const coverage =
-      sentences === 0 ? "—" : `${Math.round((cited / sentences) * 100)}%`;
+  // A run where every question abstained measured nothing: 0 of 0 sentences is no coverage at all.
+  if (measured && sentences > 0) {
     console.log(
-      `\n${cited} / ${sentences} sentences cite only notes their asker may read (${coverage}) over ${questions.length} questions`,
+      `\n${cited} / ${sentences} sentences cite only notes their asker may read (${Math.round((cited / sentences) * 100)}%) over ${questions.length} questions`,
     );
     const citations: NonNullable<Metrics["citations"]> = { sentences, cited };
     reportMetrics({ citations });
   } else {
-    console.log("\n— citations: not measured");
+    console.log(
+      measured
+        ? "\n— citations: not measured (no question was answered, so no sentence to count)"
+        : "\n— citations: not measured",
+    );
   }
   process.exitCode =
-    measured && !problem && sentences > 0 && cited === sentences ? 0 : 1;
+    measured && problems.length === 0 && sentences > 0 && cited === sentences
+      ? 0
+      : 1;
 }
 
 try {
