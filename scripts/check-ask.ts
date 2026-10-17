@@ -119,44 +119,56 @@ async function openDemandPrompts(
 }
 
 type Created = { questionIds: string[]; promptIds: string[] };
+type Run = { askerIds: string[]; seatId: string; text: string; since: string };
 
-// Removes what this run created: the demand prompts it was told about (their routes go with them) and its questions,
-// with any q04 one of its askers saved in a request that failed before routing. Answers what went wrong, or undefined.
+// Removes what this run created: every q04 question its askers saved at the seat since it started, also one from a
+// request that failed after the insert (routed or not), and the demand prompts those questions started (their routes
+// go with them). A prompt a question only joined is left alone. Answers what went wrong, or undefined.
 async function cleanUp(
   service: SupabaseClient,
   created: Created,
-  askerIds: string[],
-  text: string,
-  since: string,
+  run: Run,
 ): Promise<string | undefined> {
-  const unrouted = await service
+  const asked = await service
     .from("questions")
     .select("id")
-    .in("asker_user_id", askerIds)
-    .eq("text", text)
-    .is("prompt_id", null)
-    .gte("created_at", since);
-  if (unrouted.error) return `find unrouted questions: ${unrouted.error.code}`;
+    .in("asker_user_id", run.askerIds)
+    .eq("seat_id", run.seatId)
+    .eq("text", run.text)
+    .gte("created_at", run.since);
+  if (asked.error) return `find the run's questions: ${asked.error.code}`;
   const questionIds = [
     ...new Set([
       ...created.questionIds,
-      ...(unrouted.data ?? []).map((row) => row.id),
+      ...(asked.data ?? []).map((row) => row.id),
     ]),
   ];
-  if (created.promptIds.length > 0) {
+  if (questionIds.length === 0) return undefined;
+
+  // Before the questions go: deleting one sets its prompts' source_question_id to null.
+  const started = await service
+    .from("prompts")
+    .select("id")
+    .in("source_question_id", questionIds);
+  if (started.error) return `find the run's prompts: ${started.error.code}`;
+  const promptIds = [
+    ...new Set([
+      ...created.promptIds,
+      ...(started.data ?? []).map((row) => row.id),
+    ]),
+  ];
+  if (promptIds.length > 0) {
     const { error } = await service
       .from("prompts")
       .delete()
-      .in("id", created.promptIds);
+      .in("id", promptIds);
     if (error) return `delete prompts: ${error.code}`;
   }
-  if (questionIds.length > 0) {
-    const { error } = await service
-      .from("questions")
-      .delete()
-      .in("id", questionIds);
-    if (error) return `delete questions: ${error.code}`;
-  }
+  const { error } = await service
+    .from("questions")
+    .delete()
+    .in("id", questionIds);
+  if (error) return `delete questions: ${error.code}`;
   return undefined;
 }
 
@@ -170,6 +182,14 @@ async function main(): Promise<void> {
 
   const question = (await readQuestions()).find((row) => row.id === "q04");
   if (!question) throw new Error("seed/questions.csv has no q04");
+
+  const seat = await service
+    .from("seats")
+    .select("id")
+    .eq("slug", question.seat_slug)
+    .single();
+  if (seat.error) throw new Error(`read the seat: ${seat.error.code}`);
+  const seatId: string = seat.data.id;
 
   // A minute of slack, in case this laptop's clock is ahead of the database's.
   const since = new Date(Date.now() - 60_000).toISOString();
@@ -218,15 +238,9 @@ async function main(): Promise<void> {
         prompt.data?.ask_count === 1 &&
         prompt.data?.retired === false,
     );
-    const seat = await service
-      .from("seats")
-      .select("id")
-      .eq("slug", question.seat_slug)
-      .single();
-    if (seat.error) throw new Error(`read the seat: ${seat.error.code}`);
     check(
       "the prompt belongs to the seat asked",
-      prompt.data?.seat_id === seat.data.id,
+      prompt.data?.seat_id === seatId,
     );
 
     const routes = await service
@@ -291,7 +305,7 @@ async function main(): Promise<void> {
     const signedOut = await ask(undefined, question);
     check("a signed-out caller is refused", signedOut.status === 401);
 
-    const openBefore = await openDemandPrompts(service, seat.data.id);
+    const openBefore = await openDemandPrompts(service, seatId);
     const strangerResponse = await ask(stranger.token, question);
     const strangerResult = AskResult.parse(await strangerResponse.json());
     if (strangerResult.status === "abstained")
@@ -305,7 +319,7 @@ async function main(): Promise<void> {
         ? `routedTo ${strangerResult.routedTo}, promptId ${strangerResult.promptId ? "set" : "none"}`
         : strangerResult.status,
     );
-    const openAfter = await openDemandPrompts(service, seat.data.id);
+    const openAfter = await openDemandPrompts(service, seatId);
     check(
       "no demand prompt was created for it",
       openAfter === openBefore,
@@ -313,13 +327,12 @@ async function main(): Promise<void> {
     );
   } finally {
     // 6. Leave the demo database as it was.
-    const problem = await cleanUp(
-      service,
-      created,
-      [asker.userId, stranger.userId],
-      question.question,
+    const problem = await cleanUp(service, created, {
+      askerIds: [asker.userId, stranger.userId],
+      seatId,
+      text: question.question,
       since,
-    );
+    });
     console.log(
       problem
         ? `\n✗ #7 check: ${checks} checks, ${failed ? "failed" : "all passed"}, but the cleanup failed (${problem}): the demo data may not be as it was`
