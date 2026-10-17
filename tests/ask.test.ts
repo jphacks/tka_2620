@@ -62,6 +62,19 @@ describe("questionLang", () => {
     expect(questionLang("いつまで?")).toBe("ja");
     expect(questionLang("When is the health office deadline?")).toBe("en");
   });
+
+  it("keeps an English question with a Japanese word in it English", () => {
+    expect(questionLang("When is the 保健所 deadline?")).toBe("en");
+    expect(questionLang("Who has the 模擬店 forms？")).toBe("en");
+    expect(questionLang("Can I use ＬＩＮＥ？")).toBe("en");
+  });
+
+  it("reads kana, or kanji without Latin letters, as Japanese", () => {
+    expect(questionLang("LINEグループはどこ")).toBe("ja");
+    expect(questionLang("PDFの出し方")).toBe("ja");
+    expect(questionLang("模擬店 締切")).toBe("ja");
+    expect(questionLang("ｶｲｹｲ")).toBe("ja"); // half-width katakana
+  });
 });
 
 describe("handleAsk", () => {

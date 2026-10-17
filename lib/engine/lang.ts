@@ -1,11 +1,15 @@
 // questions.lang (docs/SPEC.md → Data model). The ask field is one text box, so the server reads the question's
-// language from its script: kana, kanji or Japanese punctuation means Japanese, anything else English.
-// Answers never use this: F2's model returns its own `language` with the sentences.
+// language from its script. The lang travels with the question: the predecessor's inbox shows it (InboxItem.lang),
+// and the live loop's re-answer is written in it (waiting_questions() in 0003).
 import type { Lang } from "@/lib/contracts";
 
-// Hiragana, katakana (full- and half-width), CJK ideographs and CJK punctuation.
-const JAPANESE = /[\u3000-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uff66-\uff9f]/;
+const KANA = /[぀-ヿｦ-ﾟ]/; // hiragana, katakana, half-width katakana
+const KANJI = /[㐀-䶿一-鿿]/;
+const LATIN = /[A-Za-zＡ-Ｚａ-ｚ]/; // full-width letters too
 
+// Kana means Japanese. Kanji alone can be a Japanese word inside an English question (When is the 保健所 deadline?),
+// so without kana a question is Japanese only when it has no Latin letters either.
 export function questionLang(text: string): Lang {
-  return JAPANESE.test(text) ? "ja" : "en";
+  if (KANA.test(text)) return "ja";
+  return KANJI.test(text) && !LATIN.test(text) ? "ja" : "en";
 }
