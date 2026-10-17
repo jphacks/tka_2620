@@ -101,9 +101,10 @@ export function AskPanel({
               <LiveStamp
                 question={question}
                 answer={{ ...result, live: result.live }}
+                api={api}
               />
             ) : (
-              <AnswerEntry question={question} answer={result} />
+              <AnswerEntry question={question} answer={result} api={api} />
             )
           ) : (
             <p className="dd-q">{question}</p>

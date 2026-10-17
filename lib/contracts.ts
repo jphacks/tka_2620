@@ -354,6 +354,22 @@ export type MyNote = z.infer<typeof MyNote>;
 export const MyNotesResponse = z.object({ notes: z.array(MyNote) });
 export type MyNotesResponse = z.infer<typeof MyNotesResponse>;
 
+// GET /api/notes/[id] -----------------------------------------------------------------------
+
+// One live note the caller may read: the source a citation's stamp opens (docs/DESIGN.md → AnswerEntry). The notes
+// policy decides, so a note out of the caller's scope, a withdrawn one and a missing one are all not_found. The seat
+// and term speak in the byline; nothing names a person.
+export const NoteView = z.object({
+  id: NoteId,
+  kind: NoteKind,
+  title: z.string(),
+  body: z.string(),
+  deadlineDate: IsoDate.optional(),
+  lang: Lang,
+  byline: z.string(),
+});
+export type NoteView = z.infer<typeof NoteView>;
+
 // POST /api/console/session (the console only) --------------------------------------------
 // The console's three panes sign in as these demo personas, one session each (docs/SPEC.md → Console panes).
 
@@ -525,6 +541,7 @@ export type Api = {
   import(request: ImportRequest): Promise<ImportResponse>; // POST /api/import
   withdraw(noteId: string): Promise<WithdrawResponse>; // POST /api/notes/[id]/withdraw
   myNotes(): Promise<MyNotesResponse>; // GET /api/me/notes
+  note(noteId: string): Promise<NoteView>; // GET /api/notes/[id]
   // Realtime: calls onRow for each row this session may see; returns the unsubscribe function.
   subscribe<C extends keyof RealtimeRows>(
     channel: C,

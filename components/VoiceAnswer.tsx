@@ -15,18 +15,10 @@ import {
   useState,
 } from "react";
 import type { AnswerMode } from "@/components/InboxSlip";
-import type { Api, CardDraft, InboxItem, NoteKind } from "@/lib/contracts";
+import { kindMarks } from "@/components/marks";
+import type { Api, CardDraft, InboxItem } from "@/lib/contracts";
 import { createMockApi } from "@/lib/mocks";
 import { createDictation, type DictationError } from "@/lib/voice";
-
-// docs/DESIGN.md → Marks and signs: a Japanese mark per kind, its word read from messages/kinds.*.
-const kindMarks: Record<NoteKind, string> = {
-  deadline: "〆",
-  contact: "℡",
-  rule_of_thumb: "◎",
-  pitfall: "㊟",
-  unwritten_rule: "※",
-};
 
 // The drafted card, so the predecessor sees exactly what 公開する will leave (F3: on mocks, show the card).
 function DraftedCard({ card }: { card: CardDraft }) {

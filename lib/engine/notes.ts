@@ -1,15 +1,19 @@
-// The author's own notes (F4.2): POST /api/notes/[id]/withdraw and GET /api/me/notes. Both run as the caller
-// (lib/engine/route.ts), so the database decides: withdraw_note() (0006) refuses a note the caller didn't write and
-// answers again every saved answer that cited it, and the notes policy (0002/0003) shows the author their own notes,
-// withdrawn ones included. Nothing here reads or logs a note's body.
+// The author's own notes (F4.2): POST /api/notes/[id]/withdraw and GET /api/me/notes, and one note a citation rests on
+// (F2.4): GET /api/notes/[id]. All run as the caller (lib/engine/route.ts), so the database decides: withdraw_note()
+// (0006) refuses a note the caller didn't write and answers again every saved answer that cited it, and the notes
+// policy (0002/0003) shows the author their own notes, withdrawn ones included, and anyone else only the live notes in
+// their scope. Only GET /api/notes/[id] reads a body, and nothing here logs one.
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import {
+  IsoDate,
   Lang,
   MyNote,
   type MyNotesResponse,
   NoteId,
+  NoteKind,
   NoteStatus,
+  NoteView,
   Scope,
   SeatSlug,
   Timestamp,
@@ -108,4 +112,50 @@ export async function myNotesAsCaller(
       MyNote.parse({ ...row, seat: seat.slug }),
     ),
   };
+}
+
+// GET /api/notes/[id] -------------------------------------------------------------------------
+
+export function handleNote(request: Request, id: string): Promise<Response> {
+  if (!NoteId.safeParse(id).success) {
+    return Promise.resolve(apiError("invalid_request"));
+  }
+  return asCaller(request, "GET /api/notes/[id]", (client) =>
+    noteAsCaller(client, id),
+  );
+}
+
+const SourceRow = z.object({
+  id: NoteId,
+  kind: NoteKind,
+  title: z.string(),
+  body: z.string(),
+  deadline_date: IsoDate.nullable(),
+  lang: Lang,
+  byline: z.string(),
+});
+
+// The note a citation's stamp opens. The policy decides what the caller may read; this adds only that the note is
+// live, so the author's own withdrawn note is gone here too, as it is from every answer. A note out of scope comes back
+// as no row, the same as a missing one, so the answer never tells whether it exists. The author, the scope, the note
+// that superseded it and the embedding are never selected.
+export async function noteAsCaller(
+  client: SupabaseClient,
+  id: string,
+): Promise<NoteView> {
+  const { data, error } = await client
+    .from("notes")
+    .select("id, kind, title, body, deadline_date, lang, byline")
+    .eq("id", id)
+    .eq("status", "live")
+    .maybeSingle();
+  if (error) throw dbFailure(error);
+  if (!data) throw new ApiFailure("not_found");
+  const row = SourceRow.safeParse(data);
+  if (!row.success) throw new ApiFailure("unavailable");
+  const { deadline_date, ...note } = row.data;
+  return NoteView.parse({
+    ...note,
+    ...(deadline_date && { deadlineDate: deadline_date }),
+  });
 }

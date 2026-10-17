@@ -1,13 +1,25 @@
 "use client";
 // docs/DESIGN.md → AnswerEntry: the question again in blue, then the answer in Klee One on the ruled grid, a mini
-// stamp after every sentence for each note it rests on. Tapping a stamp opens its source on the next ruled line.
+// stamp after every sentence for each note it rests on. Tapping a stamp opens the source note under its sentence,
+// read as the viewer (GET /api/notes/[id]), so the notes policy decides what opens.
 // Dates carry the highlighter, except the one a rule change replaced (the highlighter is for dates that matter);
 // a rule change is a red-pen margin note (a red bracket left of the sentence and 「2025年に変更」 after its stamps,
 // on the same line). Each sentence keeps the answer's lang, which can differ from the notes' (answers are written in
 // the asker's language); the UI text inside it keeps the page's.
 import { useLocale, useTranslations } from "next-intl";
-import { type ReactNode, useState } from "react";
-import type { AnsweredResult, AnswerSentence, Citation } from "@/lib/contracts";
+import { type ReactNode, useEffect, useState } from "react";
+import { kindMarks } from "@/components/marks";
+import {
+  type AnsweredResult,
+  type AnswerSentence,
+  type Api,
+  ApiError,
+  type Citation,
+  type NoteView,
+} from "@/lib/contracts";
+
+// Reading a note needs only this from the viewer's client (createApi, or createMockApi on mocks).
+type NoteReader = Pick<Api, "note">;
 
 // The term label's digits, last two: 「2025」→25, 「2025秋」→25 (the mini stamp holds 「25」).
 const stampDigits = (termLabel: string) =>
@@ -92,22 +104,53 @@ function ruleChangeIndex(answer: AnsweredResult, change?: Change): number {
   return withDate >= 0 ? withDate : ofTerm.indexOf(true);
 }
 
+// The note an opened stamp shows, once read: the note, or why it can't be shown (gone: withdrawn, out of the viewer's
+// scope or missing, which the route doesn't tell apart).
+type Source = { noteId: string; note?: NoteView; failure?: "gone" | "failed" };
+
 function SentenceLine({
   sentence,
   lang,
   land,
   replaced,
   changedIn,
+  api,
 }: {
   sentence: AnswerSentence;
   lang: string;
   land: boolean;
   replaced?: string;
   changedIn?: string;
+  api: NoteReader;
 }) {
   const t = useTranslations();
   const locale = useLocale();
   const [open, setOpen] = useState<Citation>();
+  const [source, setSource] = useState<Source>();
+  const openId = open?.noteId;
+  // Every opening reads the note again, so one withdrawn since the answer came is gone at once.
+  useEffect(() => {
+    if (!openId) return;
+    let alive = true;
+    setSource({ noteId: openId });
+    api.note(openId).then(
+      (note) => {
+        if (alive) setSource({ noteId: openId, note });
+      },
+      (error: unknown) => {
+        if (!alive) return;
+        const code = ApiError.safeParse(error).data?.error;
+        setSource({
+          noteId: openId,
+          failure: code === "not_found" ? "gone" : "failed",
+        });
+      },
+    );
+    return () => {
+      alive = false;
+    };
+  }, [api, openId]);
+  const shown = source?.noteId === openId ? source : undefined;
   // One stamp per note the sentence rests on (every sentence cites at least one retrieved note).
   const citations = sentence.citations.filter(
     (citation, i, all) =>
@@ -151,9 +194,39 @@ function SentenceLine({
         </span>
       </p>
       {open && (
-        <p className="dd-cap" lang={locale}>
-          {t("ask.source", { byline: open.byline })}
-        </p>
+        // Under its sentence, indented, every line on the 32px grid: whose note it is at once, then the note.
+        <div className="dd-source" aria-live="polite">
+          <p className="dd-cap" lang={locale}>
+            {t("ask.source", { byline: open.byline })}
+          </p>
+          {shown?.note && (
+            <>
+              <p className="dd-source-title" lang={shown.note.lang}>
+                <span
+                  className="dd-kind-mark"
+                  role="img"
+                  lang={locale}
+                  aria-label={t(`kinds.${shown.note.kind}`)}
+                >
+                  {kindMarks[shown.note.kind]}
+                </span>
+                {shown.note.title}
+              </p>
+              <p lang={shown.note.lang}>
+                {withMarker(shown.note.body, replaced)}
+              </p>
+            </>
+          )}
+          {shown?.failure && (
+            <p className="dd-cap" lang={locale}>
+              {t(
+                shown.failure === "gone"
+                  ? "ask.sourceGone"
+                  : "ask.sourceFailed",
+              )}
+            </p>
+          )}
+        </div>
       )}
     </>
   );
@@ -162,10 +235,13 @@ function SentenceLine({
 export function AnswerEntry({
   question,
   answer,
+  api,
   land = false,
 }: {
   question: string;
   answer: AnsweredResult;
+  /** The viewer's client: a stamp opens its note through it, as the viewer. */
+  api: NoteReader;
   /** The stamp-landing motion is the live loop's signature; plain answers just appear. */
   land?: boolean;
 }) {
@@ -183,6 +259,7 @@ export function AnswerEntry({
             sentence={sentence}
             lang={answer.language}
             land={land}
+            api={api}
             replaced={change?.before}
             // 「2025年に変更」: the term's year, so a term like 「2025秋」 reads the same.
             changedIn={
