@@ -264,24 +264,26 @@ describe("the mocks follow the seed", () => {
   it("open the cited notes as seed/notes.csv has them", () => {
     for (const note of mockNoteViews) {
       const row = notes.find((seed) => seed.id === note.id);
-      expect(row, `${note.id} isn't in seed/notes.csv`).toBeDefined();
+      // Compared field by field as booleans, so a failure names the note and the field, never a body or a canary.
+      const same = {
+        kind: note.kind === row?.kind,
+        title: note.title === row?.title,
+        body: note.body === row?.body,
+        deadline: (note.deadlineDate ?? "") === row?.deadline_date,
+        term: note.byline.slice(0, 4) === row?.term_label,
+        noCanary: !row?.canary,
+      };
       expect(
-        {
-          kind: note.kind,
-          title: note.title,
-          body: note.body,
-          deadline: note.deadlineDate ?? "",
-          term: note.byline.slice(0, 4),
-        },
+        same,
         `${note.id} differs from seed/notes.csv: update lib/mocks.ts`,
       ).toEqual({
-        kind: row?.kind,
-        title: row?.title,
-        body: row?.body,
-        deadline: row?.deadline_date,
-        term: row?.term_label,
+        kind: true,
+        title: true,
+        body: true,
+        deadline: true,
+        term: true,
+        noCanary: true,
       });
-      expect(row?.canary, `${note.id} carries a canary`).toBeFalsy();
     }
   });
 

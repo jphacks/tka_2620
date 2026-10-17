@@ -221,11 +221,11 @@ describe("noteAsCaller", () => {
     byline: "2025年度 会計",
   };
 
-  it("reads one live note as the caller, never its author, scope or embedding", async () => {
+  it("reads one live, unexpired note as the caller, never its author, scope or embedding", async () => {
     const { client, calls } = stubClient({
       notes: [{ data: row, error: null }],
     });
-    const note = await noteAsCaller(client, "smash-2025-hokenjo");
+    const note = await noteAsCaller(client, "smash-2025-hokenjo", "2026-10-18");
     expect(NoteView.parse(note)).toEqual({
       id: "smash-2025-hokenjo",
       kind: "deadline",
@@ -239,6 +239,8 @@ describe("noteAsCaller", () => {
       ["select", "id, kind, title, body, deadline_date, lang, byline"],
       ["eq", "id", "smash-2025-hokenjo"],
       ["eq", "status", "live"],
+      // Not expired on Tokyo's date, as search_notes (0004) leaves expired notes out of answers.
+      ["or", "valid_until.is.null,valid_until.gte.2026-10-18"],
     ]);
   });
 

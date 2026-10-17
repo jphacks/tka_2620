@@ -40,7 +40,10 @@ async function asCaller(
   try {
     const caller = await callerFor(token);
     if (!caller) return apiError("unauthorized");
-    return Response.json(await work(caller.db, caller.userId));
+    // One caller's own view: never kept by a cache on the way.
+    return Response.json(await work(caller.db, caller.userId), {
+      headers: { "cache-control": "private, no-store" },
+    });
   } catch (error) {
     return failed(route, error);
   }
@@ -135,19 +138,29 @@ const SourceRow = z.object({
   byline: z.string(),
 });
 
-// The note a citation's stamp opens. The policy decides what the caller may read; this adds only that the note is
-// live, so the author's own withdrawn note is gone here too, as it is from every answer. A note out of scope comes back
-// as no row, the same as a missing one, so the answer never tells whether it exists. The author, the scope, the note
-// that superseded it and the embedding are never selected.
+// Today on the Japanese calendar, which valid_until follows (fiscal years end 3/31), as search_notes (0004) reads it.
+function tokyoToday(): string {
+  return new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Tokyo" }).format(
+    new Date(),
+  );
+}
+
+// The note a citation's stamp opens. The policy decides what the caller may read; this adds what search_notes adds
+// for answers: the note is live and hasn't expired, so the author's own withdrawn note, or one past its valid_until
+// that a saved answer still cites, is gone here too. (A superseded note stays: it is history, and the rule-change
+// sentence cites it.) A note out of scope comes back as no row, the same as a missing one, so the answer never tells
+// whether it exists. The author, the scope, the note that superseded it and the embedding are never selected.
 export async function noteAsCaller(
   client: SupabaseClient,
   id: string,
+  today: string = tokyoToday(),
 ): Promise<NoteView> {
   const { data, error } = await client
     .from("notes")
     .select("id, kind, title, body, deadline_date, lang, byline")
     .eq("id", id)
     .eq("status", "live")
+    .or(`valid_until.is.null,valid_until.gte.${today}`)
     .maybeSingle();
   if (error) throw dbFailure(error);
   if (!data) throw new ApiFailure("not_found");
