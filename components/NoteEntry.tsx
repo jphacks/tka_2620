@@ -4,6 +4,7 @@
 // title, scope label and the withdrawal control; the kind mark, body and date stamp come with F5's review list.
 // Withdrawing is the Japanese correction mark: two red lines draw, then the entry closes (styles/components.css).
 import { useTranslations } from "next-intl";
+import { useLayoutEffect, useRef } from "react";
 import type { MyNote, SeatView } from "@/lib/contracts";
 
 /** line: the double line is drawing. collapse: the entry is closing and about to leave. */
@@ -33,8 +34,16 @@ export function NoteEntry({
   });
   const withdrawn = note.status === "withdrawn";
   const crossed = withdrawn || phase !== undefined;
+  const entry = useRef<HTMLElement>(null);
+  // The collapse runs from the entry's own height, so all of its 200ms shows (styles/components.css → .dd-collapse).
+  useLayoutEffect(() => {
+    if (phase === "collapse" && entry.current) {
+      entry.current.style.maxHeight = `${entry.current.offsetHeight}px`;
+    }
+  }, [phase]);
   return (
     <article
+      ref={entry}
       className={`dd-slip${crossed ? " dd-cross" : ""}${phase === "collapse" ? " dd-collapse" : ""}`}
       style={{
         display: "grid",
@@ -48,8 +57,9 @@ export function NoteEntry({
       <p className="dd-cap" style={{ margin: 0 }}>
         {scope}
       </p>
-      {withdrawn ? (
-        // Left in the author's own list after it left every answer (SPEC → Scope rules).
+      {withdrawn && phase === undefined ? (
+        // Left in the author's own list after it left every answer (SPEC → Scope rules). While the entry is
+        // closing, the disabled button keeps its place, so the entry doesn't jump before the collapse.
         <p
           className="dd-label"
           style={{ margin: 0, color: "var(--red)", fontWeight: 700 }}

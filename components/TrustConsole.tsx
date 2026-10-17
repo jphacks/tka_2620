@@ -177,7 +177,11 @@ export function TrustConsole() {
   const shownMs = meter.running ? Math.max(0, now - started.current) : meter.ms;
 
   return (
-    <div className="dd-pad dd-col" style={{ gap: "var(--s-5)" }}>
+    // Centred on the projector, with the header as wide as the three panes.
+    <div
+      className="dd-pad dd-col"
+      style={{ gap: "var(--s-5)", width: "fit-content", marginInline: "auto" }}
+    >
       <header
         className="dd-row"
         style={{ justifyContent: "space-between", alignItems: "baseline" }}

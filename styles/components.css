@@ -131,6 +131,7 @@ body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(
   background-repeat: no-repeat; background-position: 0 42%, 0 60%; background-size: 0% 1.5px, 0% 1.5px;
   animation: dd-cross var(--t-line, 220ms) ease-out forwards; }
 @keyframes dd-cross { to { background-size: 100% 1.5px, 100% 1.5px; } }
+/* NoteEntry sets max-height to the entry's own height as it starts closing; 320px is the fallback */
 .dd-collapse { overflow: hidden; max-height: 320px; animation: dd-collapse 200ms ease-in forwards; }
 @keyframes dd-collapse { to { max-height: 0; opacity: 0; margin-block: 0; padding-block: 0; border-width: 0; } }
 
@@ -139,10 +140,12 @@ body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(
 .dd-meter { font-family: var(--font-figures); font-variant-numeric: tabular-nums; font-size: var(--text-xxl); line-height: 1.1; font-weight: 700; color: var(--red); }
 .dd-meter.is-frozen { color: var(--ink); }
 .dd-safe { color: var(--green); font-family: var(--font-figures); font-variant-numeric: tabular-nums; }
+/* Read from the back of the room, beside the meter: the green 0 is the whole claim */
+.dd-leak { margin: 0; font-family: var(--font-figures); font-variant-numeric: tabular-nums; font-size: var(--text-xl); line-height: 1.1; font-weight: 700; }
 
 @media (prefers-reduced-motion: reduce) {
   .is-landing, .is-arriving, .dd-voice.is-listening::after { animation: none !important; }
   /* Instant state changes: the double line is simply there, and the entry is already closed */
   .dd-cross::after { animation: none !important; background-size: 100% 1.5px, 100% 1.5px; }
-  .dd-collapse { animation: none !important; max-height: 0; opacity: 0; }
+  .dd-collapse { animation: none !important; max-height: 0 !important; opacity: 0; margin-block: 0 !important; padding-block: 0 !important; border-width: 0 !important; }
 }

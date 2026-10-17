@@ -12,7 +12,7 @@ export function LeakCounter({
 }) {
   const t = useTranslations("leak");
   return (
-    <p className="dd-cap" style={{ margin: 0 }}>
+    <p className="dd-leak">
       {t.rich("counter", {
         leaks,
         probes,
