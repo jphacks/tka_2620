@@ -4,7 +4,7 @@ import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type AnswerMode, InboxSlip } from "@/components/InboxSlip";
 import { VoiceAnswer } from "@/components/VoiceAnswer";
-import type { InboxItem } from "@/lib/contracts";
+import type { Api, InboxItem } from "@/lib/contracts";
 import { createMockApi, mockNewcomerAsks } from "@/lib/mocks";
 import { useRealtime } from "@/lib/realtime";
 
@@ -22,14 +22,17 @@ export function InboxPanel({
   onAnswer,
   mockShortcuts = true,
   closeAfterPublish = false,
+  api: given,
 }: {
   slug: string;
   onAnswer?: (item: InboxItem, mode: AnswerMode) => void;
   mockShortcuts?: boolean;
   closeAfterPublish?: boolean;
+  /** The signed-in predecessor's client (a console pane's); mocks as a25 when left out. */
+  api?: Api;
 }) {
   const t = useTranslations();
-  const api = useMemo(() => createMockApi("a25"), []);
+  const api = useMemo(() => given ?? createMockApi("a25"), [given]);
   const [items, setItems] = useState<InboxItem[]>();
   const [arrived, setArrived] = useState<ReadonlySet<string>>(new Set());
   const [asking, setAsking] = useState(false);
@@ -118,6 +121,7 @@ export function InboxPanel({
           item={answering.item}
           seat={slug}
           mode={answering.mode}
+          api={api}
           onPublished={() => {
             load();
             if (!closeAfterPublish) return;

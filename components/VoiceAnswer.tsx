@@ -3,7 +3,7 @@
 // A round 80px --blue button with a microphone; one ring pulses while listening; the transcript is an
 // editable field in Klee One on ruled lines, so the keyboard's dictation works in the same place.
 // Mocks only for now (NEXT_PUBLIC_USE_MOCKS=1), as last year's treasurer (a25): the real client replaces
-// createMockApi when /api/handover/draft and /api/handover/publish exist.
+// createMockApi when /api/handover/draft and /api/handover/publish exist. The console hands in its a25 pane's client.
 import { Mic } from "lucide-react";
 import { useTranslations } from "next-intl";
 import {
@@ -15,7 +15,7 @@ import {
   useState,
 } from "react";
 import type { AnswerMode } from "@/components/InboxSlip";
-import type { CardDraft, InboxItem, NoteKind } from "@/lib/contracts";
+import type { Api, CardDraft, InboxItem, NoteKind } from "@/lib/contracts";
 import { createMockApi } from "@/lib/mocks";
 import { createDictation, type DictationError } from "@/lib/voice";
 
@@ -55,6 +55,7 @@ export function VoiceAnswer({
   mode = "voice",
   onPublished,
   onClose,
+  api: given,
 }: {
   item: InboxItem;
   seat: string;
@@ -62,9 +63,11 @@ export function VoiceAnswer({
   mode?: AnswerMode;
   onPublished?: () => void; // after publish: refresh the inbox (the waiting question is gone)
   onClose?: () => void; // dismiss the panel after reading the drafted card
+  /** The signed-in predecessor's client; mocks as a25 when left out. */
+  api?: Api;
 }) {
   const t = useTranslations();
-  const api = useMemo(() => createMockApi("a25"), []);
+  const api = useMemo(() => given ?? createMockApi("a25"), [given]);
   const fieldId = useId();
   const field = useRef<HTMLTextAreaElement>(null);
   const [text, setText] = useState("");

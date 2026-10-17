@@ -354,6 +354,22 @@ export type MyNote = z.infer<typeof MyNote>;
 export const MyNotesResponse = z.object({ notes: z.array(MyNote) });
 export type MyNotesResponse = z.infer<typeof MyNotesResponse>;
 
+// POST /api/console/session (the console only) --------------------------------------------
+// The console's three panes sign in as these demo personas, one session each (docs/SPEC.md → Console panes).
+
+export const ConsolePersona = z.enum(["a26", "a25", "x"]);
+export type ConsolePersona = z.infer<typeof ConsolePersona>;
+
+export const ConsoleSessionRequest = z.object({ persona: ConsolePersona });
+export type ConsoleSessionRequest = z.infer<typeof ConsoleSessionRequest>;
+
+// The persona's own session, for one pane's Supabase client (persistSession: false). Never stored.
+export const ConsoleSession = z.object({
+  accessToken: z.string().min(1),
+  refreshToken: z.string().min(1),
+});
+export type ConsoleSession = z.infer<typeof ConsoleSession>;
+
 // Errors -------------------------------------------------------------------------------------
 
 // Every route's error body; the HTTP status says the same: 400 invalid_request, 401 unauthorized, 403 forbidden,

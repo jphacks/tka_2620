@@ -55,7 +55,9 @@
     "outdated": "古い？",
     "outdatedDone": "次の引き継ぎで確認してもらいます",
     "ruleChange": "{term}にルールが変わりました",
-    "sourceChip": "{byline}"
+    "sourceChip": "{byline}",
+    "seatFailed": "この席を読み込めませんでした。通信を確かめて、このページを開き直してください。",
+    "failed": "質問を送れませんでした。もう一度聞いてください。"
   },
   "abstain": {
     "routed": "この質問を次の引き継ぎに追加しました。"
@@ -85,7 +87,11 @@
     "outsider": "部外者",
     "meter": "撤回にかかった秒数",
     "seconds": "{s}秒",
-    "reset": "リセット"
+    "reset": "リセット",
+    "signingIn": "3人のペルソナでログインしています",
+    "signInOff": "このサーバーではコンソールにログインできません。発表用のPCで CONSOLE_SIGN_IN に合言葉（16文字以上）を設定し、/console#key=合言葉 で開いてください。",
+    "signInFailed": "ペルソナでログインできませんでした。DEMO_PASSWORD を確かめて、開き直してください。",
+    "loadFailed": "ペインを読み込めませんでした。開き直してください。"
   },
   "onkuri": {
     "credit": "{n}人の先輩が、あなたの質問{q}個に答えました。次はあなたの番です！"
