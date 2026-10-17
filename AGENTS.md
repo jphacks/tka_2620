@@ -68,7 +68,9 @@ Screens build against `lib/mocks.ts` (`NEXT_PUBLIC_USE_MOCKS=1`) until the engin
 ## Workflow
 - Plan first for anything touching more than one file; implement against the acceptance check in SPEC.md,
   then run `pnpm typecheck` and the relevant tests and show the output.
-- Branch per person and feature (`nico/f2-answers`, `kage/f3-inbox`, `ishi/seed-notes`); small PRs to `main`.
+- Branch per person and feature from `dev` (`nico/f2-answers`, `kage/f3-inbox`, `ishi/seed-notes`); small PRs to
+  `dev` (`gh pr create --base dev`), never to `main`. Nico merges `dev` into `main`.
 - Commit prefixes: `[prep]` before 17 Oct, `[hackday]` from 17 Oct, with the feature number,
   e.g. `[hackday] F3 route unanswered questions to reachable predecessors`.
-- Never commit `.env*` or anything in `seed/private/`. Never push with `--force`. `main` must always run the demo.
+- Never commit `.env*` or anything in `seed/private/`. Never push with `--force`. `main` must always run the demo,
+  and `dev` must always typecheck: don't open a PR that builds on work `dev` doesn't have yet.

@@ -18,7 +18,8 @@
 
 - **Shared files** (`lib/contracts.ts`, `lib/mocks.ts`, `docs/SPEC.md`, `AGENTS.md`): change only by PR, and
   post one line in `#tka_2620` ("contracts: added `live` to AskResult").
-- **Nico is the merge captain**: merges PRs, keeps `main` demoable, owns the demo laptop, records the video.
+- **Nico is the merge captain**: merges PRs into `dev` and `dev` into `main` before each checkpoint, keeps `main`
+  demoable, owns the demo laptop, records the video.
 - **Ishibashi is also the newcomer tester**: at every checkpoint he uses `main` as a26 (the new treasurer)
   and reports anything confusing, in Japanese.
 
@@ -45,13 +46,16 @@
 Each checkpoint ends with one Slack message per person: ✅ done / ▶ next / ⛔ blocked.
 
 ## 5. Branches, commits, PRs
-- Branch per person and feature: `nico/f2-answers`, `kage/f3-inbox`, `ishi/seed-notes`.
-- Pull `main` before you start and before you open a PR. PRs every 60–90 minutes; small is fast.
+- Branch per person and feature, from `dev`: `nico/f2-answers`, `kage/f3-inbox`, `ishi/seed-notes`.
+- Pull `dev` before you start and before you open a PR. PRs every 60–90 minutes; small is fast.
+- PRs go to `dev`, never to `main`: `gh pr create --base dev` (on GitHub, change the base from `main` to `dev`).
+  Don't build on work that isn't in `dev` yet.
 - Commit messages: `[hackday] F3 route unanswered questions to reachable predecessors` (the README commit
   table is built from these).
 - A PR merges when: `pnpm typecheck && pnpm test` pass, the acceptance check output is pasted, UI PRs have a
   390px screenshot, and only the author's lane changed (or the lane owner approved).
-- Squash-merge into `main`. Never force-push. Never commit `.env*` or `seed/private/`.
+- Squash-merge into `dev`. Before each checkpoint Nico merges `dev` into `main` with a merge commit (never squash,
+  so the two branches don't drift apart). Never force-push. Never commit `.env*` or `seed/private/`.
 
 ## 6. Working with AI (any tool)
 Start every session with the same frame:

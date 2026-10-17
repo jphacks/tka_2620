@@ -8,6 +8,7 @@ F<n>: <one line>
 <390px screenshot; console changes also at 1920px>
 
 ## Checklist
+- [ ] Base branch is `dev` (GitHub suggests `main`)
 - [ ] Only my lane's folders changed, or the lane owner approved
 - [ ] `pnpm typecheck && pnpm test` pass
 - [ ] New UI text is in both `messages/ja.json` and `messages/en.json`
