@@ -9,11 +9,14 @@ export function MyNotes({
   notes,
   seat,
   withdrawing,
+  withdrawFailed = false,
   onWithdraw,
 }: {
   notes: MyNote[];
   seat: SeatView["seat"];
   withdrawing?: { id: string; phase: WithdrawPhase };
+  /** The last withdrawal failed: the note stayed, and the author can press 「撤回する」 again. */
+  withdrawFailed?: boolean;
   onWithdraw: (noteId: string) => void;
 }) {
   const t = useTranslations();
@@ -24,6 +27,11 @@ export function MyNotes({
       aria-label={t("verbs.myNotes")}
     >
       <h2 className="dd-h">{t("verbs.myNotes")}</h2>
+      {withdrawFailed && (
+        <p role="alert" style={{ margin: 0 }}>
+          {t("myNotes.withdrawFailed")}
+        </p>
+      )}
       <div className="dd-col" style={{ gap: "var(--s-4)" }} aria-live="polite">
         {notes.map((note) => (
           <NoteEntry

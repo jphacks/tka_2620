@@ -84,8 +84,7 @@
     "outsider": "Outsider",
     "meter": "Seconds to withdraw",
     "seconds": "{s}s",
-    "reset": "Reset",
-    "resetDone": "Back to the starting state"
+    "reset": "Reset"
   },
   "onkuri": {
     "credit": "{n} senpai answered {q} of your questions. Your turn!"
@@ -110,7 +109,8 @@
     "used": "This note was used in {n} answers",
     "empty": "You haven't written any notes yet.",
     "withdrawn": "Withdrawn",
-    "failed": "Couldn't load your notes. Reopen this page."
+    "failed": "Couldn't load your notes. Reopen this page.",
+    "withdrawFailed": "Couldn't withdraw the note. Press Withdraw again."
   },
   "inbox": {
     "title": "Questions from newcomers",
