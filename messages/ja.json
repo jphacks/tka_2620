@@ -99,12 +99,15 @@
   "inbox": {
     "title": "後輩からの質問",
     "arrived": "後輩から質問が届きました",
+    "from": "から",
     "askedBy": "{byline}からの質問",
-    "askCount": "{n}人が質問しました",
+    "askCount": "<fig>{n}</fig>人が質問しました",
     "answerByVoice": "声で答える",
     "answerByText": "文字で答える",
     "listening": "聞いています…",
-    "publish": "公開する"
+    "publish": "公開する",
+    "empty": "まだ質問は届いていません。",
+    "failed": "質問を読み込めませんでした。通信を確かめて、このページを開き直してください。"
   },
   "live": {
     "answered": "いま、{byline}が答えました",
@@ -149,5 +152,8 @@
   "trust": {
     "nothing": "このページで見られるメモはありません",
     "leaks": "漏れ {leaks} / {attempts} 回"
+  },
+  "mock": {
+    "newcomerAsks": "後輩が質問する（モック）"
   }
 }

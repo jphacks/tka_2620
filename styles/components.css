@@ -3,7 +3,8 @@
    components (className="dd-stamp") or translate them to Tailwind; keep the names in docs/DESIGN.md. */
 body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--font-ui); font-size: 16px; line-height: 1.6; letter-spacing: .02em; line-break: strict; }
 @supports (text-autospace: normal) { body { text-autospace: normal; } }
-.dd-pad { padding: var(--s-4) var(--s-5); }
+.dd-pad { padding: var(--s-4); }
+@media (min-width: 600px) { .dd-pad { padding-inline: var(--s-5); } } /* side gutter 16px on phones, 24px from 600px */
 .dd-row { display: flex; flex-wrap: wrap; gap: var(--s-4); align-items: center; }
 .dd-col { display: grid; gap: var(--s-3); }
 .dd-label, .dd-btn, .dd-h { font-feature-settings: "palt"; letter-spacing: .04em; word-break: auto-phrase; }
@@ -96,8 +97,8 @@ body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(
 .dd-inbox { max-width: 360px; padding: var(--s-4); border-top: 1px dashed var(--ink-2); }
 .dd-field { display: grid; grid-template-columns: 56px 1fr; align-items: end; gap: var(--s-2); border-bottom: 1px solid var(--rule); padding: var(--s-1) 0; }
 .dd-field dt { font-size: 13px; color: var(--ink-2); }
-.dd-field dd { margin: 0; font-weight: 700; }
-.dd-inbox-q { word-break: auto-phrase; font-family: var(--font-hand); font-size: 20px; line-height: var(--s-6); font-weight: 600; margin: var(--s-3) 0 var(--s-1); }
+.dd-field dd { margin: 0; font-weight: 700; overflow-wrap: anywhere; }
+.dd-inbox-q { word-break: auto-phrase; overflow-wrap: anywhere; font-family: var(--font-hand); font-size: 20px; line-height: var(--s-6); font-weight: 600; margin: var(--s-3) 0 var(--s-1); }
 .is-arriving { animation: dd-arrive var(--t-quick, 160ms) ease-out both; }
 @keyframes dd-arrive { from { transform: translateY(-8px); } to { transform: none; } }
 
