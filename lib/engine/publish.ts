@@ -47,6 +47,8 @@ export type PublishModels = {
 };
 
 const ROUTE = "POST /api/handover/publish";
+// Provenance is the chip under an added note (「LINEグループ・2024年10月」): a few words, never a name or a contact.
+const PROVENANCE_MAX = 80;
 
 export async function handlePublish(request: Request): Promise<Response> {
   const token = bearerToken(request);
@@ -149,8 +151,12 @@ export async function publishAsCaller(
     // 「更新する」 needs a way to mark the old note superseded, which is F5.6; publishing it as a second note would be
     // wrong, so it's refused until then.
     if (card.supersedes) throw new ApiFailure("invalid_request");
-    // Drafting only advises: the output guard runs again here, on what is actually published.
-    if (card.flags.secret || blockReason(`${card.title}\n${card.body}`)) {
+    if ((card.provenance?.length ?? 0) > PROVENANCE_MAX) {
+      throw new ApiFailure("invalid_request");
+    }
+    // Drafting only advises: the output guard runs again here, on everything a reader will see.
+    const shown = [card.title, card.body, card.provenance ?? ""].join("\n");
+    if (card.flags.secret || blockReason(shown)) {
       throw new ApiFailure("unredacted");
     }
   }

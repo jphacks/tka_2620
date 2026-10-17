@@ -10,7 +10,7 @@
 // The reads that must see past a persona's own rows use the service-role key, which only scripts/ may hold.
 // Everything this check creates is removed afterwards, and it says the demo data is back only when it is.
 // Don't run it during a rehearsal: it puts a slip in a25's inbox and answers a26's q04, and its cleanup removes a26's
-// q04 questions and a25's live notes from the last minutes.
+// q04 questions from the last minutes (the notes it removes are only the one it published).
 // Counts, ids, personas and timings only: never the question, note or answer text, never an email.
 import { readFile } from "node:fs/promises";
 import {
@@ -242,34 +242,43 @@ type Run = {
   askerId: string;
   publisherId: string;
   text: string;
-  noteIds: string[];
   since: string;
+  noteIds: string[]; // what the publish answered
+  publishedSince?: string; // set just before a25 publishes
 };
 
-// a25's live notes at the seat since the run started: the ones it published, and any from a request that failed after
-// the insert.
-async function runNotes(service: SupabaseClient, run: Run) {
-  return service
+// The notes this run published. Only when the publish answered no ids (a request that failed after the insert) does
+// it look for one: a25's live note at the seat with the card's title, written from the publish on. Never a note it
+// didn't write, such as a rehearsal's at the same time.
+async function runNotes(
+  service: SupabaseClient,
+  run: Run,
+): Promise<{ ids: string[] } | { problem: string }> {
+  if (run.noteIds.length > 0 || !run.publishedSince)
+    return { ids: run.noteIds };
+  const found = await service
     .from("notes")
     .select("id")
     .eq("seat_id", run.seatId)
     .eq("author_user_id", run.publisherId)
     .eq("source", "live")
-    .gte("created_at", run.since);
+    .eq("title", CARD.title)
+    .gte("created_at", run.publishedSince);
+  if (found.error)
+    return { problem: `find the run's note: ${found.error.code}` };
+  return { ids: (found.data ?? []).map((row) => row.id) };
 }
 
 // Removes what this run created: a26's q04 questions at the seat since it started (their answers rows go with them),
 // the demand prompts those questions started (their routes go with them; never a prompt a question only joined), and
-// a25's live notes from the run. Answers what went wrong, or undefined.
+// the note a25 published. Answers what went wrong, or undefined.
 async function cleanUp(
   service: SupabaseClient,
   run: Run,
 ): Promise<string | undefined> {
   const notes = await runNotes(service, run);
-  if (notes.error) return `find the run's notes: ${notes.error.code}`;
-  const noteIds = [
-    ...new Set([...run.noteIds, ...(notes.data ?? []).map((row) => row.id)]),
-  ];
+  if ("problem" in notes) return notes.problem;
+  const noteIds = notes.ids;
   const asked = await service
     .from("questions")
     .select("id")
@@ -442,6 +451,7 @@ async function main(): Promise<void> {
     );
 
     // 4. a25 publishes the card for the prompt: the note is saved and a26's question answered again.
+    run.publishedSince = new Date(Date.now() - 10_000).toISOString(); // a little slack for the clocks
     const publishedAt = performance.now();
     const published = await call("/api/handover/publish", {
       token: publisher.token,

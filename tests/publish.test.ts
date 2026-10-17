@@ -326,6 +326,26 @@ describe("publishAsCaller", () => {
         },
         "invalid_request",
       ],
+      [
+        "a provenance with a phone number in it",
+        {
+          request: {
+            ...request,
+            cards: [{ ...card, provenance: "会計の携帯 090-1234-5678" }],
+          },
+        },
+        "unredacted",
+      ],
+      [
+        "a provenance longer than a chip",
+        {
+          request: {
+            ...request,
+            cards: [{ ...card, provenance: "LINEグループ・".repeat(10) }],
+          },
+        },
+        "invalid_request",
+      ],
     ])("%s", async (_case, options, code) => {
       const { error, calls, embedded } = await run(options);
       expect(error).toMatchObject({ name: "ApiFailure", code });
