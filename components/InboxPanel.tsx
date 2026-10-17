@@ -13,13 +13,15 @@ const newestFirst = (a: InboxItem, b: InboxItem) =>
 
 // The inbox on the predecessor's phone (残す): newcomers' questions nobody could answer, arriving without a reload.
 // Mocks only for now (NEXT_PUBLIC_USE_MOCKS=1), as last year's treasurer (a25); the real client replaces
-// createMockApi when /api/inbox exists (#8).
+// createMockApi when /api/inbox exists (#8). The console hides the one-phone shortcut (the a26 pane asks instead).
 export function InboxPanel({
   slug,
   onAnswer,
+  mockShortcuts = true,
 }: {
   slug: string;
   onAnswer?: (item: InboxItem, mode: AnswerMode) => void;
+  mockShortcuts?: boolean;
 }) {
   const t = useTranslations();
   const api = useMemo(() => createMockApi("a25"), []);
@@ -116,7 +118,7 @@ export function InboxPanel({
         />
       )}
       {/* Plays the newcomer asking q04 in this tab (lib/mocks.ts), so the loop works on one phone. */}
-      {items?.length === 0 && (
+      {mockShortcuts && items?.length === 0 && (
         <button
           type="button"
           className="dd-link"
