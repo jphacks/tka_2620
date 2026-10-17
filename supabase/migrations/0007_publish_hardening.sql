@@ -37,13 +37,15 @@ $$;
 
 -- lib/engine/guard.ts nearValue(): a token of four or more letters, digits or symbols with a digit in it, within 12
 -- characters of the keyword, that isn't an amount, a year or a count (4821, smash2025, 1234-5678; not 10000円, 2026年).
+-- More than 20 of the keyword is no seat knowledge either; it also bounds the work, since each regexp_instr() below
+-- scans from the start.
 create function private.near_value(plain text, keyword text)
 returns boolean
 language sql
 immutable
 set search_path = ''
 as $$
-  select exists (
+  select case when regexp_count(plain, keyword, 1, 'i') > 20 then true else exists (
     select 1
     from generate_series(1, regexp_count(plain, keyword, 1, 'i')) as k (n)
     cross join lateral (
@@ -56,15 +58,16 @@ as $$
       'g'
     ) as token
     where token[1] ~ '[0-9]'
-  );
+  ) end;
 $$;
 
 -- What lib/engine/guard.ts blockReason() refuses as contact details or credentials, pattern for pattern: change the
--- two together. NFKC turns full-width letters, digits and symbols into ASCII (０９０, ＠, ．), and kanji digits become
--- digits. Word characters are spelled out in ASCII, as JS's \w has them: [[:alnum:]] matches 時 and 部 here (ICU), and
--- would refuse 「18時@部室に集合」, which the route lets through. Then, in order:
+-- two together. NFKC turns full-width letters, digits and symbols into ASCII (０９０, ＠, ．), invisible characters
+-- (zero-width spaces, soft hyphens) go, and kanji digits become digits. Word characters are spelled out in ASCII, as
+-- JS's \w has them: [[:alnum:]] matches 時 and 部 here (ICU), and would refuse 「18時@部室に集合」, which the route lets
+-- through. Then, in order:
 --   - an email, or an @handle with a letter in it (＠500円 is a unit price);
---   - a phone number as written, even right after another number (受付 9:00-17:00 03-1234-5678);
+--   - a phone number as written, even right after another number (受付 9:00-17:00 03-1234-5678), or as bare digits;
 --   - a phone number once up to three separators between digits are gone, but not a time's colon (〇九〇の一二三四…);
 --   - a value next to 電話, TEL, 携帯, FAX or LINE ID, or next to a credential word.
 create function private.holds_contact_or_secret(shown text)
@@ -75,7 +78,8 @@ set search_path = ''
 as $$
   select plain ~ '[A-Za-z0-9_.+-][[:space:]]?@[[:space:]]?[A-Za-z0-9_-]'
     or plain ~ '(?<![A-Za-z0-9_.])@(?=[A-Za-z0-9_.]*[A-Za-z_])[A-Za-z0-9_.]{2,}'
-    or plain ~ '(?<![0-9])(0[0-9]{1,4}|\+81[- ()・のー‐‑‒–—―−]{0,3}[0-9]{1,4})[- ()・のー‐‑‒–—―−]{1,3}[0-9]{1,4}[- ()・のー‐‑‒–—―−]{1,3}[0-9]{3,4}(?![0-9])'
+    or plain ~ '(?<![0-9])(0[0-9]{1,4}|\+81[- ().・のー‐‑‒–—―−]{0,3}[0-9]{1,4})[- ().・のー‐‑‒–—―−]{1,3}[0-9]{1,4}[- ().・のー‐‑‒–—―−]{1,3}[0-9]{3,4}(?![0-9])'
+    or plain ~ '(?<![0-9])(\+?810?[0-9]{9,10}|0[0-9]{9,10})(?![0-9])'
     or regexp_replace(plain, '([0-9])(?:[^[:alnum:]:]|[のー]){1,3}(?=[0-9])', '\1', 'g')
       ~ '(?<![0-9])(\+?810?[0-9]{9,10}|0[0-9]{9,10})(?![0-9])'
     or private.near_value(
@@ -86,20 +90,32 @@ as $$
       plain,
       '暗証番号|口座番号|カード番号|パスワード|password|passcode|(?<![A-Za-z0-9_])PIN(?![A-Za-z0-9_])|ログインID'
     )
-  from (select translate(normalize(shown, nfkc), '〇一二三四五六七八九', '0123456789') as plain) as normalized;
+  from (
+    select translate(
+      regexp_replace(normalize(shown, nfkc), '[\u00AD\u200B-\u200F\u2060-\u2064\uFEFF]', '', 'g'),
+      '〇一二三四五六七八九',
+      '0123456789'
+    ) as plain
+  ) as normalized;
 $$;
 
 -- On every insert, and every edit of the text a reader sees, whoever writes (the service role too). Security definer
 -- only to reach the function above, which no API role may call; it reads no table. DD001 lets the route answer
--- unredacted.
+-- unredacted. The text is at most what a published card may hold (title 100, body 2000, provenance 80 characters):
+-- this trigger runs before RLS, so anyone signed in reaches it, and the guard's work grows with the text.
 create function private.reject_contact_details()
 returns trigger
 language plpgsql
 security definer
 set search_path = ''
 as $$
+declare
+  shown text := concat_ws(E'\n', new.title, new.body, new.provenance);
 begin
-  if private.holds_contact_or_secret(concat_ws(E'\n', new.title, new.body, new.provenance)) then
+  if length(shown) > 2200 then
+    raise exception 'notes: a note is at most 2200 characters' using errcode = '22001';
+  end if;
+  if private.holds_contact_or_secret(shown) then
     raise exception 'notes: a note holds no contact details or credentials' using errcode = 'DD001';
   end if;
   return new;
@@ -112,13 +128,13 @@ for each row execute function private.reject_contact_details();
 
 -- Delivering a live answer --------------------------------------------------------------
 
--- As 0003's, with more checks (the language, and every sentence's text: there, and without contact details or
--- credentials, as the notes guard has it), and the answer stored from known parts only: each sentence's text with its
--- citations as the notes have them, the language and live.byline. Anything else the caller sends is dropped, a
--- rule-change flag included: a live answer cites one term's notes, so it never has one, and the flag is never the
--- caller's to set. The sentence text is still the caller's; the route writes it from the notes, and only the asker the
--- question was routed to reads it. 0006's answers trigger locks the cited notes as the row is written, so a note
--- withdrawn after the checks below still leaves the answer.
+-- As 0003's, with more checks (the language, at most 40 sentences as 0006 keeps, and every sentence's text: there,
+-- and without contact details or credentials, as the notes guard has it), and the answer stored from known parts
+-- only: each sentence's text with its citations as the notes have them, the language and live.byline. Anything else
+-- the caller sends is dropped, a rule-change flag included: a live answer cites one term's notes, so it never has
+-- one, and the flag is never the caller's to set. The sentence text is still the caller's; the route writes it from
+-- the notes, and only the asker the question was routed to reads it. 0006's answers trigger locks the cited notes as
+-- the row is written, so a note withdrawn after the checks below still leaves the answer.
 create or replace function public.deliver_answer(question uuid, answer jsonb)
 returns void
 language plpgsql
@@ -145,6 +161,7 @@ begin
     or jsonb_typeof(answer -> 'live' -> 'byline') is distinct from 'string'
     or jsonb_typeof(answer -> 'sentences') is distinct from 'array'
     or answer -> 'sentences' = '[]'::jsonb
+    or jsonb_array_length(answer -> 'sentences') > 40
   then
     raise exception 'deliver_answer: not a live answered result for this question' using errcode = '22023';
   end if;
@@ -158,10 +175,12 @@ begin
   ) then
     raise exception 'deliver_answer: every sentence has text and cites at least one note' using errcode = '22023';
   end if;
-  if exists (
-    select 1 from jsonb_array_elements(answer -> 'sentences') s where private.holds_contact_or_secret(s ->> 'text')
-  ) then
-    raise exception 'deliver_answer: a sentence holds no contact details or credentials' using errcode = 'DD001';
+  -- All sentences at once, a line each as the asker sees them, so a number split across two is found too.
+  if private.holds_contact_or_secret((
+    select string_agg(s.sentence ->> 'text', E'\n' order by s.position)
+    from jsonb_array_elements(answer -> 'sentences') with ordinality as s (sentence, position)
+  )) then
+    raise exception 'deliver_answer: an answer holds no contact details or credentials' using errcode = 'DD001';
   end if;
 
   if exists (

@@ -33,6 +33,11 @@ describe("blockReason", () => {
     "10/20 03-1234-5678",
     "〒113-0033 03-1234-5678",
     "10/20 +81 90-1234-5678",
+    "2025/10/20 09012345678",
+    "受付 9:00-17:00 03.1234.5678",
+    // Invisible characters, and more of a keyword than any seat knowledge has
+    "kaikei@\u200Bexample.com",
+    "電話".repeat(21),
   ])("blocks contact details: %s", (text) => {
     expect(blockReason(text)).toBe("contact");
   });
@@ -72,6 +77,7 @@ describe("blockReason", () => {
     "受付 09:00〜17:00、30人まで",
     "09:00-10:30 12人",
     "日時 10/20 09:30 〜 10/21 12:00",
+    "会計年度は 2025/04/01〜2026/03/31。09:30 1200円",
   ])("lets seat knowledge through: %s", (text) => {
     expect(blockReason(text)).toBeUndefined();
   });
