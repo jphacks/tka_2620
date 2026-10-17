@@ -157,12 +157,8 @@
     "nothing": "There are no notes you can see here",
     "leaks": "Leaks {leaks} / {attempts} attempts"
   },
-  "demo": {
-    "ask": "(Mock) the newcomer asks",
-    "deliver": "(Mock) last year's treasurer answers and publishes",
-    "reset": "(Mock) reset"
-  },
   "mock": {
-    "newcomerAsks": "Newcomer asks (mock)"
+    "newcomerAsks": "Newcomer asks (mock)",
+    "predecessorAnswers": "Predecessor answers and publishes (mock)"
   }
 }

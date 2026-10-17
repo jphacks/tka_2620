@@ -1,13 +1,15 @@
-import { LiveAnswerDemo } from "@/components/LiveAnswerDemo";
+import { AskPanel } from "@/components/AskPanel";
 import { USE_MOCKS } from "@/lib/mocks";
 
-export default function SeatPage() {
-  // F3.1 (#3) turns this page into the real AskField + AbstainEntry screen; until then, with
-  // NEXT_PUBLIC_USE_MOCKS=1 the newcomer half of the live loop (#6) runs in a demo harness.
-  if (!USE_MOCKS) return <main />;
+export default async function SeatPage({ params }: PageProps<"/s/[seat]">) {
+  const { seat } = await params;
   return (
-    <main className="dd-pad">
-      <LiveAnswerDemo />
+    <main
+      className="dd-pad"
+      style={{ maxWidth: "640px", marginInline: "auto" }}
+    >
+      {/* The ask box runs on mocks until the real API client exists. */}
+      {USE_MOCKS && <AskPanel slug={seat} />}
     </main>
   );
 }

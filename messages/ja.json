@@ -157,12 +157,8 @@
     "nothing": "このページで見られるメモはありません",
     "leaks": "漏れ {leaks} / {attempts} 回"
   },
-  "demo": {
-    "ask": "（モック）後輩が質問をする",
-    "deliver": "（モック）去年の会計が答えて公開する",
-    "reset": "（モック）リセット"
-  },
   "mock": {
-    "newcomerAsks": "後輩が質問する（モック）"
+    "newcomerAsks": "後輩が質問する（モック）",
+    "predecessorAnswers": "先輩が答えて公開する（モック）"
   }
 }
