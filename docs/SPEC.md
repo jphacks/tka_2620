@@ -227,6 +227,7 @@ type AskResult =
 // Realtime `answers` (asker only)        → AskResult with status "answered" and `live` set
 // GET  /api/inbox?seat=                  → { items: { promptId: string; question: string; askedBy: string; askCount: number; askedAt: string; lang: Lang }[] }
 // Realtime `prompt_routes` (recipient)   → a new inbox item (the row has no question text: refetch the inbox)
+// POST /api/inbox/seen { promptId }      → { seenAt: string }   (the slip was opened; the first open counts)
 // POST /api/handover/draft { seat, promptId, answer }  → { cards: CardDraft[]; followup?: { missing: "date" | "contact" | "threshold"; question: string } }
 // POST /api/handover/publish { seat, promptId?, cards: (CardDraft & { scope: Scope; supersedes?: string; provenance?: string; source?: "import" | "file" | "chat" })[] } → { noteIds: string[]; reanswered: string[] }
 //   source: only for added cards (import is stateless); the server sets handover or live for the others

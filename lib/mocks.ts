@@ -42,6 +42,8 @@ import {
   SeatQuery,
   SeatSlug,
   type SeatView,
+  SeenRequest,
+  type SeenResponse,
   type WithdrawResponse,
 } from "@/lib/contracts";
 import { questionLang } from "@/lib/engine/lang";
@@ -324,6 +326,9 @@ export const mockInboxItem: InboxItem = {
   askedAt: "2026-10-18T10:31:02+09:00",
   lang: "ja",
 };
+
+// POST /api/inbox/seen as a25, opening that slip.
+export const mockSeen: SeenResponse = { seenAt: "2026-10-18T10:31:20+09:00" };
 
 // POST /api/handover/draft for the spoken answer: one rule-of-thumb card, people only by role.
 export const mockLiveCard: CardDraft = {
@@ -706,6 +711,7 @@ type Waiting = {
   lang: Lang;
   askedAt: string;
   askers: { questionId: string; persona: Persona }[];
+  seenAt?: string; // the first time a25 opened the slip (POST /api/inbox/seen)
 };
 
 type State = {
@@ -960,6 +966,15 @@ export function createMockApi(
             }))
           : [];
       return reply({ items });
+    },
+
+    async seen(request) {
+      const { promptId } = SeenRequest.parse(request);
+      const prompt =
+        persona === "a25" ? state.waiting.get(promptId) : undefined;
+      if (!prompt) throw new MockApiError("not_found");
+      prompt.seenAt ??= now();
+      return reply({ seenAt: prompt.seenAt });
     },
 
     async draft(request) {
