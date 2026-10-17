@@ -181,9 +181,10 @@ function unquote(text: string): string {
 
 const COLON_LINE = /^([^\s:][^:]{0,23}?)\s*:\s*(.*)$/;
 const CLOCK = String.raw`(?:(?:午前|午後|AM|PM)\s?)?\d{1,2}:\d{2}(?::\d{2})?(?:\s?[AP]M)?`;
-// 名前 — 2024/04/12 21:03, 名前 [21:03], 名前␣␣21:03 (two spaces or a tab) or 名前 9:03 PM. 練習 19:00 is no header.
+// 名前 — 2024/04/12 21:03, 名前 [21:03], 名前␣␣21:03 (two spaces) or 名前 9:03 PM. 練習 19:00 and 新歓⇥18:30 (a
+// schedule copied from a spreadsheet) are no headers.
 const HEADER_LINE = new RegExp(
-  String.raw`^(\S.{0,23}?)(?:\s+[—–]\s+.*\d{1,2}:\d{2}.*|\s+\[${CLOCK}\]|(?: {2,}|\t)\s*${CLOCK}|\s\d{1,2}:\d{2}\s?[AP]M)$`,
+  String.raw`^(\S.{0,23}?)(?:\s+[—–]\s+.*\d{1,2}:\d{2}.*|\s+\[${CLOCK}\]| {2,}${CLOCK}|\s\d{1,2}:\d{2}\s?[AP]M)$`,
   "i",
 );
 const LEADING_CLOCK = new RegExp(String.raw`^\[${CLOCK}\]\s*`, "i"); // [21:05] 名前: 本文

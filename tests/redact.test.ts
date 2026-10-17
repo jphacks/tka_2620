@@ -174,6 +174,12 @@ describe("redactText rules", () => {
     ["bit.ly/3xYz9 で", "[URL: bit.ly] で"],
     ["https://forms.gle/AbC123こちらから", "[URL: forms.gle]こちらから"],
     ["https://ken-takahashi.github.io/about を見て", "[URL] を見て"],
+    ["https://ken-takahashi.notion.site/page", "[URL: notion.site]"],
+    ["https://takahashi-lab.eng.example.ac.jp/x", "[URL: example.ac.jp]"],
+    [
+      "https://docs.google.com/forms/d/e/1FAIp/viewform",
+      "[URL: docs.google.com]",
+    ],
   ])("url keeps a service's host only: %s", (input, output) => {
     expect(redactText(input).text).toBe(output);
   });
@@ -185,6 +191,7 @@ describe("redactText rules", () => {
     ["@smash_kaikei に DM", "[ID] に DM"],
     ["インスタは smash_tennis", "インスタは [ID]"],
     ["X: smash_tennis", "X: [ID]"],
+    ["Xは smash_tennis", "Xは [ID]"],
     ["学籍番号 21B12345 を書く", "学籍番号 [学籍番号] を書く"],
     ["学生証:J4-56789", "学生証:[学籍番号]"],
   ])("id: %s", (input, output) => {
@@ -228,6 +235,8 @@ describe("redactText rules", () => {
     ["暗証番号は?\n\nabcd1234\n合宿は2月", "[秘密]\n\n[秘密]\n合宿は2月"],
     ["暗証番号は?\n部長に聞いて", "[秘密]\n部長に聞いて"],
     ["暗証番号は部長に聞いて\n9876", "[秘密]\n9876"],
+    ["暗証番号(金庫)\n9876", "[秘密]\n[秘密]"],
+    ["暗証番号は以下\n九八七六", "[秘密]\n[秘密]"],
   ])("secret line: %s", (input, output) => {
     expect(redactText(input).text).toBe(output);
   });
@@ -263,6 +272,7 @@ describe("redactText rules", () => {
       "今日高橋さんに会った。高橋は会計に詳しい",
       "[人]に会った。[人]は会計に詳しい",
     ],
+    ["テニス部高橋さん。高橋に聞く", "[人]。[人]に聞く"],
   ])("person: %s", (input, output) => {
     expect(redactText(input).text).toBe(output);
   });
@@ -325,6 +335,7 @@ describe("redactText rules", () => {
     "インスタで告知、Xで拡散",
     "今日はパスで、パスタを食べる",
     "定期パスは学生課で",
+    "税務署さん、ご苦労様、お世話様です",
     "テニスサークルSmash",
     "代表者氏名を書く",
     "宿は二名様から、お客様と業者様",

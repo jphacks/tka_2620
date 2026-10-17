@@ -179,6 +179,7 @@ describe("parsePaste", () => {
         "部室で渡します",
         "[21:12] 加藤陽菜: 了解です",
         "練習 19:00",
+        "新歓\t18:30",
       ].join("\n"),
     );
     expect(messages).toEqual([
@@ -186,7 +187,11 @@ describe("parsePaste", () => {
       { at: null, speaker: "高橋健太", text: "保健所の書類は学生課で" },
       { at: null, speaker: "Misaki Nakamura", text: "Thanks, I'll get it" },
       { at: null, speaker: "小林誠", text: "部室で渡します" },
-      { at: null, speaker: "加藤陽菜", text: "了解です\n練習 19:00" },
+      {
+        at: null,
+        speaker: "加藤陽菜",
+        text: "了解です\n練習 19:00\n新歓\t18:30",
+      },
     ]);
   });
 });

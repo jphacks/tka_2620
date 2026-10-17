@@ -188,13 +188,16 @@ class Run {
         if (!line.trim()) return line;
         const keywords = [...line.matchAll(SECRET)];
         const value =
-          this.carry && [...line].length < 40 && /[A-Za-z0-9]/.test(line);
+          this.carry &&
+          [...line].length < 40 &&
+          /[A-Za-z0-9〇一二三四五六七八九]/.test(line);
         this.carry = false;
         const last = keywords.at(-1);
         if (!last && !value) return line;
         if (last) {
           const rest = line
             .slice(last.index + last[0].length)
+            .replace(NOTE, "")
             .replace(FILLER, "");
           this.carry = !/[\p{L}\p{N}]/u.test(rest);
         }
@@ -253,15 +256,57 @@ const always =
 // stay).
 const SECRET =
   /パスワード|暗[証唱](?:番号|コード)?|あんしょう(?:ばんごう)?|パスコード|(?<!定期|フリー|年間|コン|バイ)パス(?=\s*(?:は|:|=|教え|変え|変わ))|(?:金庫|鍵|カギ|ロッカー|南京錠)の?(?:番号|ダイヤル)|ダイヤル(?:番号)?(?=\s*(?:は|:))|(?<![A-Za-z])(?:pin|pw|password|passcode|passwd)(?:\s?(?:code|コード|番号))?(?![A-Za-z])/gi;
-// What may follow a keyword when the value is on the next line.
+// What may follow a keyword when the value is on the next line: a note in brackets (暗証番号(金庫)), and words
+// such as は, 以下, 下記の通り.
+const NOTE = /\([^)]*\)|【[^】]*】|「[^」]*」|\[[^\]]*\]/g;
 const FILLER =
-  /[\s:=?!、。.]|は|が|を|も|です|でした|になります|教えて|ください|変わった|変わりました|変えた|変えました|変更しました|新しい/g;
+  /[\s:=?!、。.→↓]|は|が|を|も|です|でした|になります|教えて|ください|変わった|変わりました|変えた|変えました|変更しました|新しい|以下|下記|次|の?通り|こちら/g;
 const LIST_MARKER = /^\s*(?:[-*•・]\s+|#+\s+|\d{1,2}[.)]\s+)?/;
 
-// A URL keeps only its host (the path can hold a form's or a private document's key), and only a service's or an
-// institution's host: a personal site's can hold a name (taro-yamada.github.io).
-const SERVICE_HOST =
-  /(?:^|\.)(?:google\.com|forms\.gle|goo\.gl|bit\.ly|line\.me|youtube\.com|youtu\.be|x\.com|twitter\.com|instagram\.com|facebook\.com|notion\.so|notion\.site|zoom\.us|microsoft\.com|office\.com|dropbox\.com|ac\.jp|go\.jp|lg\.jp|ed\.jp)$/i;
+// A URL keeps only its host (the path can hold a form's or a private document's key), and of the host only what
+// names a service or an institution: a personal site (taro-yamada.github.io), a workspace (taro.notion.site) or a
+// lab (tanaka-lab.….ac.jp) can hold a name. docs.google.com stays; taro.notion.site → notion.site;
+// tanaka-lab.eng.u-tokyo.ac.jp → u-tokyo.ac.jp; anything else → [URL].
+const SERVICE_HOSTS = new Set([
+  "forms.gle",
+  "goo.gl",
+  "bit.ly",
+  "youtu.be",
+  "docs.google.com",
+  "drive.google.com",
+  "sites.google.com",
+  "calendar.google.com",
+  "maps.google.com",
+  "forms.office.com",
+  "teams.microsoft.com",
+]);
+const SERVICE_DOMAINS = [
+  "google.com",
+  "line.me",
+  "youtube.com",
+  "x.com",
+  "twitter.com",
+  "instagram.com",
+  "facebook.com",
+  "notion.so",
+  "notion.site",
+  "zoom.us",
+  "microsoft.com",
+  "office.com",
+  "dropbox.com",
+];
+const INSTITUTION = /(?:^|\.)([a-z0-9-]+\.(?:ac|go|lg|ed)\.jp)$/;
+
+function shownHost(url: string): string | undefined {
+  const name = host(url)?.toLowerCase();
+  if (!name) return undefined;
+  if (SERVICE_HOSTS.has(name)) return name;
+  const institution = INSTITUTION.exec(name);
+  if (institution) return institution[1];
+  return SERVICE_DOMAINS.find(
+    (domain) => name === domain || name.endsWith(`.${domain}`),
+  );
+}
 const URL_CHARS = String.raw`[\w\-.~:/?#@!$&'*+,;=%]`;
 const URL_PATTERN = new RegExp(
   String.raw`(?:https?://|www\.)${URL_CHARS}+|(?<![\w.@/-])(?:[a-z0-9-]+\.)+(?:com|net|org|info|jp|io|ly|gle|me|app|dev|co|us|link)/${URL_CHARS}*`,
@@ -279,7 +324,7 @@ const HIDDEN_EMAIL =
 const STUDENT_ID =
   /(?<=(?:学籍番号|学生番号|学生証番号|学生証|学籍|student\s?(?:id|number|no\.?))\s*(?::|=|は|が)?\s*)(?=[A-Za-z0-9-]*\d)[A-Za-z0-9][A-Za-z0-9-]{3,15}(?![A-Za-z0-9-])/giu;
 const LINE_ID =
-  /(?<=(?<![A-Za-z])(?:LINE\s?|ライン\s?)?ID\s*(?:は|が|を)?\s*:?\s*|(?:LINE|ライン|(?<![A-Za-z])X)\s*:\s*|(?:インスタ(?:グラム)?|instagram|insta|ツイッター|twitter|tiktok|ティックトック|threads|スレッズ|discord|ディスコ(?:ード)?|アカウント|垢)(?:の)?(?:アカウント)?(?:名)?\s*(?:は|:)?\s*)[\w.-]{3,32}(?![\w.-]|[年月日円人])/giu;
+  /(?<=(?<![A-Za-z])(?:LINE\s?|ライン\s?)?ID\s*(?:は|が|を)?\s*:?\s*|(?:LINE|ライン)\s*:\s*|(?<![A-Za-z])X\s*(?::|は)\s*|(?:インスタ(?:グラム)?|instagram|insta|ツイッター|twitter|tiktok|ティックトック|threads|スレッズ|discord|ディスコ(?:ード)?|アカウント|垢)(?:の)?(?:アカウント)?(?:名)?\s*(?:は|:)?\s*)[\w.-]{3,32}(?![\w.-]|[年月日円人])/giu;
 
 // 4111 1111 1111 1111, 3782-822463-10005, or digits after カード番号.
 const CARD =
@@ -327,11 +372,8 @@ const RULES: Rule[] = [
   {
     pattern: URL_PATTERN,
     replace: (url, _found, hide) => {
-      const name = host(url);
-      return hide(
-        "urls",
-        name && SERVICE_HOST.test(name) ? `[URL: ${name}]` : PLACEHOLDER.url,
-      );
+      const name = shownHost(url);
+      return hide("urls", name ? `[URL: ${name}]` : PLACEHOLDER.url);
     },
   },
   { pattern: EMAIL, replace: always("emails", PLACEHOLDER.email) },
@@ -413,7 +455,7 @@ const NAMED = new RegExp(
   "gu",
 );
 const ROLE =
-  /(?:係|課|局|会|店|社|協|庁|館|校|院|団|班|組|隊|担当|長|員|役|者|師|医|官|家|大学|東大|京大|阪大|早大|名大|北大|九大|幹事|会計|書記|顧問|監督|コーチ|マネージャー|マネ|リーダー|キャプテン|主将|代表|前任|後任|先代|歴代|年度|窓口|事務|業者|大家|皆|客|後輩|同期|上級生|新入生|学生|年生|院生|留学生|新人|本人|友人|知人|管理人|社会人|大人|選手|運転手|相手|助手|弁護士|税理士|会計士|先方|親方|親|母|父|兄|姉|弟|妹|婆|爺|赤|奥|旦那|神|メンバー|スタッフ|ゲスト|オーナー|ママ|パパ|OB|OG|[〇一二三四五六七八九十百]+[名人])$/u;
+  /(?:係|課|局|署|会|店|社|協|庁|館|校|院|団|班|組|隊|担当|長|員|役|者|師|医|官|家|苦労|世話|馳走|大学|東大|京大|阪大|早大|名大|北大|九大|幹事|会計|書記|顧問|監督|コーチ|マネージャー|マネ|リーダー|キャプテン|主将|代表|前任|後任|先代|歴代|年度|窓口|事務|業者|大家|皆|客|後輩|同期|上級生|新入生|学生|年生|院生|留学生|新人|本人|友人|知人|管理人|社会人|大人|選手|運転手|相手|助手|弁護士|税理士|会計士|先方|親方|親|母|父|兄|姉|弟|妹|婆|爺|赤|奥|旦那|神|メンバー|スタッフ|ゲスト|オーナー|ママ|パパ|OB|OG|[〇一二三四五六七八九十百]+[名人])$/u;
 // 部, 屋, 所, 室 and 園 end surnames too (阿部, 土屋, 田所, 小室, 前園). A word ending in one is a role only as one of
 // these short words, or with three characters or more unless its end is such a surname (学生部 and 保健所 are roles;
 // 長谷部 and 日下部 are names).
@@ -435,8 +477,8 @@ function isRole(word: string): boolean {
 
 // The names a word before an honorific stands for, and whether each also goes without it. A two- to four-kanji or a
 // Latin name does (田中先輩 … 田中に聞く); a one-character, katakana, hiragana or longer word only with its honorific
-// (マイク is a microphone). A long kanji run often has the name at its end (今日高橋さん): its last two and three
-// characters count as names too.
+// (マイク is a microphone). A longer word often has the name in its last kanji (今日高橋さん, テニス部高橋さん): its
+// last two and three kanji count as names too.
 function candidates(word: string): [string, boolean][] {
   if (/^[\p{sc=Hiragana}ー]+$/u.test(word)) {
     return KANA_WORD.test(word) ? [] : [[word, false]];
@@ -456,10 +498,11 @@ function candidates(word: string): [string, boolean][] {
   const found: [string, boolean][] = [
     [word, /^[\p{sc=Han}々]{2,4}$/u.test(word)],
   ];
-  if (/^[\p{sc=Han}々]{3,}$/u.test(word)) {
-    for (const size of [2, 3]) {
-      const end = word.slice(-size);
-      if (end.length < word.length && !isRole(end)) found.push([end, true]);
+  const tail = /[\p{sc=Han}々]+$/u.exec(word)?.[0] ?? ""; // テニス部高橋 → 部高橋
+  for (const size of [2, 3]) {
+    if (size < word.length && size <= tail.length) {
+      const end = tail.slice(-size);
+      if (!isRole(end)) found.push([end, true]);
     }
   }
   return found;
