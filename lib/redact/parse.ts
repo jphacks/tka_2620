@@ -188,6 +188,12 @@ const HEADER_LINE = new RegExp(
   "i",
 );
 const LEADING_CLOCK = new RegExp(String.raw`^\[${CLOCK}\]\s*`, "i"); // [21:05] 名前: 本文
+
+// A line shaped like a copied chat's header, which a doc doesn't have: the 「＋ 追加」 panel (components/redaction.ts)
+// reads text pasted as a doc as a chat when it holds one, so its speakers get roles.
+export function isChatHeader(line: string): boolean {
+  return HEADER_LINE.test(line) || LEADING_CLOCK.test(line);
+}
 const LABELS = new Set([
   "日時",
   "日付",
