@@ -113,32 +113,42 @@ function SentenceLine({
     (citation, i, all) =>
       all.findIndex((other) => other.noteId === citation.noteId) === i,
   );
+  // The sentence's last character (or the date it ends on) goes with its stamps and margin note, so a stamp never
+  // starts a line alone; 「。」 can't start a line either, so the character before it comes along.
+  const parts = withMarker(sentence.text, replaced);
+  const last = parts.pop();
+  const chars = typeof last === "string" ? Array.from(last) : [];
+  const tail = typeof last === "string" ? chars.pop() : last;
   return (
     <>
       <p lang={lang} className={changedIn ? "dd-margin" : undefined}>
-        {withMarker(sentence.text, replaced)}
-        {citations.map((citation) => (
-          <button
-            key={citation.noteId}
-            type="button"
-            lang={locale}
-            aria-label={t("live.stamp", { byline: citation.byline })}
-            aria-expanded={open?.noteId === citation.noteId}
-            className={`dd-mini${land ? " is-landing" : ""}`}
-            onClick={() =>
-              setOpen((current) =>
-                current?.noteId === citation.noteId ? undefined : citation,
-              )
-            }
-          >
-            {stampDigits(citation.termLabel)}
-          </button>
-        ))}
-        {changedIn && (
-          <span className="dd-margin-note" lang={locale}>
-            {t("ask.changedIn", { term: changedIn })}
-          </span>
-        )}
+        {parts}
+        {chars.join("")}
+        <span style={{ whiteSpace: "nowrap" }}>
+          {tail}
+          {citations.map((citation) => (
+            <button
+              key={citation.noteId}
+              type="button"
+              lang={locale}
+              aria-label={t("live.stamp", { byline: citation.byline })}
+              aria-expanded={open?.noteId === citation.noteId}
+              className={`dd-mini${land ? " is-landing" : ""}`}
+              onClick={() =>
+                setOpen((current) =>
+                  current?.noteId === citation.noteId ? undefined : citation,
+                )
+              }
+            >
+              {stampDigits(citation.termLabel)}
+            </button>
+          ))}
+          {changedIn && (
+            <span className="dd-margin-note" lang={locale}>
+              {t("ask.changedIn", { term: changedIn })}
+            </span>
+          )}
+        </span>
       </p>
       {open && (
         <p className="dd-cap" lang={locale}>
