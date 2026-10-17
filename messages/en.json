@@ -57,7 +57,9 @@
     "ruleChange": "The rule changed in {term}",
     "sourceChip": "{byline}",
     "changedIn": "Changed in {term}",
-    "source": "Source: a note by {byline}"
+    "source": "Source: a note by {byline}",
+    "seatFailed": "Couldn't load this seat. Check your connection and reopen this page.",
+    "failed": "Couldn't send your question. Ask it again."
   },
   "abstain": {
     "routed": "Added to the next handover."
@@ -77,7 +79,21 @@
     "done": "Withdrawn (gone from answers in {ms} ms)"
   },
   "leak": {
-    "counter": "Leaks {leaks} / {probes} checks"
+    "counter": "Leaks <safe>{leaks}</safe> / {probes} checks",
+    "notRun": "Leak test not run yet"
+  },
+  "console": {
+    "title": "Trust proof",
+    "newcomer": "The new treasurer",
+    "predecessor": "Last year's treasurer",
+    "outsider": "Outsider",
+    "meter": "Seconds to withdraw",
+    "seconds": "{s}s",
+    "reset": "Reset",
+    "signingIn": "Signing in the three personas",
+    "signInOff": "Console sign-in is off here. On the presenting laptop, set CONSOLE_SIGN_IN to a passphrase (16+ characters) and open /console#key=<passphrase>.",
+    "signInFailed": "Couldn't sign the personas in. Check DEMO_PASSWORD and reopen this page.",
+    "loadFailed": "Couldn't load the panes. Reopen this page."
   },
   "onkuri": {
     "credit": "{n} senpai answered {q} of your questions. Your turn!"
@@ -89,7 +105,10 @@
   },
   "seat": {
     "upcoming": "Coming up",
-    "upcomingItem": "{title} by {date} · {byline}"
+    "upcomingItem": "{title} by {date} · {byline}",
+    "signingIn": "Signing in",
+    "signInOff": "Sign-in is off on this server. On the presenting laptop, set CONSOLE_SIGN_IN to a passphrase (16+ characters) and open this page with #key=<passphrase>&as=a26 (or a25).",
+    "signInFailed": "Couldn't sign in. Check DEMO_PASSWORD and reopen this page."
   },
   "kinds": {
     "deadline": "Deadline",
@@ -99,7 +118,11 @@
     "unwritten_rule": "Unwritten rule"
   },
   "myNotes": {
-    "used": "This note was used in {n} answers"
+    "used": "This note was used in {n} answers",
+    "empty": "You haven't written any notes yet.",
+    "withdrawn": "Withdrawn",
+    "failed": "Couldn't load your notes. Reopen this page.",
+    "withdrawFailed": "Couldn't withdraw the note. Press Withdraw again."
   },
   "inbox": {
     "title": "Questions from newcomers",

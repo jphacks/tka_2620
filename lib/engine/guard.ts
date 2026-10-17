@@ -1,6 +1,6 @@
 // The output guard (docs/SPEC.md → adding knowledge, step 8): a drafted card is checked again for contact details,
 // credentials and names before anyone can publish it. Heuristics on top of the model's own rules; a card that trips
-// one is blocked, never repaired. Card drafting uses it now; import and publish can run the same checks.
+// one is blocked, never repaired. Drafting and publishing use it; import can run the same checks.
 
 export type BlockReason = "contact" | "secret" | "name";
 
@@ -12,10 +12,12 @@ export function blockReason(text: string): BlockReason | undefined {
   return undefined;
 }
 
-// NFKC turns full-width letters, digits and symbols into ASCII (０９０, ＠, ．); kanji digits become digits as well.
+// NFKC turns full-width letters, digits and symbols into ASCII (０９０, ＠, ．); invisible characters (zero-width
+// spaces, soft hyphens, direction marks, variation selectors) go, and kanji digits become digits as well.
 export function normalize(text: string): string {
   return text
     .normalize("NFKC")
+    .replace(/\p{Cf}|\p{Variation_Selector}|\u034F/gu, "")
     .replace(/[〇一二三四五六七八九]/g, (digit) =>
       String("〇一二三四五六七八九".indexOf(digit)),
     );
@@ -25,16 +27,31 @@ const CREDENTIAL =
   /暗証番号|口座番号|カード番号|パスワード|password|passcode|\bPIN\b|ログインID/gi;
 const CONTACT_WORD = /電話|\bTEL\b|携帯|\bFAX\b|LINE\s?ID/gi;
 
-// Emails (also kaikei@example。com and kaikei@gmail), @handles, phone numbers once up to three non-alphanumeric
-// characters (or の, ー) between digits are gone, and a number next to 電話 or TEL.
+// A phone number as written, in the shapes Japanese numbers take: an area code and an exchange that make ten digits
+// with the four of the subscriber (03-1234-5678, 0466-12-3456), a mobile or IP number (090-1234-5678), a free dial
+// (0120-123-456), with +81 for the 0 (+81 (0)90 1234 5678). Found even right after another number (受付 9:00-17:00
+// 03-1234-5678), where joining the digits would run the two together; a date before an amount (2026.01.05 1500円)
+// has fewer digits than any of these shapes.
+const SEPARATOR = "[-‐‑‒–—―−ー ().・の]";
+const PHONE = new RegExp(
+  `(?<!\\d)(?:0|\\+81${SEPARATOR}{0,3}(?:0\\)?)?)` +
+    `(?:(?:\\d${SEPARATOR}{1,3}\\d{4}|\\d{2}${SEPARATOR}{1,3}\\d{3}|\\d{3}${SEPARATOR}{1,3}\\d{2}|\\d{4}${SEPARATOR}{1,3}\\d|[5789]0${SEPARATOR}{1,3}\\d{4})${SEPARATOR}{1,3}\\d{4}` +
+    `|(?:120|570|800)${SEPARATOR}{1,3}\\d{3}${SEPARATOR}{1,3}\\d{3,4})(?!\\d)`,
+);
+const PHONE_DIGITS = /(?<!\d)(?:\+?810?\d{9,10}|0\d{9,10})(?!\d)/;
+
+// Emails (also kaikei@example。com and kaikei@gmail), @handles (with a letter in them: ＠500円 is a unit price),
+// phone numbers as written, as bare digits, or once up to three non-alphanumeric characters (or の, ー, and a colon
+// unless a time's two digits follow it) between digits are gone, and a number next to 電話 or TEL.
 function hasContactDetails(plain: string): boolean {
   if (/[\w.+-]+\s?@\s?[\w-]+/.test(plain)) return true;
-  if (/(?<![\w.])@[A-Za-z0-9_.]{2,}/.test(plain)) return true;
+  if (/(?<![\w.])@(?=[\w.]*[A-Za-z_])[\w.]{2,}/.test(plain)) return true;
+  if (PHONE.test(plain) || PHONE_DIGITS.test(plain)) return true;
   const digits = plain.replace(
-    /(\d)(?:[^\p{L}\p{N}]|[のー]){1,3}(?=\d)/gu,
+    /(\d)(?:[^\p{L}\p{N}:]|:(?!\d{2}(?!\d))|[のー]){1,3}(?=\d)/gu,
     "$1",
   );
-  if (/(?<!\d)(?:\+?810?\d{9,10}|0\d{9,10})(?!\d)/.test(digits)) return true;
+  if (PHONE_DIGITS.test(digits)) return true;
   return nearValue(plain, CONTACT_WORD);
 }
 

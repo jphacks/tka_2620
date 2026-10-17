@@ -13,6 +13,8 @@
     "test": "vitest run",
     "test:ask": "node --env-file-if-exists=.env.local --import tsx scripts/check-ask.ts",
     "test:inbox": "node --env-file-if-exists=.env.local --import tsx scripts/check-inbox.ts",
+    "test:publish": "node --env-file-if-exists=.env.local --import tsx scripts/check-publish.ts",
+    "test:withdraw": "node --env-file-if-exists=.env.local --import tsx scripts/check-withdraw.ts",
     "smoke": "node --env-file-if-exists=.env.local scripts/smoke.ts",
     "seed": "node --env-file-if-exists=.env.local --import tsx scripts/seed.ts",
     "demo:reset": "pnpm seed"

@@ -1,4 +1,5 @@
 import { AskPanel } from "@/components/AskPanel";
+import { SeatSignIn } from "@/components/SeatSignIn";
 import { USE_MOCKS } from "@/lib/mocks";
 
 export default async function SeatPage({ params }: PageProps<"/s/[seat]">) {
@@ -8,8 +9,12 @@ export default async function SeatPage({ params }: PageProps<"/s/[seat]">) {
       className="dd-pad"
       style={{ maxWidth: "640px", marginInline: "auto" }}
     >
-      {/* The ask box runs on mocks until the real API client exists. */}
-      {USE_MOCKS && <AskPanel slug={seat} />}
+      {/* On mocks as a26; on real data as the persona in #key=…&as=… (components/SeatSignIn.tsx). */}
+      {USE_MOCKS ? (
+        <AskPanel slug={seat} />
+      ) : (
+        <SeatSignIn slug={seat} panel="ask" />
+      )}
     </main>
   );
 }

@@ -594,7 +594,15 @@ const seedNote = (
   title: string,
   scope: Scope,
   author: Persona,
-): AuthoredNote => ({ id, title, scope, status: "live", lang: "ja", author });
+): AuthoredNote => ({
+  id,
+  seat: SEAT,
+  title,
+  scope,
+  status: "live",
+  lang: "ja",
+  author,
+});
 
 const seedNotes: AuthoredNote[] = [
   seedNote("smash-2024-hokenjo", "模擬店の保健所申請", "successor", "a24"),
@@ -1004,6 +1012,7 @@ export function createMockApi(
       cards.forEach((card, i) => {
         state.published.push({
           id: noteIds[i],
+          seat,
           title: card.title,
           scope: card.scope,
           status: "live",

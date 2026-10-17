@@ -339,8 +339,11 @@ export type WithdrawResponse = z.infer<typeof WithdrawResponse>;
 
 // GET /api/me/notes ------------------------------------------------------------------------
 
+// seat: the slug of the seat the note was written at, so 自分のメモ says each note's scope in that seat's words
+// (「次の会計だけ」), also for an author who holds more than one seat.
 export const MyNote = z.object({
   id: NoteId,
+  seat: SeatSlug,
   title: z.string(),
   scope: Scope,
   status: NoteStatus,
@@ -350,6 +353,22 @@ export type MyNote = z.infer<typeof MyNote>;
 
 export const MyNotesResponse = z.object({ notes: z.array(MyNote) });
 export type MyNotesResponse = z.infer<typeof MyNotesResponse>;
+
+// POST /api/console/session (the console only) --------------------------------------------
+// The console's three panes sign in as these demo personas, one session each (docs/SPEC.md → Console panes).
+
+export const ConsolePersona = z.enum(["a26", "a25", "x"]);
+export type ConsolePersona = z.infer<typeof ConsolePersona>;
+
+export const ConsoleSessionRequest = z.object({ persona: ConsolePersona });
+export type ConsoleSessionRequest = z.infer<typeof ConsoleSessionRequest>;
+
+// The persona's own session, for one pane's Supabase client (persistSession: false). Never stored.
+export const ConsoleSession = z.object({
+  accessToken: z.string().min(1),
+  refreshToken: z.string().min(1),
+});
+export type ConsoleSession = z.infer<typeof ConsoleSession>;
 
 // Errors -------------------------------------------------------------------------------------
 
@@ -408,6 +427,34 @@ export type RealtimeRows = {
   notes: NotesRow;
   events: EventsRow;
 };
+
+// metrics/latest.json (`pnpm metrics`, F4.5) ------------------------------------------------
+// The measured numbers, committed: the README's Numbers table (docs/README-SECTIONS.md) and the console's leak counter
+// read them, so no screen ever shows a number someone typed. Counts and seconds only, never text. A section is
+// missing until its test has run.
+
+export const Metrics = z.object({
+  measuredAt: Timestamp,
+  // pnpm test:leak: attempts by outsiders (≥50) and by every persona, and how many returned something out of scope.
+  leaks: z
+    .object({ outsiderAttempts: Count, totalAttempts: Count, found: Count })
+    .optional(),
+  // Click to absent in every pane, over runs (SPEC F4: median under 1 s over 10).
+  withdraw: z
+    .object({ runs: Count, medianS: z.number(), maxS: z.number() })
+    .optional(),
+  // seed/questions.csv: answer sentences, and those citing a retrieved note.
+  citations: z.object({ sentences: Count, cited: Count }).optional(),
+  // pnpm test:redact: chats imported, items hidden, items that left the browser.
+  redaction: z
+    .object({ chats: Count, hidden: Count, leftBrowser: Count })
+    .optional(),
+  // pnpm test:loop: runs, failures and the median from 「誰も知りません」 to the signed answer.
+  loop: z
+    .object({ runs: Count, failures: Count, medianS: z.number() })
+    .optional(),
+});
+export type Metrics = z.infer<typeof Metrics>;
 
 // LLM outputs (docs/SPEC.md → LLM contracts) ----------------------------------------------
 // No transforms (they can't become JSON Schema) and no minimums: the code checks each item, so one bad
