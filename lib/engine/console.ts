@@ -2,11 +2,15 @@
 // its own user with its own Supabase client (docs/SPEC.md → Console panes). The demo password stays on the server;
 // the pane gets that persona's session and nothing else.
 //
-// Off unless the server running the console sets CONSOLE_SIGN_IN=1 (the presenter's laptop): anywhere else the route
-// answers not_found, as if it didn't exist. With it on, anyone who can reach that server can get these three demo
-// sessions, so turn it on only where the audience can't reach (localhost, or the team's tailnet without Funnel),
-// never on a public deployment. The accounts hold synthetic seed data only; `pnpm demo:reset` restores them.
-// A browser on another site can't read the answer: there are no CORS headers, and a JSON body needs a preflight.
+// Off unless the server running the console sets CONSOLE_SIGN_IN to a passphrase of at least 16 characters (the
+// presenter's laptop only, never a hosted deployment); off, the route answers not_found, as if it didn't exist. On,
+// a request must also carry that passphrase in x-console-key, or it gets not_found too. The passphrase is the
+// boundary, not the network: `next dev` listens on every interface, the repo is public, and at a hackathon anyone on
+// the venue Wi-Fi could otherwise take the three demo accounts mid-demo. The console reads it from its URL fragment
+// (/console#key=…), which never reaches a server or a log. The custom header means a page on another site needs a
+// preflight it doesn't get (no CORS headers), and the answer is never cached. The accounts hold synthetic seed data
+// only; `pnpm demo:reset` recreates them, which also ends every session handed out.
+import { timingSafeEqual } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import {
   type ConsolePersona,
@@ -22,22 +26,40 @@ const ACCOUNT: Record<ConsolePersona, string> = {
   x: "yamate-outsider",
 };
 
+// Shorter than this counts as off: "1" or "true" must not turn the route on.
+const MIN_PASSPHRASE = 16;
+
 export type SignIn = (persona: ConsolePersona) => Promise<ConsoleSession>;
+
+// The request's x-console-key against the passphrase, in constant time.
+function keyMatches(request: Request, passphrase: string): boolean {
+  const given = Buffer.from(request.headers.get("x-console-key") ?? "");
+  const expected = Buffer.from(passphrase);
+  return given.length === expected.length && timingSafeEqual(given, expected);
+}
 
 export async function handleConsoleSession(
   request: Request,
   {
-    enabled = process.env.CONSOLE_SIGN_IN === "1",
+    passphrase = process.env.CONSOLE_SIGN_IN,
     signIn = signInWithDemoPassword,
-  }: { enabled?: boolean; signIn?: SignIn } = {},
+  }: { passphrase?: string; signIn?: SignIn } = {},
 ): Promise<Response> {
-  if (!enabled) return apiError("not_found");
+  if (
+    !passphrase ||
+    passphrase.length < MIN_PASSPHRASE ||
+    !keyMatches(request, passphrase)
+  ) {
+    return apiError("not_found");
+  }
   const parsed = ConsoleSessionRequest.safeParse(
     await request.json().catch(() => undefined),
   );
   if (!parsed.success) return apiError("invalid_request");
   try {
-    return Response.json(await signIn(parsed.data.persona));
+    return Response.json(await signIn(parsed.data.persona), {
+      headers: { "cache-control": "no-store" },
+    });
   } catch (error) {
     // The code only: never the email or the password.
     return failed("POST /api/console/session", error);

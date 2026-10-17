@@ -89,7 +89,7 @@
     "seconds": "{s}秒",
     "reset": "リセット",
     "signingIn": "3人のペルソナでログインしています",
-    "signInOff": "このサーバーではコンソールにログインできません。発表用のPCで CONSOLE_SIGN_IN=1 を設定して、開き直してください。",
+    "signInOff": "このサーバーではコンソールにログインできません。発表用のPCで CONSOLE_SIGN_IN に合言葉（16文字以上）を設定し、/console#key=合言葉 で開いてください。",
     "signInFailed": "ペルソナでログインできませんでした。DEMO_PASSWORD を確かめて、開き直してください。",
     "loadFailed": "ペインを読み込めませんでした。開き直してください。"
   },

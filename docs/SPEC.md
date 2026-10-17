@@ -239,8 +239,8 @@ type AskResult =
 //   → { cards: (CardDraft & { source: "import" | "file" | "chat"; provenance?: string })[]; missing: { topic: string; reason: string; prompt: string }[];
 //       blocked: { title: string; reason: string }[]; duplicates: { card: number; noteId: string; title: string; byline: string; similarity: number }[] }
 // POST /api/notes/[id]/withdraw          → { withdrawnAt: string }
-// POST /api/console/session { persona: "a26" | "a25" | "x" } → { accessToken: string; refreshToken: string }
-//   the console only: not_found unless the server sets CONSOLE_SIGN_IN=1 (the presenter's laptop, never a public URL)
+// POST /api/console/session { persona: "a26" | "a25" | "x" } + header x-console-key → { accessToken: string; refreshToken: string }
+//   the console only: not_found unless the server's CONSOLE_SIGN_IN passphrase (16+ characters) matches x-console-key
 // GET  /api/me/notes                     → { notes: { id: string; seat: string; title: string; scope: Scope; status: "live" | "withdrawn"; lang: Lang }[] }
 //   seat: the slug of the seat the note was written at (its scope label uses that seat's words)
 // Any error                              → { error: "invalid_request" | "unauthorized" | "forbidden" | "not_found" | "unredacted" | "unavailable" }
@@ -252,7 +252,10 @@ type AskResult =
 - **Console panes:** each pane creates its own Supabase client signed in as its persona
   (`persistSession: false`), so three personas run side by side in one browser. The session comes from
   `POST /api/console/session`, which signs in with `DEMO_PASSWORD` on the server, so the password never reaches the
-  browser; the route exists only where `CONSOLE_SIGN_IN=1` (server-only env, set on the presenting laptop alone).
+  browser. The route exists only where the server-only env `CONSOLE_SIGN_IN` holds a passphrase (16+ characters, the
+  presenting laptop alone), and only for requests carrying it: open the console as `/console#key=<passphrase>` (the
+  fragment never reaches a server, and the page takes it out of the address bar). `next dev` listens on every
+  interface and the repo is public, so the passphrase, not the network, keeps the venue Wi-Fi out.
   `lib/api.ts` is the real client behind each pane. Reset on the real database is `pnpm demo:reset` in a terminal,
   then a reload (the service-role key stays out of the app); the console's リセット button is for mocks.
 - **Realtime:** clients subscribe to `answers`, `prompt_routes`, `notes` (status changes) and `events` (meter); nothing polls.

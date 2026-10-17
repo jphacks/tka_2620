@@ -89,7 +89,7 @@
     "seconds": "{s}s",
     "reset": "Reset",
     "signingIn": "Signing in the three personas",
-    "signInOff": "Console sign-in is off on this server. Set CONSOLE_SIGN_IN=1 on the presenting laptop and reopen this page.",
+    "signInOff": "Console sign-in is off here. On the presenting laptop, set CONSOLE_SIGN_IN to a passphrase (16+ characters) and open /console#key=<passphrase>.",
     "signInFailed": "Couldn't sign the personas in. Check DEMO_PASSWORD and reopen this page.",
     "loadFailed": "Couldn't load the panes. Reopen this page."
   },
