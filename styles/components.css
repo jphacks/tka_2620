@@ -43,6 +43,7 @@ body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(
 .dd-mini { position: relative; display: inline-grid; place-items: center; width: 24px; height: 24px; box-sizing: border-box; border: 1.5px solid var(--red); border-radius: var(--r-round);
   color: var(--red); font-family: var(--font-figures); font-size: 13px; font-weight: 700; line-height: 1; letter-spacing: 0; transform: rotate(-3deg); vertical-align: 2px; margin-inline: 2px 6px; background: none; padding: 0; cursor: pointer; }
 .dd-mini::after { content: ""; position: absolute; inset: -10px; } /* 44px hit area */
+.dd-mini + .dd-mini { margin-left: 14px; } /* two stamps 20px apart: their 44px hit areas don't overlap */
 .dd-stamp-blank { display: inline-block; width: 24px; height: 24px; box-sizing: border-box; border: 1.5px dashed var(--ink-2); border-radius: var(--r-round); vertical-align: middle; }
 .is-landing { animation: dd-land var(--t-stamp, 180ms) cubic-bezier(.2,.8,.2,1) both; }
 @keyframes dd-land { from { transform: scale(1.12) rotate(-8deg); opacity: 0; } to { transform: rotate(-3deg); opacity: 1; } }

@@ -7,7 +7,7 @@
 // on the same line). Each sentence keeps the answer's lang, which can differ from the notes' (answers are written in
 // the asker's language); the UI text inside it keeps the page's.
 import { useLocale, useTranslations } from "next-intl";
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useId, useState } from "react";
 import { kindMarks } from "@/components/marks";
 import {
   type AnsweredResult,
@@ -127,6 +127,7 @@ function SentenceLine({
   const locale = useLocale();
   const [open, setOpen] = useState<Citation>();
   const [source, setSource] = useState<Source>();
+  const sourceId = useId(); // the opened stamp controls the block under the sentence
   const openId = open?.noteId;
   // Every opening reads the note again, so one withdrawn since the answer came is gone at once.
   useEffect(() => {
@@ -176,6 +177,9 @@ function SentenceLine({
               lang={locale}
               aria-label={t("live.stamp", { byline: citation.byline })}
               aria-expanded={open?.noteId === citation.noteId}
+              aria-controls={
+                open?.noteId === citation.noteId ? sourceId : undefined
+              }
               className={`dd-mini${land ? " is-landing" : ""}`}
               onClick={() =>
                 setOpen((current) =>
@@ -195,7 +199,7 @@ function SentenceLine({
       </p>
       {open && (
         // Under its sentence, indented, every line on the 32px grid: whose note it is at once, then the note.
-        <div className="dd-source" aria-live="polite">
+        <div id={sourceId} className="dd-source" aria-live="polite">
           <p className="dd-cap" lang={locale}>
             {t("ask.source", { byline: open.byline })}
           </p>
