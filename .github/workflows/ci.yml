@@ -1,0 +1,54 @@
+name: CI
+
+# Every push, on every branch: the check appears before the PR is opened.
+on:
+  push:
+  # A PR into dev or main is also checked as merged into its base: the branch alone can pass while the merge
+  # doesn't typecheck (a PR that builds on work dev doesn't have yet, AGENTS.md → Workflow).
+  pull_request:
+    branches: [dev, main]
+  # Lets a red run be re-started from the Actions tab without a new commit.
+  workflow_dispatch:
+
+# A new push replaces the run it superseded (a hackday branch gets pushed a lot).
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      # The pnpm version comes from package.json's `packageManager` field, so CI
+      # and the demo laptop can never disagree.
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        id: install
+        run: pnpm install --frozen-lockfile
+
+      # Runs on mocks and without secrets: no Supabase, no Anthropic key, no Ollama.
+      - name: Typecheck
+        run: pnpm typecheck
+
+      # Test and Lint run even when a step before them failed (once the install worked), so one push shows all three.
+      - name: Test
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: pnpm test
+
+      # biome check: lint and formatting. It passes on the whole repo, so a red step means this change; fix it with
+      # `pnpm exec biome check --write`.
+      - name: Lint
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: pnpm lint

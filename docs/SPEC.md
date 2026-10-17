@@ -128,6 +128,8 @@ They are the shared acceptance tests for F2–F4, and `lib/mocks.ts` is built fr
 - Notes past `valid_until` are excluded from answers.
 - Newcomers' questions: the question text reaches only `reachable` holders of the same seat (via `prompt_routes`);
   the asker is shown by seat and term (「2026年度 会計」), never by name. `answers` rows are readable only by the asker.
+- A question from someone who holds no seat at that seat routes nowhere: no demand prompt is created, the abstain
+  carries no `promptId`, and `routedTo` is 0. The question remains readable only by the asker.
 
 ## Adding knowledge: text, files and chats (F5)
 Club knowledge lives in old documents, forms, notices and, most of all, group chats. Daidai takes all of them
@@ -221,10 +223,11 @@ type SeatView = {
 // POST /api/ask { seat, question }       → AskResult
 type AskResult =
   | { status: "answered"; questionId: string; sentences: { text: string; citations: Citation[] }[]; ruleChange?: { termLabel: string; summary: string }; language: "ja" | "en"; live?: { byline: string } }
-  | { status: "abstained"; questionId: string; promptId: string; routedTo: number };
+  | { status: "abstained"; questionId: string; promptId?: string; routedTo: number };
 // Realtime `answers` (asker only)        → AskResult with status "answered" and `live` set
 // GET  /api/inbox?seat=                  → { items: { promptId: string; question: string; askedBy: string; askCount: number; askedAt: string; lang: Lang }[] }
 // Realtime `prompt_routes` (recipient)   → a new inbox item (the row has no question text: refetch the inbox)
+// POST /api/inbox/seen { promptId }      → { seenAt: string }   (the slip was opened; the first open counts)
 // POST /api/handover/draft { seat, promptId, answer }  → { cards: CardDraft[]; followup?: { missing: "date" | "contact" | "threshold"; question: string } }
 // POST /api/handover/publish { seat, promptId?, cards: (CardDraft & { scope: Scope; supersedes?: string; provenance?: string; source?: "import" | "file" | "chat" })[] } → { noteIds: string[]; reanswered: string[] }
 //   source: only for added cards (import is stateless); the server sets handover or live for the others
@@ -246,6 +249,7 @@ type AskResult =
 - **Console panes:** each pane creates its own Supabase client signed in as its persona
   (`persistSession: false`), so three personas run side by side in one browser.
 - **Realtime:** clients subscribe to `answers`, `prompt_routes`, `notes` (status changes) and `events` (meter); nothing polls.
+  Only inserts and updates are sent: Realtime can't check a deleted row against RLS, so deletes never go out (0005).
 - **Publishing for a routed prompt** re-runs every waiting question linked to it (`questions.prompt_id`) and writes an `answers` row per asker.
 
 ## Features (Hack Day, in build order)

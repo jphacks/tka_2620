@@ -42,8 +42,11 @@ import {
   SeatQuery,
   SeatSlug,
   type SeatView,
+  SeenRequest,
+  type SeenResponse,
   type WithdrawResponse,
 } from "@/lib/contracts";
+import { questionLang } from "@/lib/engine/lang";
 
 export const USE_MOCKS = process.env.NEXT_PUBLIC_USE_MOCKS === "1";
 
@@ -263,9 +266,10 @@ export const mockAnswer: AnsweredResult = {
       citations: [cite.hokenjo2025],
     },
   ],
+  // As the engine computes it from the cited deadline notes: the two dates, so no copy (lib/engine/rule-change.ts).
   ruleChange: {
     termLabel: "2025",
-    summary: "締切が10月27日から10月20日に早まりました。",
+    summary: "10/27 → 10/20",
   },
   language: "ja",
 };
@@ -323,6 +327,9 @@ export const mockInboxItem: InboxItem = {
   askedAt: "2026-10-18T10:31:02+09:00",
   lang: "ja",
 };
+
+// POST /api/inbox/seen as a25, opening that slip.
+export const mockSeen: SeenResponse = { seenAt: "2026-10-18T10:31:20+09:00" };
 
 // POST /api/handover/draft for the spoken answer: one rule-of-thumb card, people only by role.
 export const mockLiveCard: CardDraft = {
@@ -705,6 +712,7 @@ type Waiting = {
   lang: Lang;
   askedAt: string;
   askers: { questionId: string; persona: Persona }[];
+  seenAt?: string; // the first time a25 opened the slip (POST /api/inbox/seen)
 };
 
 type State = {
@@ -743,7 +751,7 @@ export function resetMocks() {
 
 const keyOf = (question: string) => question.trim().replace(/[？?\s]+$/, "");
 // Hiragana, katakana or kanji (U+3040–30FF, U+4E00–9FFF) → ja.
-const langOf = (text: string): Lang => (/[぀-ヿ一-鿿]/.test(text) ? "ja" : "en");
+const langOf = questionLang; // the reading /api/ask saves as questions.lang
 const now = () => new Date().toISOString();
 const sleep = (ms: number) =>
   new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -873,9 +881,14 @@ export function createMockApi(
       state.answers.set(known.questionId, { asker: persona, result: known });
       return withoutWithdrawn(known);
     }
-    // Nobody knew. Holders' questions reach the reachable predecessor (a25); the rule for anyone else is #7's call.
-    const routed = seat === SEAT && holders[persona] && persona !== "a25";
-    if (!routed) {
+    // Nobody knew. A holder's question becomes a demand prompt and reaches the seat's reachable holders other than
+    // the asker: a25, unless a25 asked, when the prompt reaches nobody. A question from someone who holds no seat at
+    // that seat creates no prompt and reaches nobody, so its result names none. The database's route_question() and
+    // /api/ask answer the same way.
+    if (seat !== SEAT || !holders[persona]) {
+      return { status: "abstained", questionId, routedTo: 0 };
+    }
+    if (persona === "a25") {
       return {
         status: "abstained",
         questionId,
@@ -954,6 +967,15 @@ export function createMockApi(
             }))
           : [];
       return reply({ items });
+    },
+
+    async seen(request) {
+      const { promptId } = SeenRequest.parse(request);
+      const prompt =
+        persona === "a25" ? state.waiting.get(promptId) : undefined;
+      if (!prompt) throw new MockApiError("not_found");
+      prompt.seenAt ??= now();
+      return reply({ seenAt: prompt.seenAt });
     },
 
     async draft(request) {

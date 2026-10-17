@@ -32,6 +32,7 @@ import {
   ReadersResponse,
   SeatType,
   SeatView,
+  SeenResponse,
   WithdrawResponse,
 } from "@/lib/contracts";
 import {
@@ -65,6 +66,7 @@ import {
   mockQuestions,
   mockReaders,
   mockSeatViews,
+  mockSeen,
   mockWithdraw,
   resetMocks,
 } from "@/lib/mocks";
@@ -101,6 +103,7 @@ const fixtures: [string, z.ZodType, unknown][] = [
   ["AskResult q05", AnsweredResult, mockAnswerGasshuku],
   ["AskResult q04", AbstainedResult, mockAbstained],
   ["InboxItem", InboxItem, mockInboxItem],
+  ["SeenResponse", SeenResponse, mockSeen],
   ["DraftRequest", DraftRequest, mockDraftRequest],
   ["DraftResponse", DraftResponse, mockDraft],
   ["DraftResponse with a follow-up", DraftResponse, mockDraftWithFollowup],
@@ -364,11 +367,35 @@ describe("createMockApi", () => {
     const view = await outsider.seat(seat);
     expect(view.viewer.isHolder).toBe(false);
     expect(view.upcoming).toEqual([]);
-    expect(
-      await outsider.ask({ seat, question: mockQuestions.q01 }),
-    ).toMatchObject({ status: "abstained", routedTo: 0 });
+    const asked = await outsider.ask({ seat, question: mockQuestions.q01 });
+    expect(asked).toMatchObject({ status: "abstained", routedTo: 0 });
+    expect(asked).not.toHaveProperty("promptId"); // no seat, so no prompt (route_question)
     expect((await outsider.inbox({ seat })).items).toEqual([]);
     expect((await outsider.myNotes()).notes).toEqual([]);
+  });
+
+  it("names the prompt of a holder's question that reaches nobody, as route_question does", async () => {
+    // a25 is the seat's only reachable holder, and an asker never reaches themselves.
+    const senpai = createMockApi("a25", { latencyMs: 0 });
+    const asked = await senpai.ask({ seat, question: mockQuestions.q04 });
+    expect(asked).toMatchObject({ status: "abstained", routedTo: 0 });
+    expect(asked.status === "abstained" && asked.promptId).toBeTruthy();
+    expect((await senpai.inbox({ seat })).items).toEqual([]);
+  });
+
+  it("records when a25 first opens a slip, and lets nobody else", async () => {
+    const newcomer = createMockApi("a26", { latencyMs: 0 });
+    const senpai = createMockApi("a25", { latencyMs: 0 });
+    const asked = await newcomer.ask({ seat, question: mockQuestions.q04 });
+    if (asked.status !== "abstained" || !asked.promptId) {
+      throw new Error("q04 should reach a25's inbox");
+    }
+    const first = await senpai.seen({ promptId: asked.promptId });
+    expect(SeenResponse.safeParse(first).success).toBe(true);
+    expect(await senpai.seen({ promptId: asked.promptId })).toEqual(first);
+    await expect(
+      newcomer.seen({ promptId: asked.promptId }),
+    ).rejects.toMatchObject({ error: "not_found" });
   });
 
   it("rejects what the real API would reject", async () => {
