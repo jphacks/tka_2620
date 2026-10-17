@@ -1,3 +1,22 @@
 {
-  "measuredAt": "2026-10-17T09:08:25.053Z"
+  "measuredAt": "2026-10-17T22:09:19.229Z",
+  "leaks": {
+    "outsiderAttempts": 93,
+    "totalAttempts": 544,
+    "found": 0
+  },
+  "withdraw": {
+    "runs": 10,
+    "medianS": 0.41,
+    "maxS": 0.68
+  },
+  "citations": {
+    "sentences": 5,
+    "cited": 5
+  },
+  "loop": {
+    "runs": 5,
+    "failures": 0,
+    "medianS": 5.9
+  }
 }
