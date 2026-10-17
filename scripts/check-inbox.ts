@@ -1,12 +1,15 @@
 // #8 acceptance check (docs/SPEC.md → F3): the predecessor's inbox. When the 2026 treasurer asks q04, the 2025
-// treasurer's Realtime subscription gets the route at once, and the asker, the 2024 treasurer and another club's
-// member get nothing, though each subscribes to every prompt_routes and answers row it may read: no filter, so RLS
-// alone decides. Then GET /api/inbox, POST /api/inbox/seen, and an answers row that reaches its asker alone.
+// treasurer's Realtime subscription gets the route at once, and the asker, the 2024 treasurer, another club's member,
+// an outsider and a signed-out client get nothing, though each subscribes to every prompt_routes and answers row it
+// may read: no filter, so RLS alone decides. Then GET /api/inbox, POST /api/inbox/seen, an answers row that reaches
+// its asker alone, and a cleanup whose deletes reach no phone.
 // Runs against the seeded database and a running dev server, with 0005_realtime applied:
 //   pnpm dev          (in another terminal)
 //   pnpm test:inbox
 // The reads that must see past a persona's own rows use the service-role key, which only scripts/ may hold.
 // Everything this check creates is removed afterwards, and it says the demo data is back only when it is.
+// Don't run it during a rehearsal: it puts a slip in a25's inbox, and its cleanup removes a26's q04 questions from the
+// last minutes.
 // Counts, ids, personas and timings only: never the question text, never an email.
 import { readFile } from "node:fs/promises";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
@@ -41,7 +44,8 @@ const EMAIL: Record<string, string> = {
   x: "yamate-outsider",
 };
 const RECIPIENT = "a25"; // the seat's only reachable holder
-const OTHERS = ["a24", "b"]; // an earlier-term holder and another club's member; the asker is checked as well
+// An earlier-term holder, another club's member and an outsider; the asker and a signed-out client are checked as well.
+const OTHERS = ["a24", "b", "x"];
 // a26 holds 会計 for 2026 (scripts/seed.ts), worded by the club_role byline of each label pack.
 const ASKED_BY = { ja: "2026年度 会計", en: "2026 会計" };
 
@@ -131,10 +135,14 @@ async function signIn(
   };
 }
 
-// Listens to every prompt_routes and answers row this phone may read, with its own token and no filter.
-async function listen(phone: Phone): Promise<void> {
-  await phone.db.realtime.setAuth(phone.token);
-  await new Promise<void>((resolve, reject) => {
+// Listens to every prompt_routes and answers row this phone may read, with its own token (none when signed out) and no
+// filter. Answers "refused" when Realtime turns the subscription down and that's allowed (a signed-out client).
+async function listen(
+  phone: Phone,
+  refusable = false,
+): Promise<"listening" | "refused"> {
+  if (phone.token) await phone.db.realtime.setAuth(phone.token);
+  return new Promise((resolve, reject) => {
     const timer = setTimeout(
       () =>
         reject(
@@ -167,7 +175,10 @@ async function listen(phone: Phone): Promise<void> {
       .subscribe((status) => {
         if (status === "SUBSCRIBED") {
           clearTimeout(timer);
-          resolve();
+          resolve("listening");
+        } else if (status === "CHANNEL_ERROR" && refusable) {
+          clearTimeout(timer);
+          resolve("refused");
         } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
           clearTimeout(timer);
           reject(new Error(`${phone.persona}: Realtime ${status}`));
@@ -195,7 +206,7 @@ async function call(
   };
 }
 
-type Created = { questionIds: string[]; promptIds: string[] };
+type Created = { questionIds: string[] };
 type Run = { askerIds: string[]; seatId: string; text: string; since: string };
 
 // Removes what this run created, as in scripts/check-ask.ts: every q04 question its askers saved at the seat since it
@@ -228,12 +239,8 @@ async function cleanUp(
     .select("id")
     .in("source_question_id", questionIds);
   if (started.error) return `find the run's prompts: ${started.error.code}`;
-  const promptIds = [
-    ...new Set([
-      ...created.promptIds,
-      ...(started.data ?? []).map((row) => row.id),
-    ]),
-  ];
+  // Only these: once dedupe (F2.5) lets a question join an open prompt, the prompt it joined isn't the run's to delete.
+  const promptIds = (started.data ?? []).map((row) => row.id);
   if (promptIds.length > 0) {
     const { error } = await service
       .from("prompts")
@@ -274,16 +281,31 @@ async function main(): Promise<void> {
   const others = await Promise.all(
     OTHERS.map((persona) => signIn(url, anonKey, persona, password)),
   );
-  const bystanders = [asker, ...others]; // everyone who must get nothing
+  const bystanders = [asker, ...others]; // everyone who must get no route
   const phones = [recipient, ...bystanders];
-  const created: Created = { questionIds: [], promptIds: [] };
+  // The public key and no sign-in, as any web page could do.
+  const signedOut: Phone = {
+    persona: "a signed-out client",
+    db: createClient(url, anonKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    }),
+    token: "",
+    userId: "",
+    routes: [],
+    answers: [],
+  };
+  const created: Created = { questionIds: [] };
+  let listening = false;
 
   try {
-    // 1. Every phone listens.
-    await Promise.all(phones.map(listen));
+    // 1. Every phone listens, and so does the signed-out client, unless Realtime refuses it.
+    await Promise.all(phones.map((phone) => listen(phone)));
+    const signedOutListens = await listen(signedOut, true);
+    listening = true;
     check(
       `${phones.length} phones listen by Realtime, each with its own token`,
       true,
+      `the signed-out client: ${signedOutListens}`,
     );
 
     // 2. The newcomer asks q04 (POST /api/ask): nobody knew, so it goes to the reachable predecessor.
@@ -299,7 +321,6 @@ async function main(): Promise<void> {
         : undefined;
     if (abstained) created.questionIds.push(abstained.questionId);
     const promptId = abstained?.promptId;
-    if (promptId) created.promptIds.push(promptId);
     check(
       "a26 asks q04 and it reaches one predecessor",
       asked.status === 200 && abstained?.routedTo === 1 && Boolean(promptId),
@@ -493,17 +514,37 @@ async function main(): Promise<void> {
       );
     }
   } finally {
-    for (const phone of phones) {
-      await phone.db.removeAllChannels();
-      phone.db.realtime.disconnect();
-    }
-    // 7. Leave the demo database as it was.
+    // 7. Leave the demo database as it was, with every phone still listening: a delete can't be checked against a
+    //    policy, so 0005 publishes none, and the cleanup's deletes must reach nobody.
     const problem = await cleanUp(service, created, {
       askerIds: [asker.userId],
       seatId,
       text: question.question,
       since,
     });
+    if (listening) {
+      await pause(GRACE_MS);
+      const deletes = [...phones, signedOut]
+        .flatMap((phone) => [...phone.routes, ...phone.answers])
+        .filter((received) => received.event === "DELETE").length;
+      check(
+        "the cleanup's deletes reach no phone",
+        deletes === 0,
+        `${deletes} delete row(s)`,
+      );
+      for (const phone of [...others, signedOut]) {
+        const received = phone.routes.length + phone.answers.length;
+        check(
+          `${phone.persona} got nothing in the whole run`,
+          received === 0,
+          `${received} row(s)`,
+        );
+      }
+    }
+    for (const phone of [...phones, signedOut]) {
+      await phone.db.removeAllChannels();
+      phone.db.realtime.disconnect();
+    }
     console.log(
       problem
         ? `\n✗ #8 check: ${checks} checks, ${failed ? "failed" : "all passed"}, but the cleanup failed (${problem}): the demo data may not be as it was`

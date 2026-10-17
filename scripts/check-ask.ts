@@ -5,6 +5,8 @@
 // The ask goes over HTTP with a26's own token, as a phone would, so the route handler and RLS are exercised for
 // real. The reads that must see past a persona's own rows use the service-role key, which only scripts/ may hold.
 // Everything this check creates is removed afterwards, and it says the demo data is back only when it is.
+// Don't run it during a rehearsal: it puts a slip in a25's inbox, and its cleanup removes a26's q04 questions from the
+// last minutes.
 // Counts, ids and personas only: never the question text, never an email.
 import { readFile } from "node:fs/promises";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
@@ -118,7 +120,7 @@ async function openDemandPrompts(
   return count ?? 0;
 }
 
-type Created = { questionIds: string[]; promptIds: string[] };
+type Created = { questionIds: string[] };
 type Run = { askerIds: string[]; seatId: string; text: string; since: string };
 
 // Removes what this run created: every q04 question its askers saved at the seat since it started, also one from a
@@ -151,12 +153,8 @@ async function cleanUp(
     .select("id")
     .in("source_question_id", questionIds);
   if (started.error) return `find the run's prompts: ${started.error.code}`;
-  const promptIds = [
-    ...new Set([
-      ...created.promptIds,
-      ...(started.data ?? []).map((row) => row.id),
-    ]),
-  ];
+  // Only these: once dedupe (F2.5) lets a question join an open prompt, the prompt it joined isn't the run's to delete.
+  const promptIds = (started.data ?? []).map((row) => row.id);
   if (promptIds.length > 0) {
     const { error } = await service
       .from("prompts")
@@ -196,7 +194,7 @@ async function main(): Promise<void> {
   const asker = await signIn(url, anonKey, question.persona, password);
   const reachable = await signIn(url, anonKey, REACHABLE, password);
   const stranger = await signIn(url, anonKey, STRANGER, password);
-  const created: Created = { questionIds: [], promptIds: [] };
+  const created: Created = { questionIds: [] };
 
   try {
     // 1. The newcomer asks, with their own token: POST /api/ask.
@@ -218,7 +216,6 @@ async function main(): Promise<void> {
     if (result.status !== "abstained") return;
     created.questionIds.push(result.questionId);
     const promptId = result.promptId;
-    if (promptId) created.promptIds.push(promptId);
     check(
       "the question became one demand prompt that reached predecessors",
       result.routedTo === 1 && Boolean(promptId),

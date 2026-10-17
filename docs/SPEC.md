@@ -249,6 +249,7 @@ type AskResult =
 - **Console panes:** each pane creates its own Supabase client signed in as its persona
   (`persistSession: false`), so three personas run side by side in one browser.
 - **Realtime:** clients subscribe to `answers`, `prompt_routes`, `notes` (status changes) and `events` (meter); nothing polls.
+  Only inserts and updates are sent: Realtime can't check a deleted row against RLS, so deletes never go out (0005).
 - **Publishing for a routed prompt** re-runs every waiting question linked to it (`questions.prompt_id`) and writes an `answers` row per asker.
 
 ## Features (Hack Day, in build order)
