@@ -206,34 +206,39 @@ Change by PR plus one line in Slack.
 ```ts
 type Scope = "successor" | "group" | "institution" | "public";
 type NoteKind = "deadline" | "contact" | "rule_of_thumb" | "pitfall" | "unwritten_rule";
+type Lang = "ja" | "en";                                // notes.lang / questions.lang: screens set lang per note
+type SeatType = "club_role" | "exchange_route" | "lab_duty"; // every seat type has a label pack
 type Citation = { noteId: string; byline: string; termLabel: string };
-type CardDraft = { kind: NoteKind; title: string; body: string; deadline_date?: string; suggested_scope: Scope; critical: boolean; valid_until?: string; flags: { person_verdict: boolean; secret: boolean } };
+type CardDraft = { kind: NoteKind; title: string; body: string; deadline_date?: string; suggested_scope: Scope; critical: boolean; valid_until?: string; lang: Lang; flags: { person_verdict: boolean; secret: boolean } };
 
 // GET  /api/seats/[slug]                 → SeatView
 type SeatView = {
-  seat: { slug: string; name: string; seatType: string; group: string; institution: string; settings: Record<string, boolean> };
+  seat: { slug: string; name: string; seatType: SeatType; group: string; institution: string; settings: { noteExpiry: boolean; groupOwnsCriticalNotes: boolean; requiredPrompts: boolean } };
   viewer: { isHolder: boolean; termLabel?: string };
   lineage: { termLabel: string; termOrder: number; isViewer: boolean }[];
-  upcoming: { noteId: string; title: string; date: string; byline: string }[];
+  upcoming: { noteId: string; title: string; date: string; byline: string; lang: Lang }[];   // date: the deadline's next occurrence
 };
 // POST /api/ask { seat, question }       → AskResult
 type AskResult =
   | { status: "answered"; questionId: string; sentences: { text: string; citations: Citation[] }[]; ruleChange?: { termLabel: string; summary: string }; language: "ja" | "en"; live?: { byline: string } }
   | { status: "abstained"; questionId: string; promptId: string; routedTo: number };
 // Realtime `answers` (asker only)        → AskResult with status "answered" and `live` set
-// GET  /api/inbox?seat=                  → { items: { promptId: string; question: string; askedBy: string; askCount: number; askedAt: string }[] }
-// Realtime `prompt_routes` (recipient)   → a new inbox item
+// GET  /api/inbox?seat=                  → { items: { promptId: string; question: string; askedBy: string; askCount: number; askedAt: string; lang: Lang }[] }
+// Realtime `prompt_routes` (recipient)   → a new inbox item (the row has no question text: refetch the inbox)
 // POST /api/handover/draft { seat, promptId, answer }  → { cards: CardDraft[]; followup?: { missing: "date" | "contact" | "threshold"; question: string } }
-// POST /api/handover/publish { seat, promptId?, cards: (CardDraft & { scope: Scope; supersedes?: string; provenance?: string })[] } → { noteIds: string[]; reanswered: string[] }
+// POST /api/handover/publish { seat, promptId?, cards: (CardDraft & { scope: Scope; supersedes?: string; provenance?: string; source?: "import" | "file" | "chat" })[] } → { noteIds: string[]; reanswered: string[] }
+//   source: only for added cards (import is stateless); the server sets handover or live for the others
 // GET  /api/handover/prompts?seat=       → { prompts: { id: string; text: string; reason: "demand" | "gap" | "required" | "core"; askCount: number }[] }
 // GET  /api/handover/readers?seat=&scope= → { count: number }
 // POST /api/import { seat, kind: "text" | "file" | "chat", fileType?: "pdf" | "docx" | "txt" | "md", platform?: "line" | "whatsapp" | "paste", text, redaction }
 //   text: extracted in the browser and redacted there; the file itself is never sent; nothing is stored.
 //   redaction: { names, phones, emails, urls, ids, addresses, accounts, secrets, people } counts
-//   → { cards: (CardDraft & { provenance?: string })[]; missing: { topic: string; reason: string; prompt: string }[];
-//       blocked: { title: string; reason: string }[]; duplicates: { card: number; noteId: string; title: string; similarity: number }[] }
+//   → { cards: (CardDraft & { source: "import" | "file" | "chat"; provenance?: string })[]; missing: { topic: string; reason: string; prompt: string }[];
+//       blocked: { title: string; reason: string }[]; duplicates: { card: number; noteId: string; title: string; byline: string; similarity: number }[] }
 // POST /api/notes/[id]/withdraw          → { withdrawnAt: string }
-// GET  /api/me/notes                     → { notes: { id: string; title: string; scope: Scope; status: "live" | "withdrawn" }[] }
+// GET  /api/me/notes                     → { notes: { id: string; title: string; scope: Scope; status: "live" | "withdrawn"; lang: Lang }[] }
+// Any error                              → { error: "invalid_request" | "unauthorized" | "forbidden" | "not_found" | "unredacted" | "unavailable" }
+// Realtime `notes` → { id, status }; `events` → { id, kind, payload: Record<string, number>, created_at }
 ```
 
 - **Auth:** every API call sends `Authorization: Bearer <access token>`; route handlers create a Supabase
@@ -281,6 +286,12 @@ The `/hackday-log` skill copies them into the README with a table of Hack Day wo
   and money owed by individuals; keep placeholders like `[電話番号]` out of cards and say where to find the contact instead.
 - **Follow-up (Haiku):** input = prompt + answer. Output: `{ needs_followup: boolean, missing?: "date" | "contact" | "threshold", question?: string }`. At most one per answer.
 - **Dedupe and classification (Haiku):** merge similar demand prompts; reframe questions about individuals to the seat.
+  Input = the new question + the seat's open demand prompts in `<prompt id=…>` tags. Output:
+  `{ duplicate_of: string | null, prompt: string }` (the prompt it joins, checked against the given ids, and the
+  question as a demand prompt about the seat).
+- **All model outputs** (Zod in `lib/contracts.ts`) have no minimums: the code checks each sentence and card, so one
+  bad item is dropped instead of failing the call. Cards carry `lang`; their dates are plain strings there, checked
+  per card, and a bad or missing deadline date becomes a `missing` item or a follow-up.
 
 ## Copy
 All copy is in `messages/ja.json` and `messages/en.json`. Shared keys use placeholders filled from the seat
