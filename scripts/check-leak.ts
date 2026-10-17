@@ -6,7 +6,8 @@
 // visibility table (tests/visibility-table.ts) and the rows the run created, never against what RLS returned. A leak
 // is a note the viewer can't read (its id, its body or its canary from seed/notes.csv), someone else's question,
 // answer, route, prompt or membership, or an events row it isn't meant to see. The outsider x makes at least 50
-// attempts. The counts go to events (kind "leak", numbers only), and `Metrics.leaks` is printed for `pnpm metrics`.
+// attempts. The counts go to events (kind "leak", numbers only), and a conclusive run prints its METRICS line for
+// `pnpm metrics`.
 // Runs against the seeded database and a running dev server, with Ollama (the search) and the Claude key (answers from
 // the notes a persona may read):
 //   pnpm dev          (in another terminal)
@@ -34,6 +35,8 @@ import {
   type Metrics,
 } from "@/lib/contracts";
 import { EMBEDDING_DIMENSIONS } from "@/lib/embed";
+import { reportMetrics } from "@/scripts/metrics-line";
+import { removeQuestions } from "@/scripts/remove-questions";
 import {
   type Finding,
   type Judge,
@@ -50,6 +53,19 @@ const MIN_OUTSIDER_ATTEMPTS = 50; // SPEC F4
 const SUBSCRIBE_MS = 20_000; // longer than the server's postgres_changes wait (15 s)
 const PROBE_MS = 15_000; // the re-saved seed notes reach every viewer well inside this
 const SETTLE_MS = 3_000; // late Realtime messages after the cleanup
+const REQUEST_MS = 60_000; // one request, Sonnet included
+
+// Ctrl-C (or pnpm metrics stopping) ends the run after the step in flight, and the cleanup still runs. A run stopped
+// early is never conclusive, so it gives no numbers.
+let stopping = false;
+for (const signal of ["SIGINT", "SIGTERM"] as const) {
+  process.once(signal, () => {
+    stopping = true;
+  });
+}
+function stopIfAsked(): void {
+  if (stopping) throw new Error("stopped by a signal before every attempt ran");
+}
 const SEAT = "smash-kaikei"; // the golden-path seat: the live loop's prompts are here
 const MADE_UP_NOTE = "leak-test-no-such-note";
 const MADE_UP_UUID = "00000000-0000-4000-8000-000000000000";
@@ -202,6 +218,7 @@ async function http(
       ...headers,
     },
     body: body === undefined ? undefined : JSON.stringify(body),
+    signal: AbortSignal.timeout(REQUEST_MS), // a hung server fails the attempt, not the whole run
   });
   const text = await response.text();
   try {
@@ -453,6 +470,7 @@ type Context = {
 
 async function questions(session: Session, context: Context): Promise<void> {
   for (const ask of context.asks) {
+    if (stopping) return;
     await attempt(
       session,
       "questions",
@@ -1031,28 +1049,8 @@ async function cleanUp(
       ...(probes.data as { id: string }[]).map((row) => row.id),
     ]),
   ].filter((id) => !before.questionIds.has(id));
-  for (let at = 0; at < ids.length; at += 50) {
-    const chunk = ids.slice(at, at + 50);
-    // Before the questions go: deleting one sets its prompts' source_question_id to null.
-    const started = await service
-      .from("prompts")
-      .select("id")
-      .in("source_question_id", chunk);
-    if (started.error) {
-      problems.push(`find the run's prompts: ${started.error.code}`);
-      continue;
-    }
-    const promptIds = (started.data as { id: string }[]).map((row) => row.id);
-    if (promptIds.length > 0) {
-      const { error } = await service
-        .from("prompts")
-        .delete()
-        .in("id", promptIds);
-      if (error) problems.push(`delete prompts: ${error.code}`);
-    }
-    const { error } = await service.from("questions").delete().in("id", chunk);
-    if (error) problems.push(`delete questions: ${error.code}`);
-  }
+  // With them the prompts they started, unless a rehearsal's question joined one (scripts/remove-questions.ts).
+  problems.push(...(await removeQuestions(service, ids)));
 
   // Only the notes a withdraw probe got through on (a leak, already reported) go back to live; a withdrawal anyone
   // else made during the run stays. Its events row stays too, and so do the answers it rewrote, so the counts below
@@ -1310,13 +1308,16 @@ async function main(): Promise<void> {
       `✓ Realtime probe: ${touched.length} seed notes re-saved, 1 events row`,
     );
 
+    stopIfAsked();
     const started = performance.now();
     await Promise.all(sessions.map((session) => questions(session, context)));
+    stopIfAsked();
     await Promise.all(sessions.map((session) => savedRows(session, context)));
     console.log(
       `✓ questions asked (${Math.round((performance.now() - started) / 1000)} s)`,
     );
 
+    stopIfAsked();
     await readRun(service, world);
     await Promise.all(
       sessions.map(async (session) => {
@@ -1398,14 +1399,15 @@ async function main(): Promise<void> {
       ? "✓ the database is as the run found it"
       : `✗ the database isn't as the run found it:\n  ${problems.join("\n  ")}`,
   );
-  // Only a conclusive run gives numbers: a missing number is honest, a 0 from a run that proved nothing is not.
-  if (conclusive && found === 0) {
+  // Only a conclusive run gives numbers for `pnpm metrics`: a missing number is honest, a 0 from a run that proved
+  // nothing is not. A conclusive run that found leaks gives them too: the README never rounds a leak count down.
+  if (conclusive) {
     const leaks: NonNullable<Metrics["leaks"]> = {
       outsiderAttempts,
       totalAttempts: attempts.length,
       found,
     };
-    console.log(`  Metrics.leaks ${JSON.stringify(leaks)}`);
+    reportMetrics({ leaks });
   }
   process.exitCode =
     conclusive && found === 0 && problems.length === 0 && !recorded.error

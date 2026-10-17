@@ -19,7 +19,8 @@
     "test:leak": "node --env-file-if-exists=.env.local --import tsx scripts/check-leak.ts",
     "smoke": "node --env-file-if-exists=.env.local scripts/smoke.ts",
     "seed": "node --env-file-if-exists=.env.local --import tsx scripts/seed.ts",
-    "demo:reset": "pnpm seed"
+    "demo:reset": "pnpm seed",
+    "metrics": "node --env-file-if-exists=.env.local --import tsx scripts/metrics.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.81",

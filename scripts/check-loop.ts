@@ -31,6 +31,7 @@ import {
   type Metrics,
   PublishResponse,
 } from "@/lib/contracts";
+import { reportMetrics } from "@/scripts/metrics-line";
 
 type QuestionRow = {
   id: string;
@@ -45,6 +46,15 @@ const STAGE_S = 45; // SPEC F3: on stage under 45 s from 「誰も知りませ�
 const SUBSCRIBE_MS = 20_000; // longer than the server's postgres_changes wait (15 s)
 const ROUTE_MS = 10_000; // a new question must reach a25's phone well inside this
 const ANSWER_MS = 30_000; // publishing embeds the note and asks Sonnet before the answer goes out
+const REQUEST_MS = 60_000; // one request: a hung server fails the run instead of blocking pnpm metrics
+
+// Ctrl-C (or pnpm metrics stopping) ends the check after the run in flight; its cleanup and the reset still run.
+let stopping = false;
+for (const signal of ["SIGINT", "SIGTERM"] as const) {
+  process.once(signal, () => {
+    stopping = true;
+  });
+}
 
 // scripts/seed.ts gives every persona one account at <key>@example.com; seed/questions.csv calls them by alias.
 const EMAIL: Record<string, string> = {
@@ -215,6 +225,7 @@ async function call(
       ...(options.token && { authorization: `Bearer ${options.token}` }),
     },
     body: options.body === undefined ? undefined : JSON.stringify(options.body),
+    signal: AbortSignal.timeout(REQUEST_MS),
   });
   return {
     status: response.status,
@@ -525,6 +536,10 @@ async function main(): Promise<void> {
     );
 
     for (let n = 1; n <= RUNS; n++) {
+      if (stopping) {
+        stopped = `stopped by a signal after ${n - 1} run(s)`;
+        break;
+      }
       // A minute of slack, in case this laptop's clock is ahead of the database's.
       const run: Run = {
         since: new Date(Date.now() - 60_000).toISOString(),
@@ -589,7 +604,7 @@ async function main(): Promise<void> {
         ? `  leaves ${Math.floor(STAGE_S - slowest)} s of the ${STAGE_S} s on stage for a25 to speak, even in the slowest run`
         : `  the slowest run alone takes longer than the ${STAGE_S} s on stage`,
     );
-    console.log(`  Metrics.loop ${JSON.stringify(loop)}`);
+    reportMetrics({ loop }); // the line `pnpm metrics` reads
   }
   console.log();
 

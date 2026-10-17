@@ -336,7 +336,8 @@ async function seed() {
   const previous = await demoUsers(db);
   for (const user of previous) {
     const { error } = await db.auth.admin.deleteUser(user.id);
-    if (error) throw new Error(`delete user ${user.email}: ${error.message}`);
+    // The id, not the email: pnpm metrics shows this output too.
+    if (error) throw new Error(`delete user ${user.id}: ${error.message}`);
   }
   console.log(
     `✓ removed the previous demo data and ${previous.length} demo users`,
