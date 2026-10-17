@@ -119,6 +119,14 @@ describe("what looks like handover knowledge", () => {
     "学割が使える",
     "ドライブのフォルダにある",
     "練習は第二体育館で",
+    "OBへの連絡は部長経由",
+    // Club rules that touch on health or family
+    "体育館は熱がこもるので注意",
+    "毎年、会場は家族も参加OK",
+    "3月にOBのお別れ会",
+    "コロナで定員は半分、会場に注意",
+    "インフル流行ってるので手洗いに注意",
+    "救急箱の薬は部室の倉庫",
   ])("is kept between chit-chat on other days: %s", (signal) => {
     const chat = [
       message("2025-01-10T10:00", "了解です"),
@@ -159,9 +167,20 @@ describe("a message about someone's health or private life", () => {
     "土曜の練習休みます、熱が出た",
     "風邪で3日休みます",
     "病院に行くので10時に遅れます",
-    "家族が来るので月末は無理",
+    "実家に帰るので月末は無理",
     "インフルで2週間前から休んでる",
+    "インフルエンザで来週休みます",
     "彼氏と別れた、金曜は無理",
+    "具合悪いので月曜休みます",
+    "頭痛で10時に遅れます",
+    "けがで2週間休みます",
+    "母が倒れたので金曜は無理",
+    "祖父の葬式で3日休みます",
+    // Strong signs that are health talk here
+    "病院の予約があるので土曜休みます",
+    "治療費が3000円かかった",
+    "病院に保険証忘れた、明日10時に",
+    "怪我の診断書を金曜に提出",
   ])("is not sent for a date, a time or a place: %s", (text) => {
     expect(sentAt([message("2025-01-11T10:00", text)])).toEqual([]);
   });
@@ -169,7 +188,10 @@ describe("a message about someone's health or private life", () => {
   it("is sent for a strong sign of knowledge", () => {
     expect(
       sentAt([
-        message("2025-01-11T10:00", "インフルなので来週の集金お願いします"),
+        message(
+          "2025-01-11T10:00",
+          "インフルで休むので、来週の集金お願いします",
+        ),
       ]),
     ).toEqual(["2025-01-11T10:00"]);
   });
@@ -179,8 +201,14 @@ describe("a message about someone's health or private life", () => {
       message("2025-01-11T09:00", "熱が出たので休みます"),
       message("2025-01-11T09:05", "明日10時集合"),
       message("2025-01-11T09:10", "了解です"),
+      message("2025-01-12T09:00", "明日10時集合"),
+      message("2025-01-12T09:05", "熱あるから休む"),
     ];
-    expect(sentAt(chat)).toEqual(["2025-01-11T09:05", "2025-01-11T09:10"]);
+    expect(sentAt(chat)).toEqual([
+      "2025-01-11T09:05",
+      "2025-01-11T09:10",
+      "2025-01-12T09:00",
+    ]);
   });
 });
 

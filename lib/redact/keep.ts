@@ -40,15 +40,14 @@ function monthsBefore(at: string, months: number): string {
 // puts roles in (副会計です).
 // A strong sign counts in any message: the club's money, a deadline or a procedure, an office, the club's things and
 // files, or a contact detail or secret the redaction replaced.
-const STRONG = new RegExp(
-  [
-    "集金|会費|部費|参加費|費|予算|精算|立て替え|立替|返金|(?<!酔っ)払|振込|振り込|口座|銀行|通帳|現金|領収書|レシート|見積|請求|会計報告|保険|学割",
-    "締切|締め切り|〆切|期限|申請|申込|申し込|提出|予約|手続|届出|届け出|書類|許可|登録|キャンセル|代表者|引き継|引継|ハンコ|印鑑|判子|署名|エントリー|名簿|抽選|講習|当番",
-    "学生課|保健所|生協|事務|窓口|顧問|業者|連絡先|問い合わせ|金庫|鍵|備品|倉庫|ファイル|フォルダ|ドライブ",
-    String.raw`\[(?:電話番号|メール|URL|ID|住所|口座番号|カード番号|学籍番号|秘密)`,
-  ].join("|"),
-  "u",
-);
+const STRONG = [
+  "集金|会費|部費|参加費|費|予算|精算|立て替え|立替|返金|(?<!酔っ)払|振込|振り込|口座|銀行|通帳|現金|領収書|レシート|見積|請求|会計報告|保険|学割",
+  "締切|締め切り|〆切|期限|申請|申込|申し込|提出|予約|手続|届出|届け出|書類|許可|登録|キャンセル|代表者|引き継|引継|経由|ハンコ|印鑑|判子|署名|エントリー|名簿|抽選|講習|当番",
+  "学生課|保健所|生協|事務|窓口|顧問|業者|連絡先|問い合わせ|金庫|鍵|備品|倉庫|救急箱|ファイル|フォルダ|ドライブ",
+  String.raw`\[(?:電話番号|メール|URL|ID|住所|口座番号|カード番号|学籍番号|秘密)`,
+].join("|");
+const STRONG_SIGN = new RegExp(STRONG, "u");
+const STRONG_SIGNS = new RegExp(STRONG, "gu");
 // A weak sign counts unless the message is about someone's health or private life: a date or a time, an amount, a
 // place, a rule or a pitfall. 5/10, 2025-10-20, 10月, 20日, 21:00, 9時, 2週間前, 毎月, 月末, 年度末, 火曜, 3000円.
 const WEAK = new RegExp(
@@ -56,17 +55,24 @@ const WEAK = new RegExp(
     String.raw`\d{1,4}[/.-]\d{1,2}|\d{1,2}月|\d{1,2}日|\d{1,2}:\d{2}|\d{1,2}時|\d+(?:週間|か月|ヶ月|カ月|日前|日後)`,
     "毎月|毎週|毎年|月末|月初|年度末|年度初め|上旬|中旬|下旬|[月火水木金土日]曜",
     String.raw`\d[\d,]*\s?円|¥\s?\d|\d+万`,
-    "体育館|会館|会場|施設|更新|共有|注意|気をつけ|忘れずに|必ず|ルール|決まり",
+    "体育館|会館|会場|施設|更新|共有|注意|気をつけ|忘れずに|必ず|ルール|決まり|OB|OG",
   ].join("|"),
   "u",
 );
 // Health, relationships and family. 「土曜の練習休みます、熱が出た」 has a weekday but no knowledge, so a weak sign
-// doesn't count here, and such a message is never sent as context.
+// doesn't count here, and such a message is never sent as context. Club rules that only touch on them stay rules:
+// 体育館は熱がこもる, OBのお別れ会, コロナで定員は半分, 家族も参加OK.
 const PERSONAL =
-  /体調|熱が|熱出|発熱|風邪|インフル|コロナ|病院|通院|入院|怪我|ケガ|骨折|生理|しんどい|メンタル|彼氏|彼女|別れ|失恋|家族|親が/u;
+  /体調|具合|熱が(?:出|あ|下が|上が|続)|熱で|熱あ|熱出|発熱|風邪|インフル(?:エンザ)?(?:に|で|かか)|コロナ(?:に|で休|陽性|かか)|病院|通院|入院|治療|怪我|ケガ|けが|骨折|頭痛|腹痛|吐き気|薬|生理|しんどい|メンタル|彼氏|彼女|別れた|別れる|失恋|葬式|法事|祖[母父]|[母父]が|倒れ|実家/u;
+// In a personal message these strong signs don't count either: they're how people talk about a doctor's appointment,
+// treatment costs, an insurance card or a medical certificate (病院の予約があるので土曜休みます).
+const HEALTH_TALK = new Set(["予約", "費", "保険", "提出"]);
 
 export function looksLikeKnowledge(text: string): boolean {
-  return STRONG.test(text) || (!PERSONAL.test(text) && WEAK.test(text));
+  if (!PERSONAL.test(text)) return STRONG_SIGN.test(text) || WEAK.test(text);
+  return [...text.matchAll(STRONG_SIGNS)].some(
+    ([sign]) => !HEALTH_TALK.has(sign),
+  );
 }
 
 // Which messages to send: those that look like knowledge, and the message before and after each from the same day
