@@ -8,20 +8,25 @@ import type { InboxItem } from "@/lib/contracts";
 import { createMockApi, mockNewcomerAsks } from "@/lib/mocks";
 import { useRealtime } from "@/lib/realtime";
 
+// Long enough to read 「公開しました」 and the card, short enough that the pane is clear before the next step.
+const CLOSE_AFTER_PUBLISH_MS = 3000;
 const newestFirst = (a: InboxItem, b: InboxItem) =>
   Date.parse(b.askedAt) - Date.parse(a.askedAt);
 
 // The inbox on the predecessor's phone (残す): newcomers' questions nobody could answer, arriving without a reload.
 // Mocks only for now (NEXT_PUBLIC_USE_MOCKS=1), as last year's treasurer (a25); the real client replaces
-// createMockApi when /api/inbox exists (#8). The console hides the one-phone shortcut (the a26 pane asks instead).
+// createMockApi when /api/inbox exists (#8). The console hides the one-phone shortcut (the a26 pane asks instead)
+// and closes the published card by itself, so 自分のメモ is back in view for the withdrawal.
 export function InboxPanel({
   slug,
   onAnswer,
   mockShortcuts = true,
+  closeAfterPublish = false,
 }: {
   slug: string;
   onAnswer?: (item: InboxItem, mode: AnswerMode) => void;
   mockShortcuts?: boolean;
+  closeAfterPublish?: boolean;
 }) {
   const t = useTranslations();
   const api = useMemo(() => createMockApi("a25"), []);
@@ -113,7 +118,18 @@ export function InboxPanel({
           item={answering.item}
           seat={slug}
           mode={answering.mode}
-          onPublished={load}
+          onPublished={() => {
+            load();
+            if (!closeAfterPublish) return;
+            const { promptId } = answering.item;
+            setTimeout(
+              () =>
+                setAnswering((current) =>
+                  current?.item.promptId === promptId ? undefined : current,
+                ),
+              CLOSE_AFTER_PUBLISH_MS,
+            );
+          }}
           onClose={() => setAnswering(undefined)}
         />
       )}

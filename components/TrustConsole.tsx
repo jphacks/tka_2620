@@ -226,8 +226,14 @@ export function TrustConsole({ leaks }: { leaks?: Metrics["leaks"] }) {
         </PersonaPane>
 
         <PersonaPane label={t("console.predecessor")}>
-          <div className="dd-col" style={{ gap: "var(--s-6)" }}>
-            <InboxPanel key={run} slug={SEAT} mockShortcuts={false} />
+          {/* 16px, not 32: the four notes fit the 844px pane below an empty inbox. */}
+          <div className="dd-col" style={{ gap: "var(--s-4)" }}>
+            <InboxPanel
+              key={run}
+              slug={SEAT}
+              mockShortcuts={false}
+              closeAfterPublish
+            />
             {seats && notes && (
               <MyNotes
                 notes={notes}
