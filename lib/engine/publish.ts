@@ -9,7 +9,6 @@
 // it to them alone), marks the question answered and retires the prompt once nothing waits on it.
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { LanguageModel } from "ai";
-import { createTranslator } from "next-intl";
 import { z } from "zod";
 import { sonnet } from "@/lib/ai";
 import {
@@ -22,7 +21,6 @@ import {
   type PublishCard,
   PublishRequest,
   type PublishResponse,
-  SeatType,
   Uuid,
 } from "@/lib/contracts";
 import { embed, noteText } from "@/lib/embed";
@@ -38,7 +36,6 @@ import {
   failed,
   logFailure,
 } from "@/lib/engine/route";
-import ja from "@/messages/ja.json";
 
 // The models behind publishing, passed in so a test can fake them: bge-m3 for the notes, Sonnet for the answers.
 export type PublishModels = {
@@ -73,14 +70,15 @@ export async function handlePublish(request: Request): Promise<Response> {
   }
 }
 
-// A stored byline is Japanese whatever the publisher's language, as scripts/seed.ts writes the seed's.
-const labelPack = createTranslator({ locale: "ja", messages: ja });
-
-const SeatRow = z.object({ id: Uuid, name: z.string(), seat_type: SeatType });
+const SeatRow = z.object({ id: Uuid });
+// The caller's holding: the byline is the one their term signs with (0007), written from the label pack by the seed.
 const TermRow = z.object({
   term_label: z.string(),
   term_order: z.number().int(),
+  byline: z.string(),
 });
+// What the notes guard (0007) raises for an email, an @handle or a phone number.
+const GUARDED = "DD001";
 const PromptRow = z.object({ id: Uuid, kind: PromptKind, text: z.string() });
 // The inserted notes as the caller reads them back: enough to answer from, without trusting the input order.
 const InsertedNotes = z.array(
@@ -115,17 +113,18 @@ export async function publishAsCaller(
 ): Promise<PublishResponse> {
   const { data: seatRow, error: seatError } = await client
     .from("seats")
-    .select("id, name, seat_type")
+    .select("id")
     .eq("slug", request.seat)
     .maybeSingle();
   if (seatError) throw dbFailure(seatError);
   if (!seatRow) throw new ApiFailure("not_found");
   const seat = SeatRow.parse(seatRow);
 
-  // The caller signs with their latest term at the seat; someone who never held it can't publish there.
+  // The caller signs with their latest term at the seat; someone who never held it can't publish there, nor can a
+  // holding without a byline yet.
   const { data: terms, error: termError } = await client
     .from("seat_holders")
-    .select("term_label, term_order")
+    .select("term_label, term_order, byline")
     .eq("seat_id", seat.id)
     .eq("user_id", userId)
     .order("term_order", { ascending: false })
@@ -165,10 +164,7 @@ export async function publishAsCaller(
   if (vectors.length !== request.cards.length) {
     throw new ApiFailure("unavailable");
   }
-  const byline = labelPack(`seatTypes.${seat.seat_type}.byline`, {
-    term: term.data.term_label,
-    seat: seat.name,
-  });
+  const { byline } = term.data;
   const { data: insertedRows, error: insertError } = await client
     .from("notes")
     .insert(
@@ -193,6 +189,7 @@ export async function publishAsCaller(
     .select(
       "id, seat_id, term_order, byline, kind, title, body, deadline_date, lang",
     );
+  if (insertError?.code === GUARDED) throw new ApiFailure("unredacted");
   if (insertError) throw dbFailure(insertError);
   const inserted = InsertedNotes.safeParse(insertedRows);
   if (!inserted.success || inserted.data.length !== request.cards.length) {

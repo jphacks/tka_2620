@@ -14,6 +14,7 @@
     "test:ask": "node --env-file-if-exists=.env.local --import tsx scripts/check-ask.ts",
     "test:inbox": "node --env-file-if-exists=.env.local --import tsx scripts/check-inbox.ts",
     "test:publish": "node --env-file-if-exists=.env.local --import tsx scripts/check-publish.ts",
+    "test:guards": "node --env-file-if-exists=.env.local --import tsx scripts/check-guards.ts",
     "smoke": "node --env-file-if-exists=.env.local scripts/smoke.ts",
     "seed": "node --env-file-if-exists=.env.local --import tsx scripts/seed.ts",
     "demo:reset": "pnpm seed"

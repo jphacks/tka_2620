@@ -103,12 +103,16 @@ They are the shared acceptance tests for F2–F4, and `lib/mocks.ts` is built fr
 - `institutions(id, name)`, `groups(id, institution_id, name)`
 - `seats(id, group_id, slug, name, seat_type, settings jsonb)`; `seat_type`: `club_role | exchange_route | lab_duty`
 - `group_members(user_id, group_id, status: current|alumni)`
-- `seat_holders(user_id, seat_id, term_label, term_order, status: current|alumni, reachable boolean)`
+- `seat_holders(user_id, seat_id, term_label, term_order, status: current|alumni, reachable boolean, byline)`
   - `reachable`: the alumni holder agreed to receive newcomers' unanswered questions (a25 in the demo)
+  - `byline`: what the holder signs with for that term (「2025年度 会計」), worded by the label pack and written by the
+    seed; a note must carry exactly it, so nobody signs as someone else (0007)
 - `notes(id, seat_id, term_order, author_user_id, byline, kind, title, body, deadline_date, lang, scope, status, critical, valid_until, source, embedding vector(1024), created_at, withdrawn_at)`
   - `kind`: `deadline | contact | rule_of_thumb | pitfall | unwritten_rule`; `deadline_date` required for `deadline`
   - `scope`: `successor | group | institution | public`; `status`: `live | withdrawn`; `source`: `handover | live | import | file | chat`
   - `provenance`: for added notes, the source without names, e.g. 「LINEグループ・2024年10月」, 「PDF・2026年10月」, 「貼り付け・2026年10月」
+  - A note's title, body and provenance never hold an email, an @handle or a phone number: the database refuses them
+    (0007), whoever writes; names and credentials are refused by the route, which knows the wording
   - `superseded_by`: set when a later note updates this one; a superseded note leaves answers but stays as history
     (and still feeds the rule-change flag)
 - `questions(id, asker_user_id, seat_id, text, lang, status: answered|waiting, prompt_id, created_at)`
