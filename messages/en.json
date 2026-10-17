@@ -16,7 +16,8 @@
         "institution": "Every club at {institution}",
         "public": "Public"
       },
-      "abstain": "No {seat} before you knew this."
+      "abstain": "No {seat} before you knew this.",
+      "routed": "Sent to last year's {seat}."
     },
     "exchange_route": {
       "seat": "exchange route",
@@ -29,7 +30,8 @@
         "institution": "All exchange students at {institution}",
         "public": "Public"
       },
-      "abstain": "Nobody on this route knew this yet."
+      "abstain": "Nobody on this route knew this yet.",
+      "routed": "Sent to the previous exchange student."
     },
     "lab_duty": {
       "seat": "duty",
@@ -42,7 +44,8 @@
         "institution": "Every lab at {institution}",
         "public": "Public"
       },
-      "abstain": "No {seat} before you knew this."
+      "abstain": "No {seat} before you knew this.",
+      "routed": "Sent to the previous {seat}."
     }
   },
   "ask": {
