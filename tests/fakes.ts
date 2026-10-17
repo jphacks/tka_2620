@@ -23,6 +23,7 @@ function query(result: Result, calls: Call[]) {
     eq: record("eq"),
     is: record("is"),
     in: record("in"),
+    or: record("or"),
     order: record("order"),
     limit: record("limit"),
     maybeSingle: async () => result,

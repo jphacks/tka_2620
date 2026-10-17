@@ -56,6 +56,10 @@
     "outdatedDone": "We'll ask the next handover to check this",
     "ruleChange": "The rule changed in {term}",
     "sourceChip": "{byline}",
+    "changedIn": "Changed in {term}",
+    "sourceGone": "This note can't be read now.",
+    "sourceFailed": "Couldn't load this note. Close it and open it again.",
+    "source": "Source: a note by {byline}",
     "seatFailed": "Couldn't load this seat. Check your connection and reopen this page.",
     "failed": "Couldn't send your question. Ask it again."
   },

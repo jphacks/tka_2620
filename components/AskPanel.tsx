@@ -14,7 +14,6 @@ type Asked = { question: string; result?: AskResult };
 
 // 聞く on the seat page: the ask field, then each question in blue with its result underneath.
 // Mocks only for now (NEXT_PUBLIC_USE_MOCKS=1); the real client replaces createMockApi when /api/ask exists.
-// F2.4 (#22) adds the tap-to-source, the highlighter and the rule-change note to AnswerEntry.
 // The console runs it without the one-device shortcut (the a25 pane answers instead).
 export function AskPanel({
   slug,
@@ -102,9 +101,10 @@ export function AskPanel({
               <LiveStamp
                 question={question}
                 answer={{ ...result, live: result.live }}
+                api={api}
               />
             ) : (
-              <AnswerEntry question={question} answer={result} />
+              <AnswerEntry question={question} answer={result} api={api} />
             )
           ) : (
             <p className="dd-q">{question}</p>

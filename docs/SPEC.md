@@ -251,6 +251,8 @@ type AskResult =
 //   the console only: not_found unless the server's CONSOLE_SIGN_IN passphrase (16+ characters) matches x-console-key
 // GET  /api/me/notes                     → { notes: { id: string; seat: string; title: string; scope: Scope; status: "live" | "withdrawn"; lang: Lang }[] }
 //   seat: the slug of the seat the note was written at (its scope label uses that seat's words)
+// GET  /api/notes/[id]                   → { id: string; kind: NoteKind; title: string; body: string; deadlineDate?: string; lang: Lang; byline: string }
+//   the source a citation's stamp opens: one live note the caller may read (RLS); otherwise not_found
 // Any error                              → { error: "invalid_request" | "unauthorized" | "forbidden" | "not_found" | "unredacted" | "unavailable" }
 // Realtime `notes` → { id, status }; `events` → { id, kind, payload: Record<string, number>, created_at }
 ```

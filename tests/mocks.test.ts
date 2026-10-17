@@ -24,6 +24,7 @@ import {
   LiveAnswer,
   MyNotesResponse,
   NotesRow,
+  NoteView,
   PromptRoutesRow,
   PromptsResponse,
   PublishCard,
@@ -58,6 +59,7 @@ import {
   mockModelReplies,
   mockMyNotes,
   mockNotesRow,
+  mockNoteViews,
   mockOtherSeatViews,
   mockPromptRoutesRow,
   mockPrompts,
@@ -131,6 +133,11 @@ const fixtures: [string, z.ZodType, unknown][] = [
   ["PromptRoutesRow", PromptRoutesRow, mockPromptRoutesRow],
   ["AnswersRow", AnswersRow, mockAnswersRow],
   ["NotesRow", NotesRow, mockNotesRow],
+  ...mockNoteViews.map((note): [string, z.ZodType, unknown] => [
+    `NoteView ${note.id}`,
+    NoteView,
+    note,
+  ]),
   ["EventsRow", EventsRow, mockEventsRow],
   ["AnswerOutput", AnswerOutput, mockModelReplies.answer],
   ["DraftOutput", DraftOutput, mockModelReplies.draft],
@@ -251,6 +258,32 @@ describe("the mocks follow the seed", () => {
         notes.find((note) => note.id === citation.noteId)?.term_label,
         `${citation.noteId} has another term in seed/notes.csv: update lib/mocks.ts`,
       ).toBe(citation.termLabel);
+    }
+  });
+
+  it("open the cited notes as seed/notes.csv has them", () => {
+    for (const note of mockNoteViews) {
+      const row = notes.find((seed) => seed.id === note.id);
+      // Compared field by field as booleans, so a failure names the note and the field, never a body or a canary.
+      const same = {
+        kind: note.kind === row?.kind,
+        title: note.title === row?.title,
+        body: note.body === row?.body,
+        deadline: (note.deadlineDate ?? "") === row?.deadline_date,
+        term: note.byline.slice(0, 4) === row?.term_label,
+        noCanary: !row?.canary,
+      };
+      expect(
+        same,
+        `${note.id} differs from seed/notes.csv: update lib/mocks.ts`,
+      ).toEqual({
+        kind: true,
+        title: true,
+        body: true,
+        deadline: true,
+        term: true,
+        noCanary: true,
+      });
     }
   });
 
@@ -396,6 +429,26 @@ describe("createMockApi", () => {
     await expect(
       newcomer.seen({ promptId: asked.promptId }),
     ).rejects.toMatchObject({ error: "not_found" });
+  });
+
+  it("opens a cited note only within the persona's scope, and not once it's withdrawn", async () => {
+    const outcome = (persona: "a26" | "b" | "x", id: string) =>
+      createMockApi(persona, { latencyMs: 0 })
+        .note(id)
+        .then(
+          () => "readable",
+          (error: unknown) => ApiError.parse(error).error,
+        );
+    const hokenjo = await createMockApi("a26", { latencyMs: 0 }).note(
+      "smash-2025-hokenjo",
+    );
+    expect(hokenjo.byline).toBe("2025年度 会計");
+    expect(await outcome("b", "smash-2025-hokenjo")).toBe("not_found");
+    expect(await outcome("x", "smash-2025-hokenjo")).toBe("not_found");
+    expect(await outcome("b", "gakusai-2025-hokenjo")).toBe("readable");
+    expect(await outcome("x", "gakusai-2025-hokenjo")).toBe("not_found");
+    await createMockApi("a25", { latencyMs: 0 }).withdraw("smash-2025-hokenjo");
+    expect(await outcome("a26", "smash-2025-hokenjo")).toBe("not_found");
   });
 
   it("rejects what the real API would reject", async () => {

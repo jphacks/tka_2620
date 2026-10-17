@@ -56,6 +56,10 @@
     "outdatedDone": "次の引き継ぎで確認してもらいます",
     "ruleChange": "{term}にルールが変わりました",
     "sourceChip": "{byline}",
+    "changedIn": "{term}年に変更",
+    "sourceGone": "このメモは今は読めません。",
+    "sourceFailed": "メモを読み込めませんでした。閉じて、もう一度開いてください。",
+    "source": "根拠：{byline}のメモ",
     "seatFailed": "この席を読み込めませんでした。通信を確かめて、このページを開き直してください。",
     "failed": "質問を送れませんでした。もう一度聞いてください。"
   },

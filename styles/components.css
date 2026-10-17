@@ -43,6 +43,7 @@ body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(
 .dd-mini { position: relative; display: inline-grid; place-items: center; width: 24px; height: 24px; box-sizing: border-box; border: 1.5px solid var(--red); border-radius: var(--r-round);
   color: var(--red); font-family: var(--font-figures); font-size: 13px; font-weight: 700; line-height: 1; letter-spacing: 0; transform: rotate(-3deg); vertical-align: 2px; margin-inline: 2px 6px; background: none; padding: 0; cursor: pointer; }
 .dd-mini::after { content: ""; position: absolute; inset: -10px; } /* 44px hit area */
+.dd-mini + .dd-mini { margin-left: 14px; } /* two stamps 20px apart: their 44px hit areas don't overlap */
 .dd-stamp-blank { display: inline-block; width: 24px; height: 24px; box-sizing: border-box; border: 1.5px dashed var(--ink-2); border-radius: var(--r-round); vertical-align: middle; }
 .is-landing { animation: dd-land var(--t-stamp, 180ms) cubic-bezier(.2,.8,.2,1) both; }
 @keyframes dd-land { from { transform: scale(1.12) rotate(-8deg); opacity: 0; } to { transform: rotate(-3deg); opacity: 1; } }
@@ -69,7 +70,15 @@ body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(
 .dd-live-note { color: var(--blue); font-weight: 700; margin: var(--s-2) 0 0; }
 .dd-margin { position: relative; padding-left: var(--s-4); }
 .dd-margin::before { content: ""; position: absolute; left: 0; top: 6px; bottom: 6px; width: 6px; border: 1.5px solid var(--red); border-right: 0; }
-.dd-margin-note { color: var(--red); font-family: var(--font-ui); font-size: 13px; font-weight: 700; letter-spacing: .04em; white-space: nowrap; }
+/* line-height 1, like .dd-mini: the 13px note stays on its sentence's 32px line without growing it */
+.dd-margin-note { color: var(--red); font-family: var(--font-ui); font-size: 13px; font-weight: 700; line-height: 1; letter-spacing: .04em; white-space: nowrap; }
+/* UI text on the ruled grid (a stamp's opened source): the UI face, on one 32px line */
+.dd-ruled .dd-cap { font-family: var(--font-ui); line-height: var(--s-6); }
+/* A stamp's opened source note, indented under its sentence: kind mark and title in bold UI text, the body in the
+   hand; every line keeps the 32px rhythm */
+.dd-source { padding-left: var(--s-4); }
+.dd-source-title { font-family: var(--font-ui); font-size: 16px; font-weight: 700; }
+.dd-source-title .dd-kind-mark { margin-right: var(--s-1); }
 
 /* Key tag */
 .dd-tag { position: relative; display: inline-flex; align-items: center; gap: var(--s-3); height: 56px; padding: 0 var(--s-4) 0 var(--s-6); background: var(--sheet); border: 1.5px solid var(--ink); border-radius: var(--r-tag); box-sizing: border-box; }
