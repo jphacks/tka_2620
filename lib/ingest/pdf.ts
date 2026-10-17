@@ -34,12 +34,20 @@ export async function extractPdf(file: Blob): Promise<Extracted> {
     for (let number = 1; number <= doc.numPages; number++) {
       const page = await doc.getPage(number);
       const content = await page.getTextContent();
+      // A line ends where pdf.js says it does (hasEOL). Joined without it, a heading runs into its body and a line's
+      // last number into the next line's first (03-1234-5678 + 2026年 → 03-1234-56782026年), which no phone pattern
+      // in the redaction or the server's safety net finds any more.
       pages.push(
-        content.items.map((item) => ("str" in item ? item.str : "")).join(""),
+        content.items
+          .map((item) =>
+            "str" in item ? item.str + (item.hasEOL ? "\n" : "") : "",
+          )
+          .join("")
+          .trimEnd(),
       );
       page.cleanup();
     }
-    const text = repairRadicals(pages.join("\n"));
+    const text = repairRadicals(pages.join("\n\n")); // a blank line between pages
     // No text layer: whitespace only. The asker is told to copy the text instead of uploading a screenshot.
     if (!text.trim()) throw new IngestError("no_text");
     return { text, pages: doc.numPages };

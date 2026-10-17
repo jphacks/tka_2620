@@ -14,9 +14,9 @@ export type Extracted = {
 };
 
 export type IngestErrorCode =
-  | "too_large" // over 10 MB
+  | "too_large" // over 10 MB, or more text than POST /api/import takes
   | "too_many_pages" // a PDF over 30 pages
-  | "no_text" // a PDF with no text layer: an image or a scan
+  | "no_text" // nothing but whitespace: for a PDF, no text layer (an image or a scan)
   | "unsupported" // not a PDF, .docx, .txt or .md
   | "unreadable"; // the bytes are not the file they claim to be
 
@@ -33,6 +33,9 @@ export class IngestError extends Error {
 // docs/SPEC.md → F5: a file with a text layer, up to 10 MB / 30 pages. The limits are the same for every type.
 export const MAX_FILE_BYTES = 10 * 1024 * 1024;
 export const MAX_PAGES = 30;
+// The most text POST /api/import takes (lib/contracts.ts → ImportRequest.text; tests/ingest.test.ts pins the two).
+// Only extractFile applies it: a chat export is cut down to what matters before it is sent.
+export const MAX_TEXT_CHARS = 100_000;
 
 // The size is checked before anything is read, so an oversized file is never decoded and never held in memory twice.
 export function assertWithinSize(file: Blob): void {

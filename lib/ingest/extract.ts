@@ -3,11 +3,16 @@
 // POST /api/import; the file itself is never uploaded, stored or sent to a model.
 //
 //   import { extractFile, fileTypeOf } from "@/lib/ingest/extract";
-//   const extracted = await extractFile(file);          // throws IngestError with a code
+//   const extracted = await extractFile(file);          // throws IngestError with a code, and nothing else
 //   type: fileTypeOf(file)                             // "pdf" | "docx" | "txt" | "md", for ImportRequest
 //
 // The parsers are imported on demand, so a page that only pastes text never downloads pdfjs-dist or mammoth.
-import { type Extracted, type FileType, IngestError } from "./types";
+import {
+  type Extracted,
+  type FileType,
+  IngestError,
+  MAX_TEXT_CHARS,
+} from "./types";
 
 const BY_EXTENSION: Record<string, FileType> = {
   pdf: "pdf",
@@ -35,7 +40,20 @@ export function fileTypeOf(
   );
 }
 
+// Text the preview can show and POST /api/import accepts, or an IngestError. A parser's own error becomes
+// `unreadable`, since its message could quote the file. Blank text is `no_text` for every type (a Word file of
+// pasted scans too), and text over the request's limit is refused here, at the drop, not after the consent.
 export async function extractFile(file: File): Promise<Extracted> {
+  const extracted = await parse(file).catch((error: unknown) => {
+    throw error instanceof IngestError ? error : new IngestError("unreadable");
+  });
+  if (!extracted.text.trim()) throw new IngestError("no_text");
+  if (extracted.text.length > MAX_TEXT_CHARS)
+    throw new IngestError("too_large");
+  return extracted;
+}
+
+async function parse(file: File): Promise<Extracted> {
   switch (fileTypeOf(file)) {
     case "pdf":
       return (await import("./pdf")).extractPdf(file);
