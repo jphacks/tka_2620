@@ -112,6 +112,21 @@
     "empty": "まだ質問は届いていません。",
     "failed": "質問を読み込めませんでした。通信を確かめて、このページを開き直してください。"
   },
+  "voice": {
+    "title": "答えを残す",
+    "transcriptLabel": "話した内容",
+    "tapToSpeak": "マイクを押して話す",
+    "startListening": "音声入力を始める",
+    "stopListening": "音声入力を止める",
+    "placeholder": "話した内容がここに入ります",
+    "keyboardHint": "キーボードの音声入力も、この欄で使えます。",
+    "micDenied": "マイクを使えません。この欄に文字で答えられます。",
+    "unsupported": "このブラウザでは音声入力を使えません。この欄に文字で入力してください。",
+    "publishing": "公開しています…",
+    "published": "公開しました",
+    "close": "閉じる",
+    "failed": "公開できませんでした。通信を確かめて、もう一度お試しください。"
+  },
   "live": {
     "answered": "いま、{byline}が答えました",
     "waiting": "先輩に質問を届けました",
