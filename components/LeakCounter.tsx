@@ -1,6 +1,6 @@
 "use client";
 // docs/DESIGN.md → LeakCounter: 「漏れ 0 / 50 回」, the 0 in --green. Green is safe only: it never carries any
-// other meaning (DESIGN.md → Color). The numbers come from the leak test (#4); 0 leaks over the target probes.
+// other meaning (DESIGN.md → Color). The numbers come from the leak test (#28) via metrics/latest.json (#29).
 import { useTranslations } from "next-intl";
 
 export function LeakCounter({

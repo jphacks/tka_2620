@@ -8,6 +8,9 @@ import type { MyNote, SeatView } from "@/lib/contracts";
 
 /** line: the double line is drawing. collapse: the entry is closing and about to leave. */
 export type WithdrawPhase = "line" | "collapse";
+// The phase lengths in styles/components.css: .dd-cross draws for --t-line, then .dd-collapse closes the entry.
+export const LINE_MS = 220;
+export const COLLAPSE_MS = 200;
 
 export function NoteEntry({
   note,

@@ -3,14 +3,19 @@
 // phone-sized panes side by side at 1920px — a26 (新しい会計) with a cited answer, a25 (去年の会計) with
 // 自分のメモ and 「撤回する」, and x (部外者) who sees nothing. Withdrawing a cited note drops it out of a26's
 // answer while the meter runs; it freezes in ink the moment the last pane has dropped it.
-// Mocks only for now (NEXT_PUBLIC_USE_MOCKS=1): the real client replaces createMockApi when the API exists (#4).
+// Mocks only for now (NEXT_PUBLIC_USE_MOCKS=1): each pane's own signed-in client replaces createMockApi (#25)
+// once the withdraw route exists (#26).
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AbstainEntry } from "@/components/AbstainEntry";
 import { AnswerEntry } from "@/components/AnswerEntry";
 import { LeakCounter } from "@/components/LeakCounter";
 import { MyNotes } from "@/components/MyNotes";
-import type { WithdrawPhase } from "@/components/NoteEntry";
+import {
+  COLLAPSE_MS,
+  LINE_MS,
+  type WithdrawPhase,
+} from "@/components/NoteEntry";
 import { PersonaPane } from "@/components/PersonaPane";
 import { WithdrawMeter } from "@/components/WithdrawMeter";
 import type { AskResult, MyNote, SeatView } from "@/lib/contracts";
@@ -18,16 +23,17 @@ import { createMockApi, mockQuestions, resetMocks } from "@/lib/mocks";
 import { useRealtime } from "@/lib/realtime";
 
 const SEAT = "smash-kaikei";
-// SPEC F4: the leak test's ≥50 outsider attempts; the engine's numbers land here once `pnpm metrics` runs (#4).
+// SPEC F4: the leak test's ≥50 outsider attempts (#28); the numbers land here from metrics/latest.json (#29).
 const PROBES = 50;
-// Match styles/components.css: the double line draws for --t-line, then the entry collapses over 200ms.
-const COLLAPSE_MS = 200;
 // The newcomer's question whose answer cites the 2025 deadline note — the sentence withdrawal must remove.
 const QUESTION = mockQuestions.q01;
+const sleep = (ms: number) =>
+  new Promise<void>((resolve) => setTimeout(resolve, ms));
 
-// The meter starts at the click and stops when the withdrawal has reached every pane: the a25 notes echo,
-// any re-answer for a26 (only when its answer cited the note) and the API reply.
-type Pending = { id: string; api: boolean; notes: boolean; answers: boolean };
+// The meter starts at the click and stops when the withdrawal has reached every pane: a25's pane drops the note
+// once the API has withdrawn it, a26's once its answer comes back without it (only when that answer cited it).
+// Each flag is true while that pane is still waiting.
+type Pending = { id: string; api: boolean; answers: boolean };
 
 export function TrustConsole() {
   const t = useTranslations();
@@ -40,6 +46,7 @@ export function TrustConsole() {
     id: string;
     phase: WithdrawPhase;
   }>();
+  const [withdrawFailed, setWithdrawFailed] = useState(false);
   const [meter, setMeter] = useState<{ running: boolean; ms: number }>({
     running: false,
     ms: 0,
@@ -55,6 +62,7 @@ export function TrustConsole() {
     const id = ++loadId.current;
     pending.current = undefined;
     setWithdrawing(undefined);
+    setWithdrawFailed(false);
     setMeter({ running: false, ms: 0 });
     setNotes(undefined);
     setAnswer(undefined);
@@ -78,30 +86,19 @@ export function TrustConsole() {
 
   const tryStop = useCallback(() => {
     const current = pending.current;
-    if (!current || !current.api || current.notes || current.answers) return;
+    if (!current || current.api || current.answers) return;
     pending.current = undefined;
     setMeter({ running: false, ms: performance.now() - started.current });
   }, []);
 
-  // a25's pane drops the note: a status change, which then closes the entry.
+  // A status change (this pane's own echo, or the author's other tab) marks the note withdrawn in a25's list.
+  // The meter doesn't wait for it: a25's pane started the withdrawal and has the API's answer.
   useRealtime(senpaiApi, "notes", (row) => {
     setNotes((previous) =>
       previous?.map((note) =>
         note.id === row.id ? { ...note, status: row.status } : note,
       ),
     );
-    if (pending.current?.id !== row.id || row.status !== "withdrawn") return;
-    pending.current.notes = false;
-    tryStop();
-    setWithdrawing((previous) =>
-      previous?.id === row.id ? { id: row.id, phase: "collapse" } : previous,
-    );
-    setTimeout(() => {
-      setNotes((previous) => previous?.filter((note) => note.id !== row.id));
-      setWithdrawing((previous) =>
-        previous?.id === row.id ? undefined : previous,
-      );
-    }, COLLAPSE_MS);
   });
 
   // a26's pane drops the note: the answer is re-pushed with the withdrawn sentence gone.
@@ -140,23 +137,36 @@ export function TrustConsole() {
       current.sentences.some((sentence) =>
         sentence.citations.some((citation) => citation.noteId === noteId),
       );
-    started.current = performance.now();
-    setNow(started.current);
-    pending.current = { id: noteId, api: false, notes: true, answers: cited };
+    const loaded = loadId.current; // a reset while this runs supersedes it
+    const clicked = performance.now();
+    started.current = clicked;
+    setNow(clicked);
+    pending.current = { id: noteId, api: true, answers: cited };
+    setWithdrawFailed(false);
     setMeter({ running: true, ms: 0 });
     setWithdrawing({ id: noteId, phase: "line" });
-    senpaiApi
-      .withdraw(noteId)
-      .then(() => {
-        if (!pending.current) return;
-        pending.current.api = true;
+    senpaiApi.withdraw(noteId).then(
+      async () => {
+        if (loadId.current !== loaded) return;
+        if (pending.current) pending.current.api = false;
         tryStop();
-      })
-      .catch(() => {
+        // a25's pane drops the note: the double line finishes drawing, then the entry closes and leaves.
+        await sleep(Math.max(0, LINE_MS - (performance.now() - clicked)));
+        if (loadId.current !== loaded) return;
+        setWithdrawing({ id: noteId, phase: "collapse" });
+        await sleep(COLLAPSE_MS);
+        if (loadId.current !== loaded) return;
+        setNotes((previous) => previous?.filter((note) => note.id !== noteId));
+        setWithdrawing(undefined);
+      },
+      () => {
+        if (loadId.current !== loaded) return;
         pending.current = undefined;
         setWithdrawing(undefined);
+        setWithdrawFailed(true);
         setMeter({ running: false, ms: 0 });
-      });
+      },
+    );
   }
 
   function reset() {
@@ -203,6 +213,7 @@ export function TrustConsole() {
               notes={notes}
               seat={seat}
               withdrawing={withdrawing}
+              withdrawFailed={withdrawFailed}
               onWithdraw={startWithdraw}
             />
           )}
