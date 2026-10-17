@@ -124,4 +124,28 @@ body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(
 .dd-drop { border: 1.5px dashed var(--ink-2); border-radius: var(--r-slip); padding: var(--s-5) var(--s-4); text-align: center; display: grid; gap: var(--s-1); justify-items: center; }
 .dd-date { display: inline-grid; place-items: center; min-width: 72px; height: 32px; border: 1px solid var(--ink); border-radius: var(--r-slip); font-family: var(--font-figures); font-variant-numeric: tabular-nums; font-size: 16px; }
 
-@media (prefers-reduced-motion: reduce) { .is-landing, .is-arriving, .dd-voice.is-listening::after { animation: none !important; } }
+/* Withdrawal (自分のメモ): the two red lines draw left to right, then the entry collapses and leaves */
+.dd-cross { position: relative; }
+.dd-cross::after { content: ""; position: absolute; inset: 0; pointer-events: none;
+  background-image: linear-gradient(var(--red), var(--red)), linear-gradient(var(--red), var(--red));
+  background-repeat: no-repeat; background-position: 0 42%, 0 60%; background-size: 0% 1.5px, 0% 1.5px;
+  animation: dd-cross var(--t-line, 220ms) ease-out forwards; }
+@keyframes dd-cross { to { background-size: 100% 1.5px, 100% 1.5px; } }
+/* NoteEntry sets max-height to the entry's own height as it starts closing; 320px is the fallback */
+.dd-collapse { overflow: hidden; max-height: 320px; animation: dd-collapse 200ms ease-in forwards; }
+@keyframes dd-collapse { to { max-height: 0; opacity: 0; margin-block: 0; padding-block: 0; border-width: 0; } }
+
+/* Console: three phone-sized persona panes, the withdrawal meter and the leak counter (docs/DESIGN.md → PersonaPane) */
+.dd-pane { width: 390px; height: 844px; box-sizing: border-box; overflow: auto; background: var(--sheet); border: 1px solid var(--rule); border-radius: 12px; padding: var(--s-4); }
+.dd-meter { font-family: var(--font-figures); font-variant-numeric: tabular-nums; font-size: var(--text-xxl); line-height: 1.1; font-weight: 700; color: var(--red); }
+.dd-meter.is-frozen { color: var(--ink); }
+.dd-safe { color: var(--green); font-family: var(--font-figures); font-variant-numeric: tabular-nums; }
+/* Read from the back of the room, beside the meter: the green 0 is the whole claim */
+.dd-leak { margin: 0; font-family: var(--font-figures); font-variant-numeric: tabular-nums; font-size: var(--text-xl); line-height: 1.1; font-weight: 700; }
+
+@media (prefers-reduced-motion: reduce) {
+  .is-landing, .is-arriving, .dd-voice.is-listening::after { animation: none !important; }
+  /* Instant state changes: the double line is simply there, and the entry is already closed */
+  .dd-cross::after { animation: none !important; background-size: 100% 1.5px, 100% 1.5px; }
+  .dd-collapse { animation: none !important; max-height: 0 !important; opacity: 0; margin-block: 0 !important; padding-block: 0 !important; border-width: 0 !important; }
+}
