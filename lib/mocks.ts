@@ -44,6 +44,7 @@ import {
   type SeatView,
   type WithdrawResponse,
 } from "@/lib/contracts";
+import { questionLang } from "@/lib/engine/lang";
 
 export const USE_MOCKS = process.env.NEXT_PUBLIC_USE_MOCKS === "1";
 
@@ -743,7 +744,7 @@ export function resetMocks() {
 
 const keyOf = (question: string) => question.trim().replace(/[？?\s]+$/, "");
 // Hiragana, katakana or kanji (U+3040–30FF, U+4E00–9FFF) → ja.
-const langOf = (text: string): Lang => (/[぀-ヿ一-鿿]/.test(text) ? "ja" : "en");
+const langOf = questionLang; // the reading /api/ask saves as questions.lang
 const now = () => new Date().toISOString();
 const sleep = (ms: number) =>
   new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -873,9 +874,14 @@ export function createMockApi(
       state.answers.set(known.questionId, { asker: persona, result: known });
       return withoutWithdrawn(known);
     }
-    // Nobody knew. Holders' questions reach the reachable predecessor (a25); the rule for anyone else is #7's call.
-    const routed = seat === SEAT && holders[persona] && persona !== "a25";
-    if (!routed) {
+    // Nobody knew. A holder's question becomes a demand prompt and reaches the seat's reachable holders other than
+    // the asker: a25, unless a25 asked, when the prompt reaches nobody. A question from someone who holds no seat at
+    // that seat creates no prompt and reaches nobody, so its result names none. The database's route_question() and
+    // /api/ask answer the same way.
+    if (seat !== SEAT || !holders[persona]) {
+      return { status: "abstained", questionId, routedTo: 0 };
+    }
+    if (persona === "a25") {
       return {
         status: "abstained",
         questionId,
