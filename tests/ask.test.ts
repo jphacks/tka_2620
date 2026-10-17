@@ -25,6 +25,7 @@ type Stub = {
   routeError?: { code: string } | null;
   inserted?: Record<string, Record<string, unknown>[]>; // rows by table
   called?: string[]; // database functions, in order
+  storedPayload?: unknown; // the answers row as the database keeps it, when it differs from the one inserted
 };
 
 function stubClient(stub: Stub): SupabaseClient {
@@ -43,12 +44,18 @@ function stubClient(stub: Stub): SupabaseClient {
             }),
           }),
         }),
-        // Awaited as it is (answers), or with .select().single() for the new id (questions).
+        // With .select().single(): the new id (questions), or the row as stored (answers, here as inserted).
         insert: (row: Record<string, unknown>) => {
           inserted[table] = [...(inserted[table] ?? []), row];
           return Object.assign(Promise.resolve({ data: null, error: null }), {
             select: () => ({
-              single: async () => ({ data: { id: QUESTION_ID }, error: null }),
+              single: async () => ({
+                data:
+                  table === "answers"
+                    ? { payload: stub.storedPayload ?? row.payload }
+                    : { id: QUESTION_ID },
+                error: null,
+              }),
             }),
           });
         },
@@ -165,6 +172,49 @@ describe("askAsCaller", () => {
       answers: [{ question_id: QUESTION_ID, payload: result }],
     });
     expect(stub.called).toEqual(["search_notes"]);
+  });
+
+  it("replies with the answer as stored: one whose note was withdrawn while it was asked comes back without it", async () => {
+    // What 0006's trigger keeps when the 2025 note is withdrawn between the search and the save.
+    const stored = {
+      status: "answered",
+      questionId: QUESTION_ID,
+      sentences: mockAnswer.sentences.filter((sentence) =>
+        sentence.citations.every(
+          (citation) => citation.noteId === "smash-2024-hokenjo",
+        ),
+      ),
+      language: "ja",
+    };
+    const stub: Stub = {
+      seat: { id: SMASH_KAIKEI },
+      found: q01Notes,
+      storedPayload: stored,
+    };
+    const result = await askAsCaller(
+      stubClient(stub),
+      "asker-1",
+      q01,
+      replying(mockModelReplies.answer),
+    );
+    expect(result).toEqual(stored);
+    expect(JSON.stringify(result)).not.toContain("smash-2025-hokenjo");
+  });
+
+  it("answers unavailable when the stored answer isn't an AskResult", async () => {
+    const stub: Stub = {
+      seat: { id: SMASH_KAIKEI },
+      found: q01Notes,
+      storedPayload: { status: "answered" },
+    };
+    await expect(
+      askAsCaller(
+        stubClient(stub),
+        "asker-1",
+        q01,
+        replying(mockModelReplies.answer),
+      ),
+    ).rejects.toMatchObject({ code: "unavailable" });
   });
 
   it("abstains when no sentence keeps a citation: saved waiting, then routed", async () => {
