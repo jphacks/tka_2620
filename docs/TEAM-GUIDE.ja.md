@@ -101,36 +101,37 @@ Claude Code は、自分のPCの **git** と **GitHub CLI（`gh`）** を使っ�
 ## 4. ブランチとマージ
 
 **ルール**
-- `main` に直接 push しない。`main` はいつでもデモできる状態にする
+- `main` と `dev` に直接 push しない。`main` はいつでもデモできる状態にする
 - 1つの Issue = 1つのブランチ = 1つの PR
+- ブランチは `dev` から作り、PR も `dev` に向けて出す（`main` ではない）。`dev` から `main` へのマージはニコがする
 - ブランチ名：`名前/F番号-内容`（例：`kage/f3-inbox`、`ishi/seed-notes`）
 - マージするのはニコ（Squash and merge）。`git push --force` は禁止
 - コミットメッセージは英語で `[hackday] F7 ...`（Claude に書いてもらえばOK）
 
 **A. Claude Code に頼む（いちばん簡単）**
-- 「main を最新にして、`kage/f3-inbox` ブランチを作って」
+- 「dev を最新にして、`kage/f3-inbox` ブランチを作って」
 - 「ここまでの変更をコミットして」
-- 「push して PR を作って。PR テンプレートを埋めて、確認した結果も書いて」
-- 「main の変更を取り込んで。コンフリクトがあれば解決して」
+- 「push して、dev に向けて PR を作って。PR テンプレートを埋めて、確認した結果も書いて」
+- 「dev の変更を取り込んで。コンフリクトがあれば解決して」
 - ニコだけ：「PR #12 をレビューして、問題なければ squash merge して」
 - Claude はコマンドを実行する前に確認してきます → **内容を読んでから「許可」**
 
 **B. VS Code の画面で**
-- 左下のブランチ名（`main`）をクリック →「Create new branch…」→ 名前を入力
-  - その前に：ソース管理（`Ctrl+Shift+G`）の「…」→「Pull」で `main` を最新に
+- 左下のブランチ名をクリック →「Create new branch from…」→ `origin/dev` を選ぶ → 名前を入力
+  - その前に：ソース管理（`Ctrl+Shift+G`）の「…」→「Fetch」で `dev` を最新に
 - 作業したら：ソース管理 → 変更を確認 → メッセージを入力 →「Commit」
 - 「Publish Branch」（はじめて）／「Sync Changes」（2回目から）
-- GitHub のリポジトリページに出る「Compare & pull request」→ テンプレートを埋める →「Create pull request」
+- GitHub のリポジトリページに出る「Compare & pull request」→ **base を `main` から `dev` に変える** → テンプレートを埋める →「Create pull request」
 
 **C. ターミナルで**
 ```
-git switch main && git pull
+git switch dev && git pull
 git switch -c kage/f3-inbox
 git add -A
 git commit -m "[hackday] F3 add inbox card and voice answer"
 git push -u origin HEAD
-gh pr create --web          # ブラウザでPRを作る
-git pull origin main        # 作業中に main の変更を取り込む
+gh pr create --base dev --web   # dev に向けたPRをブラウザで作る
+git pull origin dev         # 作業中に dev の変更を取り込む
 gh pr merge 12 --squash --delete-branch   # ← ニコだけ
 ```
 
@@ -139,7 +140,7 @@ gh pr merge 12 --squash --delete-branch   # ← ニコだけ
 ## 5. 1つの Issue の進め方（毎回おなじ流れ）
 
 1. GitHub の Issues で自分の Issue を開く（Assignees が自分）
-2. `main` を最新にして、ブランチを作る
+2. `dev` を最新にして、そこからブランチを作る
 3. Claude Code で**新しい会話**を開き、計画モードでこれを送る
    ```
    あなたは Daidai の <エンジン / 画面 / コンテンツ> 担当です。
@@ -152,7 +153,7 @@ gh pr merge 12 --squash --delete-branch   # ← ニコだけ
 4. 計画を読む → SPEC.md と合っているか確認 → 違えば直してもらう → OK なら承認
 5. Claude が作る → **すぐブラウザで見る** → 気になる所を伝える（スクリーンショットを貼ってもOK）
 6. `pnpm typecheck` と `pnpm test` が通ったらコミット（30分に1回くらい）
-7. 60〜90分以内に PR → ニコがマージ → 次の Issue へ
+7. 60〜90分以内に `dev` へ PR → ニコがマージ → 次の Issue へ
 
 - 1つの会話では1つの Issue だけ。終わったら新しい会話にする
 - 2回直してもうまくいかない → 巻き戻して、新しい会話で、もっと具体的に頼み直す
@@ -175,7 +176,7 @@ gh pr merge 12 --squash --delete-branch   # ← ニコだけ
   - 14:00 がいちばん大事：ライブループが本物のデータで1回動くこと（動かなければ、ニコと影広さんが一緒に直す）
   - デモ用PCで `main` を動かして、みんなで確認
   - Slack にひとり1行：「✅できた / ▶つぎ / ⛔困っている」
-- 1時間に1回、`main` の変更を自分のブランチに取り込む
+- 1時間に1回、`dev` の変更を自分のブランチに取り込む
 - 15分つまったら、声をかける。隣の席なので、口で聞くのがいちばん速い
 - Slack は日本語でOK（ニコは翻訳して読みます）
 - 実名・本物の個人情報は入れない。APIキーや `.env.local` は Slack に貼らない
