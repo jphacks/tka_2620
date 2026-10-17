@@ -1,5 +1,5 @@
 {
-  "measuredAt": "2026-10-17T22:09:19.229Z",
+  "measuredAt": "2026-10-17T22:19:04.819Z",
   "leaks": {
     "outsiderAttempts": 93,
     "totalAttempts": 544,
@@ -7,8 +7,8 @@
   },
   "withdraw": {
     "runs": 10,
-    "medianS": 0.41,
-    "maxS": 0.68
+    "medianS": 0.45,
+    "maxS": 0.72
   },
   "citations": {
     "sentences": 5,
@@ -17,6 +17,6 @@
   "loop": {
     "runs": 5,
     "failures": 0,
-    "medianS": 5.9
+    "medianS": 6.6
   }
 }
