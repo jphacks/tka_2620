@@ -64,6 +64,18 @@ function check(what: string, ok: boolean, detail = ""): void {
   console.log(`${ok ? "✓" : "✗"} ${what}${detail ? ` — ${detail}` : ""}`);
 }
 
+// For a "sees nothing" check: only a query that worked and came back empty counts. A failed query proves nothing.
+function sawNothing(result: {
+  data: unknown[] | null;
+  error: { code: string } | null;
+}): { ok: boolean; detail: string } {
+  if (result.error) {
+    return { ok: false, detail: `query failed: ${result.error.code}` };
+  }
+  const rows = result.data?.length ?? 0;
+  return { ok: rows === 0, detail: `${rows} row(s)` };
+}
+
 async function readQuestions(): Promise<QuestionRow[]> {
   const text = await readFile(
     new URL("../seed/questions.csv", import.meta.url),
@@ -386,10 +398,13 @@ async function main(): Promise<void> {
         .from("prompts")
         .select("id")
         .eq("id", promptId);
-      check(`${persona} sees no route`, (seenRoute.data ?? []).length === 0);
+      const route = sawNothing(seenRoute);
+      check(`${persona} sees no route`, route.ok, route.detail);
+      const prompt = sawNothing(seenPrompt);
       check(
         `${persona} can't read the demand prompt`,
-        (seenPrompt.data ?? []).length === 0,
+        prompt.ok,
+        prompt.detail,
       );
     }
 
