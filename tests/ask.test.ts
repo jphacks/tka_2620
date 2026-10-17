@@ -14,7 +14,7 @@ const PROMPT_ID = "22222222-2222-4222-8222-222222222222";
 
 type Stub = {
   seat: { id: string } | null;
-  routed: { prompt_id: string | null; routed_to: number | null };
+  routed: unknown; // route_question's reply, as PostgREST hands it over
   seatError?: { code: string } | null;
   routeError?: { code: string } | null;
   inserted?: Record<string, unknown>;
@@ -128,6 +128,34 @@ describe("askAsCaller", () => {
       questionId: QUESTION_ID,
       routedTo: 0,
     });
+  });
+
+  it("reads route_question's row from a one-item array too", async () => {
+    const stub: Stub = {
+      seat: { id: "seat-1" },
+      routed: [{ prompt_id: PROMPT_ID, routed_to: 1 }],
+    };
+    const result = await askAsCaller(stubClient(stub), "asker-1", {
+      seat: "smash-kaikei",
+      question: QUESTION,
+    });
+    expect(result).toMatchObject({ promptId: PROMPT_ID, routedTo: 1 });
+  });
+
+  it("answers unavailable when route_question's reply isn't one it can give", async () => {
+    for (const routed of [
+      null,
+      {},
+      { prompt_id: "not-a-uuid", routed_to: 1 },
+      { prompt_id: PROMPT_ID, routed_to: -1 },
+    ]) {
+      await expect(
+        askAsCaller(stubClient({ seat: { id: "seat-1" }, routed }), "asker-1", {
+          seat: "smash-kaikei",
+          question: QUESTION,
+        }),
+      ).rejects.toMatchObject({ name: "ApiFailure", code: "unavailable" });
+    }
   });
 
   it("404s a seat that doesn't exist", async () => {

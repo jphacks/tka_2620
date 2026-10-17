@@ -5,7 +5,8 @@
 // are the asker's own rows, and route_question() (0003) creates the prompt and the prompt_routes rows, refusing
 // anyone who holds no seat at the seat they asked — their question routes nowhere and no prompt is created.
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { AskRequest, type AskResult } from "@/lib/contracts";
+import { z } from "zod";
+import { AskRequest, type AskResult, Uuid } from "@/lib/contracts";
 import { questionLang } from "@/lib/engine/lang";
 import {
   ApiFailure,
@@ -36,6 +37,12 @@ export async function handleAsk(request: Request): Promise<Response> {
   }
 }
 
+// route_question()'s OUT parameters: PostgREST answers with its one row, as an object or a one-item array.
+const Routed = z.object({
+  prompt_id: Uuid.nullable(),
+  routed_to: z.number().int().nonnegative(),
+});
+
 // The flow, as the asker. Split from the handler so a test can drive it with a client of its own.
 // F2 puts retrieval and the grounded answer here; until it lands, every question abstains and takes the live loop.
 export async function askAsCaller(
@@ -63,23 +70,22 @@ export async function askAsCaller(
     .single();
   if (questionError || !question) throw dbFailure(questionError);
 
-  // Nobody knew: the question becomes a demand prompt of the seat, or joins an open one asking the same thing (F2.5).
+  // Nobody knew: the question becomes a new demand prompt of the seat, worded as the newcomer asked it. Joining an
+  // open prompt that asks the same thing (route_question's join_prompt) and rewording the question about the seat
+  // come with dedupe (F2.5).
   const { data, error } = await client.rpc("route_question", {
     question: question.id,
     prompt_text: request.question,
   });
   if (error) throw dbFailure(error);
-
-  // A function with OUT parameters answers with one row, as an object or a one-item array.
-  const routed = (Array.isArray(data) ? data[0] : data) as {
-    prompt_id: string | null;
-    routed_to: number | null;
-  } | null;
+  const routed = Routed.safeParse(Array.isArray(data) ? data[0] : data);
+  if (!routed.success) throw new ApiFailure("unavailable");
+  const { prompt_id: promptId, routed_to: routedTo } = routed.data;
   return {
     status: "abstained",
     questionId: question.id,
     // Absent when the asker holds no seat at that seat: nothing was routed, so no prompt exists to name.
-    ...(routed?.prompt_id ? { promptId: routed.prompt_id } : {}),
-    routedTo: routed?.routed_to ?? 0,
+    ...(promptId && { promptId }),
+    routedTo,
   };
 }
