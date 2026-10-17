@@ -78,14 +78,14 @@ const SEAT = "smash-kaikei";
 // seed/questions.csv (q02 and q03 ask q01's question as b and x).
 export const mockQuestions = {
   q01: "模擬店の保健所申請、いつまで？",
-  q04: "部室の鍵を無くしたら、誰に連絡する？",
+  q04: "決算後に申請された領収書はどうすれば良いですか？",
   q05: "合宿のお金はどう管理する？",
   q06: "打ち上げのお店はどこ？",
 };
 
 // seed/live-answer.txt: what a25 says in the live loop.
 export const mockLiveAnswerText =
-  "学生課の施設係に連絡してください。合鍵は顧問の先生が持っているので、その日のうちにお願いすれば借りられます。";
+  "少額ならば予備部分から出して、大きい場合は次年度の人に回してください。そういうことが今後はないように、周知を徹底した方が良いかもしれないです。";
 
 // Holders of smash-kaikei; bylines come from the club_role label pack (「{term}年度 {seat}」), as in scripts/seed.ts.
 const holders: Partial<Record<Persona, { term: string; byline: string }>> = {
@@ -324,11 +324,11 @@ export const mockInboxItem: InboxItem = {
   lang: "ja",
 };
 
-// POST /api/handover/draft for the spoken answer: one contact card, people only by role.
+// POST /api/handover/draft for the spoken answer: one rule-of-thumb card, people only by role.
 export const mockLiveCard: CardDraft = {
-  kind: "contact",
-  title: "部室の鍵を無くしたとき",
-  body: "学生課の施設係に連絡する。合鍵は顧問の先生が持っているので、その日のうちにお願いすれば借りられる。",
+  kind: "rule_of_thumb",
+  title: "決算後に出てきた領収書",
+  body: "少額なら予備費から出し、大きい額は次年度の会計に回す。今後出ないように、決算前の提出を周知しておく。",
   suggested_scope: "successor",
   critical: false,
   lang: "ja",
@@ -375,9 +375,12 @@ export const mockLiveAnswer: LiveAnswer = {
   status: "answered",
   questionId: mockIds.q04,
   sentences: [
-    { text: "学生課の施設係に連絡してください。", citations: [cite.live] },
     {
-      text: "合鍵は顧問の先生が持っているので、その日のうちにお願いすれば借りられます。",
+      text: "少額ならば予備部分から出して、大きい場合は次年度の人に回してください。",
+      citations: [cite.live],
+    },
+    {
+      text: "そういうことが今後はないように、周知を徹底した方が良いかもしれないです。",
       citations: [cite.live],
     },
   ],
@@ -955,7 +958,7 @@ export function createMockApi(
 
     async draft(request) {
       const { answer } = DraftRequest.parse(request);
-      if (answer.includes("施設係")) return reply(mockDraft);
+      if (answer.includes("予備")) return reply(mockDraft);
       if (answer.includes("学祭の前")) return reply(mockDraftWithFollowup);
       const card: CardDraft = {
         kind: "rule_of_thumb",
