@@ -5,7 +5,7 @@ import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { parse } from "csv-parse/sync";
-import { embed } from "@/lib/embed";
+import { embed, noteText } from "@/lib/embed";
 
 type Status = "current" | "alumni";
 type Holding = {
@@ -313,9 +313,9 @@ async function seed() {
   console.log(
     `✓ ${notes.length} notes and ${questions.length} questions are consistent`,
   );
-  const vectors = await embed(notes.map((note) => note.body));
+  const vectors = await embed(notes.map(noteText));
   console.log(
-    `✓ embedded ${vectors.length} note bodies with ${env("EMBED_MODEL")}`,
+    `✓ embedded ${vectors.length} notes (title and body) with ${env("EMBED_MODEL")}`,
   );
   const labelPacks = JSON.parse(
     await readFile(new URL("../messages/ja.json", import.meta.url), "utf8"),

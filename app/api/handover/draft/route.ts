@@ -4,7 +4,13 @@ import { z } from "zod";
 import { sonnet } from "@/lib/ai";
 import { DraftRequest, DraftResponse, SeatType } from "@/lib/contracts";
 import { draftCards } from "@/lib/engine/draft";
-import { apiError, callerClient } from "@/lib/engine/route";
+import {
+  apiError,
+  bearerToken,
+  callerFor,
+  dbFailure,
+  failed,
+} from "@/lib/engine/route";
 
 const PromptRow = z.object({
   text: z.string(),
@@ -19,24 +25,27 @@ function today(): string {
 }
 
 export async function POST(request: Request): Promise<Response> {
+  const token = bearerToken(request);
+  if (!token) return apiError("unauthorized");
+  const parsed = DraftRequest.safeParse(
+    await request.json().catch(() => undefined),
+  );
+  if (!parsed.success) return apiError("invalid_request");
+  const { seat, promptId, answer } = parsed.data;
+
   try {
-    const db = await callerClient(request);
-    if (!db) return apiError("unauthorized");
-    const parsed = DraftRequest.safeParse(
-      await request.json().catch(() => undefined),
-    );
-    if (!parsed.success) return apiError("invalid_request");
-    const { seat, promptId, answer } = parsed.data;
+    const caller = await callerFor(token);
+    if (!caller) return apiError("unauthorized");
 
     // As the caller: RLS shows a prompt only to holders of its seat, and a demand prompt (a newcomer's question)
     // only to the predecessors it was routed to. Anything else looks like a missing prompt.
-    const { data, error } = await db
+    const { data, error } = await caller.db
       .from("prompts")
       .select("text, seats!inner(name, seat_type)")
       .eq("id", promptId)
       .eq("seats.slug", seat)
       .maybeSingle();
-    if (error) throw error;
+    if (error) throw dbFailure(error);
     if (!data) return apiError("not_found");
     const prompt = PromptRow.parse(data);
 
@@ -49,10 +58,7 @@ export async function POST(request: Request): Promise<Response> {
     });
     return Response.json(DraftResponse.parse({ cards }));
   } catch (error) {
-    // The error's name only: its message can quote the answer, the prompt or the model's reply.
-    console.error(
-      `POST /api/handover/draft failed: ${error instanceof Error ? error.name : typeof error}`,
-    );
-    return apiError("unavailable");
+    // The code and the error's class only: a message can quote the answer, the prompt or the model's reply.
+    return failed("POST /api/handover/draft", error);
   }
 }

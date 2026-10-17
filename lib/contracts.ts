@@ -143,7 +143,9 @@ export type AnsweredResult = z.infer<typeof AnsweredResult>;
 export const AbstainedResult = z.object({
   status: z.literal("abstained"),
   questionId: Uuid,
-  promptId: Uuid, // the demand prompt it created or joined
+  // The demand prompt it created or joined. Absent when the asker holds no seat at the seat they asked: their
+  // question routes nowhere and creates no prompt, so routedTo is 0 and there is no prompt to name.
+  promptId: Uuid.optional(),
   routedTo: Count, // reachable predecessors whose inbox it reached
 });
 export type AbstainedResult = z.infer<typeof AbstainedResult>;
@@ -177,6 +179,15 @@ export type InboxItem = z.infer<typeof InboxItem>;
 
 export const InboxResponse = z.object({ items: z.array(InboxItem) });
 export type InboxResponse = z.infer<typeof InboxResponse>;
+
+// POST /api/inbox/seen ----------------------------------------------------------------
+
+// The predecessor opened a slip (prompt_routes.seen_at). The first open counts: opening it again answers the same time.
+export const SeenRequest = z.object({ promptId: Uuid });
+export type SeenRequest = z.infer<typeof SeenRequest>;
+
+export const SeenResponse = z.object({ seenAt: Timestamp });
+export type SeenResponse = z.infer<typeof SeenResponse>;
 
 // POST /api/handover/draft -------------------------------------------------------------
 
@@ -459,6 +470,7 @@ export type Api = {
   seat(slug: string): Promise<SeatView>; // GET /api/seats/[slug]
   ask(request: AskRequest): Promise<AskResult>; // POST /api/ask
   inbox(query: SeatQuery): Promise<InboxResponse>; // GET /api/inbox?seat=
+  seen(request: SeenRequest): Promise<SeenResponse>; // POST /api/inbox/seen
   draft(request: DraftRequest): Promise<DraftResponse>; // POST /api/handover/draft
   publish(request: PublishRequest): Promise<PublishResponse>; // POST /api/handover/publish
   prompts(query: SeatQuery): Promise<PromptsResponse>; // GET /api/handover/prompts?seat=
