@@ -266,9 +266,10 @@ export const mockAnswer: AnsweredResult = {
       citations: [cite.hokenjo2025],
     },
   ],
+  // As the engine computes it from the cited deadline notes: the two dates, so no copy (lib/engine/rule-change.ts).
   ruleChange: {
     termLabel: "2025",
-    summary: "締切が10月27日から10月20日に早まりました。",
+    summary: "10/27 → 10/20",
   },
   language: "ja",
 };

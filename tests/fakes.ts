@@ -26,8 +26,9 @@ export function promptText(model: ReturnType<typeof fakeModel>): string {
     .join("\n");
 }
 
-const SMASH_KAIKEI = "00000000-0000-4000-8000-000000000001";
-const GAKUSAI_MOGITEN = "00000000-0000-4000-8000-000000000002";
+// The seats' ids: Smash's 会計 is the seat q01 is asked at.
+export const SMASH_KAIKEI = "00000000-0000-4000-8000-000000000001";
+export const GAKUSAI_MOGITEN = "00000000-0000-4000-8000-000000000002";
 
 // Best first, as findNotes() keeps them: the 2024 note, the 学祭実行委員会 note for the whole university, the 2025 note.
 export const q01Notes: FoundNote[] = [
