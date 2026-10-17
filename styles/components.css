@@ -69,7 +69,10 @@ body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(
 .dd-live-note { color: var(--blue); font-weight: 700; margin: var(--s-2) 0 0; }
 .dd-margin { position: relative; padding-left: var(--s-4); }
 .dd-margin::before { content: ""; position: absolute; left: 0; top: 6px; bottom: 6px; width: 6px; border: 1.5px solid var(--red); border-right: 0; }
-.dd-margin-note { color: var(--red); font-family: var(--font-ui); font-size: 13px; font-weight: 700; letter-spacing: .04em; white-space: nowrap; }
+/* line-height 1, like .dd-mini: the 13px note stays on its sentence's 32px line without growing it */
+.dd-margin-note { color: var(--red); font-family: var(--font-ui); font-size: 13px; font-weight: 700; line-height: 1; letter-spacing: .04em; white-space: nowrap; }
+/* UI text on the ruled grid (a stamp's opened source): the UI face, on one 32px line */
+.dd-ruled .dd-cap { font-family: var(--font-ui); line-height: var(--s-6); }
 
 /* Key tag */
 .dd-tag { position: relative; display: inline-flex; align-items: center; gap: var(--s-3); height: 56px; padding: 0 var(--s-4) 0 var(--s-6); background: var(--sheet); border: 1.5px solid var(--ink); border-radius: var(--r-tag); box-sizing: border-box; }
