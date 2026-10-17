@@ -4,8 +4,8 @@
 //   pnpm test:ask
 // The ask goes over HTTP with a26's own token, as a phone would, so the route handler and RLS are exercised for
 // real. The reads that must see past a persona's own rows use the service-role key, which only scripts/ may hold.
-// Everything this check creates is removed afterwards, so the demo database is left as it was.
-// Counts, ids and personas only: never the question text.
+// Everything this check creates is removed afterwards, and it says the demo data is back only when it is.
+// Counts, ids and personas only: never the question text, never an email.
 import { readFile } from "node:fs/promises";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { parse } from "csv-parse/sync";
@@ -30,7 +30,10 @@ const EMAIL: Record<string, string> = {
   x: "yamate-outsider",
 };
 const REACHABLE = "a25"; // the seat's only reachable holder
-const MUST_SEE_NOTHING = ["a24", "b", "x"]; // an earlier-term holder, another club's member, an outsider
+const STRANGER = "b"; // another club's member: holds no seat at smash-kaikei
+// The asker (holds the seat, but an asker is never a recipient), an earlier-term holder, another club's member and an
+// outsider.
+const MUST_SEE_NOTHING = ["a26", "a24", "b", "x"];
 
 function email(persona: string): string {
   const key = EMAIL[persona];
@@ -65,13 +68,15 @@ async function readQuestions(): Promise<QuestionRow[]> {
   }) as QuestionRow[];
 }
 
+type Session = { db: SupabaseClient; token: string; userId: string };
+
 // One signed-in persona per client: a session belongs to the client that created it, as in a browser pane.
 async function signIn(
   url: string,
   anonKey: string,
   persona: string,
   password: string,
-) {
+): Promise<Session> {
   const db = createClient(url, anonKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
@@ -82,23 +87,77 @@ async function signIn(
   if (error || !data.session) {
     throw new Error(`sign in as ${persona}: ${error?.message ?? "no session"}`);
   }
-  return { db, token: data.session.access_token };
+  return { db, token: data.session.access_token, userId: data.user.id };
 }
 
-async function emailsById(
+async function ask(token: string | undefined, question: QuestionRow) {
+  return fetch(`${BASE_URL}/api/ask`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      ...(token && { authorization: `Bearer ${token}` }),
+    },
+    body: JSON.stringify({
+      seat: question.seat_slug,
+      question: question.question,
+    }),
+  });
+}
+
+async function openDemandPrompts(
   service: SupabaseClient,
-): Promise<Map<string, string>> {
-  const byId = new Map<string, string>();
-  for (let page = 1; ; page++) {
-    const { data, error } = await service.auth.admin.listUsers({
-      page,
-      perPage: 1000,
-    });
-    if (error) throw new Error(`list users: ${error.message}`);
-    for (const user of data.users)
-      if (user.email) byId.set(user.id, user.email);
-    if (data.users.length < 1000) return byId;
+  seatId: string,
+): Promise<number> {
+  const { count, error } = await service
+    .from("prompts")
+    .select("id", { count: "exact", head: true })
+    .eq("seat_id", seatId)
+    .eq("kind", "demand")
+    .eq("retired", false);
+  if (error) throw new Error(`count demand prompts: ${error.code}`);
+  return count ?? 0;
+}
+
+type Created = { questionIds: string[]; promptIds: string[] };
+
+// Removes what this run created: the demand prompts it was told about (their routes go with them) and its questions,
+// with any q04 one of its askers saved in a request that failed before routing. Answers what went wrong, or undefined.
+async function cleanUp(
+  service: SupabaseClient,
+  created: Created,
+  askerIds: string[],
+  text: string,
+  since: string,
+): Promise<string | undefined> {
+  const unrouted = await service
+    .from("questions")
+    .select("id")
+    .in("asker_user_id", askerIds)
+    .eq("text", text)
+    .is("prompt_id", null)
+    .gte("created_at", since);
+  if (unrouted.error) return `find unrouted questions: ${unrouted.error.code}`;
+  const questionIds = [
+    ...new Set([
+      ...created.questionIds,
+      ...(unrouted.data ?? []).map((row) => row.id),
+    ]),
+  ];
+  if (created.promptIds.length > 0) {
+    const { error } = await service
+      .from("prompts")
+      .delete()
+      .in("id", created.promptIds);
+    if (error) return `delete prompts: ${error.code}`;
   }
+  if (questionIds.length > 0) {
+    const { error } = await service
+      .from("questions")
+      .delete()
+      .in("id", questionIds);
+    if (error) return `delete questions: ${error.code}`;
+  }
+  return undefined;
 }
 
 async function main(): Promise<void> {
@@ -112,22 +171,16 @@ async function main(): Promise<void> {
   const question = (await readQuestions()).find((row) => row.id === "q04");
   if (!question) throw new Error("seed/questions.csv has no q04");
 
+  // A minute of slack, in case this laptop's clock is ahead of the database's.
+  const since = new Date(Date.now() - 60_000).toISOString();
   const asker = await signIn(url, anonKey, question.persona, password);
-  const created = { questionIds: [] as string[], promptIds: [] as string[] };
+  const reachable = await signIn(url, anonKey, REACHABLE, password);
+  const stranger = await signIn(url, anonKey, STRANGER, password);
+  const created: Created = { questionIds: [], promptIds: [] };
 
   try {
     // 1. The newcomer asks, with their own token: POST /api/ask.
-    const response = await fetch(`${BASE_URL}/api/ask`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        authorization: `Bearer ${asker.token}`,
-      },
-      body: JSON.stringify({
-        seat: question.seat_slug,
-        question: question.question,
-      }),
-    });
+    const response = await ask(asker.token, question);
     const responseError = response.ok
       ? undefined
       : ((await response.json()) as { error?: string });
@@ -145,13 +198,13 @@ async function main(): Promise<void> {
     if (result.status !== "abstained") return;
     created.questionIds.push(result.questionId);
     const promptId = result.promptId;
+    if (promptId) created.promptIds.push(promptId);
     check(
       "the question became one demand prompt that reached predecessors",
       result.routedTo === 1 && Boolean(promptId),
       `routedTo ${result.routedTo}`,
     );
     if (!promptId) return;
-    created.promptIds.push(promptId);
 
     // 2. The database agrees: one prompt, one route, and it is the reachable predecessor.
     const prompt = await service
@@ -170,9 +223,10 @@ async function main(): Promise<void> {
       .select("id")
       .eq("slug", question.seat_slug)
       .single();
+    if (seat.error) throw new Error(`read the seat: ${seat.error.code}`);
     check(
       "the prompt belongs to the seat asked",
-      prompt.data?.seat_id === seat.data?.id,
+      prompt.data?.seat_id === seat.data.id,
     );
 
     const routes = await service
@@ -180,7 +234,7 @@ async function main(): Promise<void> {
       .select("user_id")
       .eq("prompt_id", promptId);
     if (routes.error)
-      throw new Error(`read prompt_routes: ${routes.error.message}`);
+      throw new Error(`read prompt_routes: ${routes.error.code}`);
     const recipients = [
       ...new Set((routes.data ?? []).map((row) => row.user_id)),
     ];
@@ -189,19 +243,19 @@ async function main(): Promise<void> {
       recipients.length === 1,
       `${recipients.length} route(s)`,
     );
-    const byId = await emailsById(service);
-    const recipientEmails = recipients.map((id) => byId.get(id) ?? id);
     check(
-      "the only recipient is the 2025 treasurer",
-      recipientEmails.length === 1 && recipientEmails[0] === email(REACHABLE),
-      recipientEmails.join(", "),
+      `the only recipient is the 2025 treasurer (${REACHABLE})`,
+      recipients.length === 1 && recipients[0] === reachable.userId,
+      recipients.length === 1 && recipients[0] !== reachable.userId
+        ? "it went to someone else"
+        : "",
     );
 
     // 3. The asker sees their own question, linked to the prompt (RLS, as themselves).
     const mine = await asker.db
       .from("questions")
       .select("id, lang, status, prompt_id")
-      .eq("id", created.questionIds[0])
+      .eq("id", result.questionId)
       .maybeSingle();
     check(
       "the asker reads their own question, waiting and linked",
@@ -210,9 +264,14 @@ async function main(): Promise<void> {
         mine.data?.lang === "ja",
     );
 
-    // 4. Nobody else sees the route or the demand prompt.
+    // 4. Nobody else sees the route or the demand prompt, not even the asker.
     for (const persona of MUST_SEE_NOTHING) {
-      const peek = await signIn(url, anonKey, persona, password);
+      const peek =
+        persona === question.persona
+          ? asker
+          : persona === STRANGER
+            ? stranger
+            : await signIn(url, anonKey, persona, password);
       const seenRoute = await peek.db
         .from("prompt_routes")
         .select("user_id")
@@ -229,28 +288,11 @@ async function main(): Promise<void> {
     }
 
     // 5. A signed-out caller is refused, and a question from someone who holds no seat at the seat routes nowhere.
-    const signedOut = await fetch(`${BASE_URL}/api/ask`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        seat: question.seat_slug,
-        question: question.question,
-      }),
-    });
+    const signedOut = await ask(undefined, question);
     check("a signed-out caller is refused", signedOut.status === 401);
 
-    const stranger = await signIn(url, anonKey, "b", password);
-    const strangerResponse = await fetch(`${BASE_URL}/api/ask`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        authorization: `Bearer ${stranger.token}`,
-      },
-      body: JSON.stringify({
-        seat: question.seat_slug,
-        question: question.question,
-      }),
-    });
+    const openBefore = await openDemandPrompts(service, seat.data.id);
+    const strangerResponse = await ask(stranger.token, question);
     const strangerResult = AskResult.parse(await strangerResponse.json());
     if (strangerResult.status === "abstained")
       created.questionIds.push(strangerResult.questionId);
@@ -260,30 +302,30 @@ async function main(): Promise<void> {
         strangerResult.routedTo === 0 &&
         strangerResult.promptId === undefined,
       strangerResult.status === "abstained"
-        ? `routedTo ${strangerResult.routedTo}, promptId ${strangerResult.promptId ?? "none"}`
+        ? `routedTo ${strangerResult.routedTo}, promptId ${strangerResult.promptId ? "set" : "none"}`
         : strangerResult.status,
     );
-    const strangerPrompts = await service
-      .from("prompts")
-      .select("id")
-      .eq("seat_id", seat.data?.id ?? "")
-      .eq("kind", "demand")
-      .eq("retired", false);
+    const openAfter = await openDemandPrompts(service, seat.data.id);
     check(
-      "no extra demand prompt was created for it",
-      (strangerPrompts.data ?? []).length === 1, // only the routed one above
-      `${(strangerPrompts.data ?? []).length} open demand prompt(s) at the seat`,
+      "no demand prompt was created for it",
+      openAfter === openBefore,
+      `${openAfter - openBefore} new`,
     );
   } finally {
     // 6. Leave the demo database as it was.
-    for (const id of created.promptIds)
-      await service.from("prompts").delete().eq("id", id);
-    for (const id of created.questionIds)
-      await service.from("questions").delete().eq("id", id);
-    console.log(
-      `\n${failed ? "✗" : "✓"} #7 check: ${checks} checks, ${failed ? "failed" : "all passed"} (the demo data is back as it was)`,
+    const problem = await cleanUp(
+      service,
+      created,
+      [asker.userId, stranger.userId],
+      question.question,
+      since,
     );
-    process.exitCode = failed ? 1 : 0;
+    console.log(
+      problem
+        ? `\n✗ #7 check: ${checks} checks, ${failed ? "failed" : "all passed"}, but the cleanup failed (${problem}): the demo data may not be as it was`
+        : `\n${failed ? "✗" : "✓"} #7 check: ${checks} checks, ${failed ? "failed" : "all passed"} (the demo data is back as it was)`,
+    );
+    process.exitCode = failed || problem ? 1 : 0;
   }
 }
 
