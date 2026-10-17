@@ -107,6 +107,10 @@ body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(
 .dd-voice { position: relative; width: 80px; height: 80px; border-radius: var(--r-round); border: 0; background: var(--blue); color: var(--sheet); display: grid; place-items: center; cursor: pointer; flex: none; }
 .dd-voice.is-listening::after { content: ""; position: absolute; inset: 0; border-radius: var(--r-round); border: 6px solid var(--blue-wash); animation: dd-pulse 1.2s ease-out infinite; }
 @keyframes dd-pulse { from { transform: scale(1); opacity: 1; } to { transform: scale(1.45); opacity: 0; } }
+/* The transcript and the text fallback are the same control: hand text on the 32px ruled grid. */
+.dd-voice-text { width: 100%; box-sizing: border-box; border: 0; padding: 0; resize: vertical; color: var(--ink); background: repeating-linear-gradient(to bottom, transparent 0 31px, var(--rule) 31px 32px);
+  font-family: var(--font-hand); font-size: 17px; line-height: var(--s-6); letter-spacing: .02em; min-height: calc(var(--s-6) * 2); }
+.dd-voice-text::placeholder { color: var(--ink-2); }
 
 /* Scope rings */
 .dd-scope { display: flex; gap: var(--s-5); align-items: center; flex-wrap: wrap; }

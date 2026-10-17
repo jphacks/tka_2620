@@ -112,6 +112,21 @@
     "empty": "No questions yet.",
     "failed": "Couldn't load the questions. Check your connection and reopen this page."
   },
+  "voice": {
+    "title": "Leave the answer",
+    "transcriptLabel": "What you said",
+    "tapToSpeak": "Tap the microphone and speak",
+    "startListening": "Start voice input",
+    "stopListening": "Stop voice input",
+    "placeholder": "What you say appears here",
+    "keyboardHint": "Your keyboard's dictation works in this field too.",
+    "micDenied": "We can't use the microphone. You can answer in this field instead.",
+    "unsupported": "This browser can't take voice input. Please type in this field.",
+    "publishing": "Publishing…",
+    "published": "Published",
+    "close": "Close",
+    "failed": "Couldn't publish. Check your connection and try again."
+  },
   "live": {
     "answered": "{byline} just answered",
     "waiting": "Sent to your predecessors",

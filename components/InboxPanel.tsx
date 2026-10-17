@@ -3,6 +3,7 @@
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type AnswerMode, InboxSlip } from "@/components/InboxSlip";
+import { VoiceAnswer } from "@/components/VoiceAnswer";
 import type { InboxItem } from "@/lib/contracts";
 import { createMockApi, mockNewcomerAsks } from "@/lib/mocks";
 import { useRealtime } from "@/lib/realtime";
@@ -26,6 +27,11 @@ export function InboxPanel({
   const [arrived, setArrived] = useState<ReadonlySet<string>>(new Set());
   const [asking, setAsking] = useState(false);
   const [failed, setFailed] = useState(false);
+  // The slip being answered, with the mode the person tapped (声で答える / 文字で答える).
+  const [answering, setAnswering] = useState<{
+    item: InboxItem;
+    mode: AnswerMode;
+  }>();
   const known = useRef<Set<string> | undefined>(undefined);
 
   // The first load shows what is already waiting; anything new after that arrives.
@@ -83,7 +89,10 @@ export function InboxPanel({
             key={item.promptId}
             item={item}
             arriving={arrived.has(item.promptId)}
-            onAnswer={onAnswer}
+            onAnswer={(next, mode) => {
+              setAnswering({ item: next, mode });
+              onAnswer?.(next, mode);
+            }}
           />
         ))}
         {items?.length === 0 && (
@@ -95,6 +104,17 @@ export function InboxPanel({
           </p>
         )}
       </div>
+      {/* 声で/文字で答える opens here; publishing shows the card and refreshes the inbox. */}
+      {answering && (
+        <VoiceAnswer
+          key={answering.item.promptId}
+          item={answering.item}
+          seat={slug}
+          mode={answering.mode}
+          onPublished={load}
+          onClose={() => setAnswering(undefined)}
+        />
+      )}
       {/* Plays the newcomer asking q04 in this tab (lib/mocks.ts), so the loop works on one phone. */}
       {items?.length === 0 && (
         <button
