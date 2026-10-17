@@ -13,7 +13,7 @@ import { sonnet } from "@/lib/ai";
 import {
   type AnsweredResult,
   AskRequest,
-  type AskResult,
+  AskResult,
   Uuid,
 } from "@/lib/contracts";
 import { embed } from "@/lib/embed";
@@ -117,12 +117,18 @@ export async function askAsCaller(
       questionId: question.id,
       ...answer,
     };
-    // Kept as the asker's latest answer, so a withdrawal can answer again without the withdrawn note (F4).
-    const { error: answerError } = await client
+    // Kept as the asker's latest answer, so a withdrawal can answer again without the withdrawn note (F4). The reply is
+    // the row as stored: the database keeps only sentences on live notes the asker may read (0006), so an answer saved
+    // while one of its notes was being withdrawn comes back without it, here and in the asker's Realtime row alike.
+    const { data: saved, error: answerError } = await client
       .from("answers")
-      .insert({ question_id: question.id, payload: result });
-    if (answerError) throw dbFailure(answerError);
-    return result;
+      .insert({ question_id: question.id, payload: result })
+      .select("payload")
+      .single();
+    if (answerError || !saved) throw dbFailure(answerError);
+    const stored = AskResult.safeParse(saved.payload);
+    if (!stored.success) throw new ApiFailure("unavailable");
+    return stored.data;
   }
 
   // Nobody knew: the question becomes a new demand prompt of the seat, worded as the newcomer asked it. Joining an

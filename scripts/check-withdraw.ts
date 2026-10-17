@@ -218,8 +218,8 @@ async function call(
   };
 }
 
-// withdrawnSince: just before the withdrawal, for finding its events row (a minute of slack for the clocks).
-type Run = { noteId?: string; questionIds: string[]; withdrawnSince?: string };
+// eventsBefore: the newest withdraw row's id just before the withdrawal (0 for none), for finding the run's own row.
+type Run = { noteId?: string; questionIds: string[]; eventsBefore?: number };
 
 // Removes exactly what this run created. Deletes are never published (0005), so this reaches no phone. Answers what
 // went wrong, or undefined.
@@ -238,14 +238,14 @@ async function cleanUp(
     const { error } = await service.from("notes").delete().eq("id", run.noteId);
     if (error) return `delete the note: ${error.code}`;
   }
-  if (run.withdrawnSince) {
-    // The run's row, found in the table rather than in what a phone heard: a withdraw row since the request with this
-    // run's counts (two answers, one abstained). One only, so a rehearsal's own withdrawal is never removed.
+  if (run.eventsBefore !== undefined) {
+    // The run's row, found in the table rather than in what a phone heard: the first withdraw row after the request
+    // with this run's counts (two answers, one abstained). One only, so a rehearsal's own withdrawal is never removed.
     const found = await service
       .from("events")
       .select("id")
       .eq("kind", "withdraw")
-      .gte("created_at", run.withdrawnSince)
+      .gt("id", run.eventsBefore)
       .contains("payload", { answers: 2, abstained: 1 })
       .order("id")
       .limit(1);
@@ -404,7 +404,14 @@ async function main(): Promise<void> {
     );
 
     // 5. a25 withdraws it, timed from the request.
-    run.withdrawnSince = new Date(Date.now() - 60_000).toISOString();
+    const newest = await service
+      .from("events")
+      .select("id")
+      .eq("kind", "withdraw")
+      .order("id", { ascending: false })
+      .limit(1);
+    if (newest.error) throw new Error(`read the events: ${newest.error.code}`);
+    run.eventsBefore = Number(newest.data?.[0]?.id ?? 0);
     const started = performance.now();
     const withdrawn = await call(path, { post: true, token: author.token });
     const replied = performance.now();

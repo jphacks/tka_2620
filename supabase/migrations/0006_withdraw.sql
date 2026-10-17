@@ -22,7 +22,9 @@
 --   - with no sentence left the answer is the blank line again, abstained and routed nowhere (withdrawing never sends
 --     the question back to the person who just withdrew), with the row's own question id.
 -- A malformed answered payload (anyone can write their own answers row) keeps no sentence, so it becomes that same
--- valid abstain instead of an error. It reads notes' status and scope only, never their content.
+-- valid abstain instead of an error. So does one past the caps: 64 kB, 40 sentences, 20 citations in a sentence, far
+-- above any real answer (a few sentences), so nobody can store rows that make a withdrawal rewrite slow enough to time
+-- out. It reads notes' status and scope only, never their content.
 create function private.on_live_notes(answer jsonb, question uuid)
 returns jsonb
 language plpgsql
@@ -38,6 +40,15 @@ declare
 begin
   if answer ->> 'status' is distinct from 'answered' then
     return answer;
+  end if;
+  if pg_column_size(answer) > 65536
+    or jsonb_array_length(sentences) > 40
+    or exists (
+      select 1 from jsonb_array_elements(sentences) s
+      where jsonb_array_length(case when jsonb_typeof(s -> 'citations') = 'array' then s -> 'citations' else '[]'::jsonb end) > 20
+    )
+  then
+    return jsonb_build_object('status', 'abstained', 'questionId', question::text, 'routedTo', 0);
   end if;
   select q.asker_user_id into asker from public.questions q where q.id = question;
 
@@ -91,13 +102,23 @@ security definer
 set search_path = ''
 as $$
 begin
-  perform 1
-  from public.notes n
-  where n.id in (
-    select c #>> '{}'
-    from jsonb_path_query(new.payload, 'lax $.sentences[*].citations[*].noteId', '{}', true) c
-  )
-  for share of n;
+  -- Past the size cap it abstains without reading a note, so there is nothing to lock.
+  if pg_column_size(new.payload) <= 65536 then
+    -- Only notes the asker may read, so a write never waits on (or reveals) a note they can't; in id order, so two
+    -- writes lock the same notes the same way round.
+    perform 1
+    from public.notes n
+    where n.id in (
+        select c #>> '{}'
+        from jsonb_path_query(new.payload, 'lax $.sentences[*].citations[*].noteId', '{}', true) c
+      )
+      and private.can_read_note_as(
+        (select q.asker_user_id from public.questions q where q.id = new.question_id),
+        n.seat_id, n.term_order, n.scope, n.status, n.author_user_id
+      )
+    order by n.id
+    for share of n;
+  end if;
   new.payload := private.on_live_notes(new.payload, new.question_id);
   return new;
 end;
@@ -117,7 +138,8 @@ from public, anon, authenticated, service_role;
 -- again, and the trigger above answers it on live notes only. Security definer because the answers rows belong to
 -- other people (the askers); it acts for auth.uid() only and checks the caller first. The rows are matched with a lax
 -- JSON path, which skips a malformed payload instead of failing, so nobody's answers row can stop a withdrawal.
--- Withdrawing again returns the first withdrawn_at and writes no second events row.
+-- Withdrawing again returns the first withdrawn_at and writes no second events row. Withdrawals run one at a time (a
+-- transaction advisory lock): two at once, of notes one answer cites, could otherwise deadlock on that answer.
 create function public.withdraw_note(note text)
 returns timestamptz
 language plpgsql
@@ -131,6 +153,7 @@ declare
   updated integer;
   abstained integer;
 begin
+  perform pg_advisory_xact_lock(hashtext('public.withdraw_note'));
   select n.* into target
   from public.notes n
   where n.id = note and n.author_user_id = auth.uid()
