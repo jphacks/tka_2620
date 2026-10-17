@@ -128,6 +128,8 @@ They are the shared acceptance tests for F2–F4, and `lib/mocks.ts` is built fr
 - Notes past `valid_until` are excluded from answers.
 - Newcomers' questions: the question text reaches only `reachable` holders of the same seat (via `prompt_routes`);
   the asker is shown by seat and term (「2026年度 会計」), never by name. `answers` rows are readable only by the asker.
+- A question from someone who holds no seat at that seat routes nowhere: no demand prompt is created, the abstain
+  carries no `promptId`, and `routedTo` is 0. The question remains readable only by the asker.
 
 ## Adding knowledge: text, files and chats (F5)
 Club knowledge lives in old documents, forms, notices and, most of all, group chats. Daidai takes all of them
@@ -221,7 +223,7 @@ type SeatView = {
 // POST /api/ask { seat, question }       → AskResult
 type AskResult =
   | { status: "answered"; questionId: string; sentences: { text: string; citations: Citation[] }[]; ruleChange?: { termLabel: string; summary: string }; language: "ja" | "en"; live?: { byline: string } }
-  | { status: "abstained"; questionId: string; promptId: string; routedTo: number };
+  | { status: "abstained"; questionId: string; promptId?: string; routedTo: number };
 // Realtime `answers` (asker only)        → AskResult with status "answered" and `live` set
 // GET  /api/inbox?seat=                  → { items: { promptId: string; question: string; askedBy: string; askCount: number; askedAt: string; lang: Lang }[] }
 // Realtime `prompt_routes` (recipient)   → a new inbox item (the row has no question text: refetch the inbox)

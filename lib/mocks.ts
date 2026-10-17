@@ -873,13 +873,14 @@ export function createMockApi(
       state.answers.set(known.questionId, { asker: persona, result: known });
       return withoutWithdrawn(known);
     }
-    // Nobody knew. Holders' questions reach the reachable predecessor (a25); the rule for anyone else is #7's call.
+    // Nobody knew. Holders' questions reach the reachable predecessor (a25); a question from someone who holds no
+    // seat at that seat routes nowhere and creates no prompt, so its result carries no promptId (the database's
+    // route_question() does the same, and /api/ask answers the same way).
     const routed = seat === SEAT && holders[persona] && persona !== "a25";
     if (!routed) {
       return {
         status: "abstained",
         questionId,
-        promptId: newId(),
         routedTo: 0,
       };
     }
