@@ -9,7 +9,7 @@ import { type AnswerOutput, ApiError, AskResult } from "@/lib/contracts";
 import { type AskModels, askAsCaller, handleAsk } from "@/lib/engine/ask";
 import { questionLang } from "@/lib/engine/lang";
 import { mockAnswer, mockModelReplies, mockQuestions } from "@/lib/mocks";
-import { fakeModel, q01Notes } from "./fakes";
+import { fakeModel, q01Notes, SMASH_KAIKEI } from "./fakes";
 
 // seed/questions.csv q04, asked by a26.
 const QUESTION = "決算後に申請された領収書はどうすれば良いですか？";
@@ -139,7 +139,7 @@ describe("askAsCaller", () => {
   const q04 = { seat: "smash-kaikei", question: QUESTION };
 
   it("answers from the notes it found: saved as answered with its answer, and routed nowhere", async () => {
-    const stub: Stub = { seat: { id: "seat-1" }, found: q01Notes };
+    const stub: Stub = { seat: { id: SMASH_KAIKEI }, found: q01Notes };
     const result = await askAsCaller(
       stubClient(stub),
       "asker-1",
@@ -147,17 +147,16 @@ describe("askAsCaller", () => {
       replying(mockModelReplies.answer),
     );
 
+    // Exactly the answer the mock gives screens for q01, rule change included.
     expect(AskResult.parse(result)).toEqual({
-      status: "answered",
+      ...mockAnswer,
       questionId: QUESTION_ID,
-      sentences: mockAnswer.sentences,
-      language: "ja",
     });
     expect(stub.inserted).toEqual({
       questions: [
         {
           asker_user_id: "asker-1",
-          seat_id: "seat-1",
+          seat_id: SMASH_KAIKEI,
           text: mockQuestions.q01,
           lang: "ja",
           status: "answered",
