@@ -218,7 +218,8 @@ async function call(
   };
 }
 
-type Run = { noteId?: string; questionIds: string[]; eventIds: number[] };
+// withdrawnSince: just before the withdrawal, for finding its events row (a minute of slack for the clocks).
+type Run = { noteId?: string; questionIds: string[]; withdrawnSince?: string };
 
 // Removes exactly what this run created. Deletes are never published (0005), so this reaches no phone. Answers what
 // went wrong, or undefined.
@@ -237,12 +238,23 @@ async function cleanUp(
     const { error } = await service.from("notes").delete().eq("id", run.noteId);
     if (error) return `delete the note: ${error.code}`;
   }
-  if (run.eventIds.length > 0) {
-    const { error } = await service
+  if (run.withdrawnSince) {
+    // The run's row, found in the table rather than in what a phone heard: a withdraw row since the request with this
+    // run's counts (two answers, one abstained). One only, so a rehearsal's own withdrawal is never removed.
+    const found = await service
       .from("events")
-      .delete()
-      .in("id", run.eventIds);
-    if (error) return `delete the events row: ${error.code}`;
+      .select("id")
+      .eq("kind", "withdraw")
+      .gte("created_at", run.withdrawnSince)
+      .contains("payload", { answers: 2, abstained: 1 })
+      .order("id")
+      .limit(1);
+    if (found.error) return `find the events row: ${found.error.code}`;
+    const id = found.data?.[0]?.id;
+    if (id !== undefined) {
+      const { error } = await service.from("events").delete().eq("id", id);
+      if (error) return `delete the events row: ${error.code}`;
+    }
   }
   return undefined;
 }
@@ -287,7 +299,7 @@ async function main(): Promise<void> {
     received: [],
   };
   const phones = [author, asker, outsider, signedOut];
-  const run: Run = { questionIds: [], eventIds: [] };
+  const run: Run = { questionIds: [] };
   let listening = false;
   let finished = false; // every step ran: an early stop or a thrown error never reads as "all passed"
 
@@ -392,6 +404,7 @@ async function main(): Promise<void> {
     );
 
     // 5. a25 withdraws it, timed from the request.
+    run.withdrawnSince = new Date(Date.now() - 60_000).toISOString();
     const started = performance.now();
     const withdrawn = await call(path, { post: true, token: author.token });
     const replied = performance.now();
@@ -473,9 +486,6 @@ async function main(): Promise<void> {
     );
     const outsiderEvents = from(outsider, "events").map((r) =>
       EventsRow.safeParse(r.row),
-    );
-    run.eventIds = outsiderEvents.flatMap((r) =>
-      r.success ? [r.data.id] : [],
     );
     check(
       "every signed-in phone gets the one events row, numbers only",
