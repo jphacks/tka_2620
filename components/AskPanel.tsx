@@ -7,12 +7,7 @@ import { AnswerEntry } from "@/components/AnswerEntry";
 import { AskField } from "@/components/AskField";
 import { LiveStamp } from "@/components/LiveStamp";
 import type { AskResult, SeatView } from "@/lib/contracts";
-import {
-  createMockApi,
-  mockIds,
-  mockPredecessorAnswers,
-  type Persona,
-} from "@/lib/mocks";
+import { createMockApi, mockIds, mockPredecessorAnswers } from "@/lib/mocks";
 import { useRealtime } from "@/lib/realtime";
 
 type Asked = { question: string; result?: AskResult };
@@ -20,18 +15,16 @@ type Asked = { question: string; result?: AskResult };
 // 聞く on the seat page: the ask field, then each question in blue with its result underneath.
 // Mocks only for now (NEXT_PUBLIC_USE_MOCKS=1); the real client replaces createMockApi when /api/ask exists.
 // F2.4 (#22) adds the tap-to-source, the highlighter and the rule-change note to AnswerEntry.
-// The console runs it as other personas, without the one-device shortcut (the a25 pane answers instead).
+// The console runs it without the one-device shortcut (the a25 pane answers instead).
 export function AskPanel({
   slug,
-  persona = "a26",
   mockShortcuts = true,
 }: {
   slug: string;
-  persona?: Persona;
   mockShortcuts?: boolean;
 }) {
   const t = useTranslations();
-  const api = useMemo(() => createMockApi(persona), [persona]);
+  const api = useMemo(() => createMockApi("a26"), []);
   const [seatView, setSeatView] = useState<SeatView>();
   const [asked, setAsked] = useState<Asked[]>([]);
   const [delivering, setDelivering] = useState(false);
