@@ -75,7 +75,17 @@
     "done": "撤回しました（{ms}ミリ秒で回答から消えました）"
   },
   "leak": {
-    "counter": "漏れ {leaks} / {probes} 検査"
+    "counter": "漏れ <safe>{leaks}</safe> / {probes} 回"
+  },
+  "console": {
+    "title": "信頼の証明",
+    "newcomer": "新しい会計",
+    "predecessor": "去年の会計",
+    "outsider": "部外者",
+    "meter": "撤回にかかった秒数",
+    "seconds": "{s}秒",
+    "reset": "リセット",
+    "resetDone": "はじめの状態に戻しました"
   },
   "onkuri": {
     "credit": "{n}人の先輩が、あなたの質問{q}個に答えました。次はあなたの番です！"
@@ -97,7 +107,10 @@
     "unwritten_rule": "暗黙のルール"
   },
   "myNotes": {
-    "used": "このメモは{n}回、回答に使われました"
+    "used": "このメモは{n}回、回答に使われました",
+    "empty": "まだメモはありません。",
+    "withdrawn": "撤回済み",
+    "failed": "メモを読み込めませんでした。ページを開き直してください。"
   },
   "inbox": {
     "title": "後輩からの質問",
