@@ -1,7 +1,7 @@
-// #7 and #20 acceptance checks (docs/SPEC.md → F3, F2) through POST /api/ask: q04, asked by the 2026 treasurer,
+// #7, #20 and #21 acceptance checks (docs/SPEC.md → F3, F2) through POST /api/ask: q04, asked by the 2026 treasurer,
 // creates one route, for the 2025 treasurer and nobody else; q01 is answered from the notes, every sentence citing the
-// 2024 or 2025 note. Runs against the seeded database and a running dev server, with Ollama for the search and the
-// Claude key for q01's answer:
+// 2024 or 2025 note, with the 2025 rule change flagged. Runs against the seeded database and a running dev server, with
+// Ollama for the search and the Claude key for q01's answer:
 //   pnpm dev          (in another terminal)
 //   pnpm test:ask
 // The asks go over HTTP with a26's own token, as a phone would, so the route handler and RLS are exercised for
@@ -37,8 +37,9 @@ const STRANGER = "b"; // another club's member: holds no seat at smash-kaikei
 // The asker (holds the seat, but an asker is never a recipient), an earlier-term holder, another club's member and an
 // outsider.
 const MUST_SEE_NOTHING = ["a26", "a24", "b", "x"];
-// Every sentence of q01's answer cites one of these (docs/SPEC.md → F2).
+// Every sentence of q01's answer cites one of these, and the deadline moved between them (docs/SPEC.md → F2).
 const Q01_NOTES = ["smash-2024-hokenjo", "smash-2025-hokenjo"];
+const Q01_RULE_CHANGE = { termLabel: "2025", summary: "10/27 → 10/20" };
 
 function email(persona: string): string {
   const key = EMAIL[persona];
@@ -217,6 +218,13 @@ async function checkAnswered(
     `${question.id}: every sentence cites the 2024 or 2025 note`,
     cited.every((ids) => ids.some((id) => Q01_NOTES.includes(id))),
     cited.map((ids) => `[${ids.join(", ")}]`).join(" "),
+  );
+  check(
+    `${question.id}: the 2025 rule change is flagged (10/27 → 10/20)`,
+    isDeepStrictEqual(result.ruleChange, Q01_RULE_CHANGE),
+    result.ruleChange
+      ? `${result.ruleChange.termLabel}: ${result.ruleChange.summary}`
+      : "none",
   );
   check(
     `${question.id}: in the asker's language`,
@@ -425,8 +433,8 @@ async function main(): Promise<void> {
     });
     console.log(
       problem
-        ? `\n✗ /api/ask check (#7, #20): ${checks} checks, ${failed ? "failed" : "all passed"}, but the cleanup failed (${problem}): the demo data may not be as it was`
-        : `\n${failed ? "✗" : "✓"} /api/ask check (#7, #20): ${checks} checks, ${failed ? "failed" : "all passed"} (the demo data is back as it was)`,
+        ? `\n✗ /api/ask check (#7, #20, #21): ${checks} checks, ${failed ? "failed" : "all passed"}, but the cleanup failed (${problem}): the demo data may not be as it was`
+        : `\n${failed ? "✗" : "✓"} /api/ask check (#7, #20, #21): ${checks} checks, ${failed ? "failed" : "all passed"} (the demo data is back as it was)`,
     );
     process.exitCode = failed || problem ? 1 : 0;
   }

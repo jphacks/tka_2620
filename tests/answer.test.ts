@@ -4,8 +4,9 @@ import type { AnswerOutput } from "@/lib/contracts";
 import { answerFromNotes } from "@/lib/engine/answer";
 import type { FoundNote } from "@/lib/engine/retrieve";
 import { mockAnswer, mockModelReplies, mockQuestions } from "@/lib/mocks";
-import { fakeModel, promptText, q01Notes } from "./fakes";
+import { fakeModel, promptText, q01Notes, SMASH_KAIKEI } from "./fakes";
 
+// q01, asked at Smash's 会計.
 async function answer(
   reply: AnswerOutput,
   notes: FoundNote[] = q01Notes,
@@ -16,6 +17,7 @@ async function answer(
     model,
     question: mockQuestions.q01,
     notes,
+    seatId: SMASH_KAIKEI,
   });
   return { result, model };
 }
@@ -27,9 +29,10 @@ const reply = (sentences: AnswerOutput["sentences"]): AnswerOutput => ({
 });
 
 describe("answerFromNotes", () => {
-  it("keeps q01's answer, each citation stamped from the note it names", async () => {
+  it("keeps q01's answer, each citation stamped from the note it names, and flags the 2025 change", async () => {
     const { result } = await answer(mockModelReplies.answer);
-    expect(result).toEqual({ sentences: mockAnswer.sentences, language: "ja" });
+    const { sentences, ruleChange, language } = mockAnswer;
+    expect(result).toEqual({ sentences, ruleChange, language });
   });
 
   it("drops a sentence without a citation", async () => {

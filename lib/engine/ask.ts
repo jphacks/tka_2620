@@ -94,6 +94,7 @@ export async function askAsCaller(
           model: models.answer(),
           question: request.question,
           notes,
+          seatId: seat.id,
         })
       : undefined;
 
