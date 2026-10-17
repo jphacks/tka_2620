@@ -9,7 +9,7 @@ import type { ChatMessage } from "@/lib/redact/parse";
 export const PLACEHOLDER = {
   phone: "[電話番号]",
   email: "[メール]",
-  url: "[URL]", // [URL: forms.gle] when the host can be read
+  url: "[URL]", // [URL: forms.gle] for a service's or an institution's host
   id: "[ID]",
   studentId: "[学籍番号]",
   address: "[住所]",
@@ -176,32 +176,49 @@ class Run {
     return encode(this.values.push(value) - 1);
   };
 
-  // A line about a password, PIN or 暗証番号 goes entirely (its list marker stays), whatever else it holds.
+  // A line about a password, PIN or 暗証番号 goes entirely (its list marker stays), whatever else it holds. When the
+  // keyword ends the line (金庫の暗証番号, 暗証番号は?), the value is on the next one: that line goes too if it's short
+  // and has letters or digits, also when it's the next message of a chat.
+  private carry = false;
+
   private secrets(text: string): string {
     return text
       .split("\n")
-      .map((line) =>
-        SECRET.test(line)
-          ? (LIST_MARKER.exec(line)?.[0] ?? "") +
-            this.hide("secrets", PLACEHOLDER.secret)
-          : line,
-      )
+      .map((line) => {
+        if (!line.trim()) return line;
+        const keywords = [...line.matchAll(SECRET)];
+        const value =
+          this.carry && [...line].length < 40 && /[A-Za-z0-9]/.test(line);
+        this.carry = false;
+        const last = keywords.at(-1);
+        if (!last && !value) return line;
+        if (last) {
+          const rest = line
+            .slice(last.index + last[0].length)
+            .replace(FILLER, "");
+          this.carry = !/[\p{L}\p{N}]/u.test(rest);
+        }
+        return (
+          (LIST_MARKER.exec(line)?.[0] ?? "") +
+          this.hide("secrets", PLACEHOLDER.secret)
+        );
+      })
       .join("\n");
   }
 
   // A word before さん・くん・ちゃん・先輩・先生・様 is someone's name, unless it's a role, an office or a family word:
-  // 顧問の先生, 学生課さん, 皆さん, 業者さん, お母さん stay. A two- to four-kanji or Latin name also goes without the
-  // honorific (田中先輩 … 田中に聞く); a one-character, katakana or longer word only with it (マイク is a microphone).
+  // 顧問の先生, 学生課さん, 皆さん, 業者さん, お母さん stay. See candidates() for which names also go without it.
   learn(text: string): void {
-    for (const [, before, beforeSama] of text.matchAll(NAMED)) {
-      const word = before ?? beforeSama;
-      if (ROLE.test(word) || this.named.has(word)) continue;
-      this.named.set(
-        word,
-        /^[\p{sc=Han}々]{2,4}$/u.test(word) ||
-          /^[A-Za-z][A-Za-z'.-]+$/.test(word),
-      );
-      this.namedPattern = undefined;
+    for (const match of text.matchAll(NAMED)) {
+      for (const [name, alone] of candidates(
+        match[1] ?? match[2] ?? match[3],
+      )) {
+        if (this.named.get(name) === true || this.named.get(name) === alone) {
+          continue;
+        }
+        this.named.set(name, alone);
+        this.namedPattern = undefined;
+      }
     }
   }
 
@@ -232,25 +249,37 @@ const always =
   (_original, _found, hide) =>
     hide(kind, value);
 
+// 暗唱番号 is the usual slip for 暗証番号; パス alone only as パスは / パス: / パス教えて (パスタ, 今日はパス and 定期パスは
+// stay).
 const SECRET =
-  /パスワード|暗証|パスコード|(?<![A-Za-z])(?:pin|pw|password|passcode|passwd)(?![A-Za-z])/i;
+  /パスワード|暗[証唱](?:番号|コード)?|あんしょう(?:ばんごう)?|パスコード|(?<!定期|フリー|年間|コン|バイ)パス(?=\s*(?:は|:|=|教え|変え|変わ))|(?:金庫|鍵|カギ|ロッカー|南京錠)の?(?:番号|ダイヤル)|ダイヤル(?:番号)?(?=\s*(?:は|:))|(?<![A-Za-z])(?:pin|pw|password|passcode|passwd)(?:\s?(?:code|コード|番号))?(?![A-Za-z])/gi;
+// What may follow a keyword when the value is on the next line.
+const FILLER =
+  /[\s:=?!、。.]|は|が|を|も|です|でした|になります|教えて|ください|変わった|変わりました|変えた|変えました|変更しました|新しい/g;
 const LIST_MARKER = /^\s*(?:[-*•・]\s+|#+\s+|\d{1,2}[.)]\s+)?/;
 
-// A URL keeps only its host: the path can hold a form's or a private document's key.
+// A URL keeps only its host (the path can hold a form's or a private document's key), and only a service's or an
+// institution's host: a personal site's can hold a name (taro-yamada.github.io).
+const SERVICE_HOST =
+  /(?:^|\.)(?:google\.com|forms\.gle|goo\.gl|bit\.ly|line\.me|youtube\.com|youtu\.be|x\.com|twitter\.com|instagram\.com|facebook\.com|notion\.so|notion\.site|zoom\.us|microsoft\.com|office\.com|dropbox\.com|ac\.jp|go\.jp|lg\.jp|ed\.jp)$/i;
 const URL_CHARS = String.raw`[\w\-.~:/?#@!$&'*+,;=%]`;
 const URL_PATTERN = new RegExp(
   String.raw`(?:https?://|www\.)${URL_CHARS}+|(?<![\w.@/-])(?:[a-z0-9-]+\.)+(?:com|net|org|info|jp|io|ly|gle|me|app|dev|co|us|link)/${URL_CHARS}*`,
   "gi",
 );
 
-// Also kaikei@gmail and kaikei@example。com.
+// Also kaikei@gmail and kaikei@example。com; and written to dodge scrapers, kaikei (at) example (dot) com or
+// kaikei アットマーク example.com, when the host has a dot.
 const EMAIL = /[\w.+-]+@\s?[\w-]+(?:[.。][\w-]+)*/g;
+const HIDDEN_EMAIL =
+  /[\w.+-]+\s*(?:@|\(at\)|\[at\]|<at>|アットマーク|あっと)\s*[\w-]+(?:\s*(?:[.。]|\(dot\)|\[dot\]|ドット)\s*[A-Za-z][\w-]*)+/gi;
 
-// The value after the keyword: 学籍番号 21B12345, LINE ID: smash_kaikei, IDは smash2025, LINE: smash_kaikei.
+// The value after the keyword: 学籍番号 21B12345, LINE ID: smash_kaikei, IDは smash2025, LINE: smash_kaikei,
+// インスタは smash_tennis, X: smash_tennis, アカウントは smash_official.
 const STUDENT_ID =
   /(?<=(?:学籍番号|学生番号|学生証番号|学生証|学籍|student\s?(?:id|number|no\.?))\s*(?::|=|は|が)?\s*)(?=[A-Za-z0-9-]*\d)[A-Za-z0-9][A-Za-z0-9-]{3,15}(?![A-Za-z0-9-])/giu;
 const LINE_ID =
-  /(?<=(?<![A-Za-z])(?:LINE\s?|ライン\s?)?ID\s*(?:は|が|を)?\s*:?\s*|(?:LINE|ライン)\s*:\s*)[\w.-]{3,32}(?![\w.-]|[年月日円人])/giu;
+  /(?<=(?<![A-Za-z])(?:LINE\s?|ライン\s?)?ID\s*(?:は|が|を)?\s*:?\s*|(?:LINE|ライン|(?<![A-Za-z])X)\s*:\s*|(?:インスタ(?:グラム)?|instagram|insta|ツイッター|twitter|tiktok|ティックトック|threads|スレッズ|discord|ディスコ(?:ード)?|アカウント|垢)(?:の)?(?:アカウント)?(?:名)?\s*(?:は|:)?\s*)[\w.-]{3,32}(?![\w.-]|[年月日円人])/giu;
 
 // 4111 1111 1111 1111, 3782-822463-10005, or digits after カード番号.
 const CARD =
@@ -276,7 +305,7 @@ const PHONE_NEAR =
 // Bank accounts are seven digits: after 口座, 普通, 振込… (also 123-4567), a ゆうちょ 記号-番号, or any seven digits
 // that aren't an amount or a count.
 const ACCOUNT_NEAR =
-  /(?<=(?:口座|普通|当座|預金|貯金|振込|振り込み|ゆうちょ|支店|銀行)[^\n\d]{0,12})(?:\d{3}[-‐−]\d{4}|\d{6,8})(?![\d,.円万])/gu;
+  /(?<=(?:口座|普通|当座|預金|貯金|振込|振り込み|ゆうちょ|支店|銀行)[^\n\d]{0,12})(?:\d{3}[-‐− ]\d{4}|\d{6,8})(?![\d,.円万])/gu;
 const YUCHO = /(?<!\d)1\d{4}[-‐− ]?\d{7,8}(?!\d)/g;
 const BARE_ACCOUNT =
   /(?<![\d,.¥$-])\d{7}(?![\d,.]|\s?[円万人年月日時分件個枚回歳%])/gu;
@@ -299,10 +328,14 @@ const RULES: Rule[] = [
     pattern: URL_PATTERN,
     replace: (url, _found, hide) => {
       const name = host(url);
-      return hide("urls", name ? `[URL: ${name}]` : PLACEHOLDER.url);
+      return hide(
+        "urls",
+        name && SERVICE_HOST.test(name) ? `[URL: ${name}]` : PLACEHOLDER.url,
+      );
     },
   },
   { pattern: EMAIL, replace: always("emails", PLACEHOLDER.email) },
+  { pattern: HIDDEN_EMAIL, replace: always("emails", PLACEHOLDER.email) },
   { pattern: STUDENT_ID, replace: always("ids", PLACEHOLDER.studentId) },
   { pattern: LINE_ID, replace: always("ids", PLACEHOLDER.id) },
   {
@@ -368,16 +401,69 @@ const HANDLE =
 
 // After a known name, any honorific goes with it; on its own, only the ones that mark a person.
 const HONORIFIC = "(?:さん|さま|様|くん|君|ちゃん|氏|殿|先輩|先生)";
-// 様 only after two characters or more: 同様, 仕様 and 模様 are words.
+// 様 only after two characters or more: 同様, 仕様 and 模様 are words. Hiragana only before ちゃん, くん, 先輩 and 先生:
+// before さん it's too often a word (たくさん, みなさん), and ちゃんと is "properly".
 const PERSON_HONORIFIC = "(?:さん|くん|ちゃん|先輩|先生|様)";
 const WORD = String.raw`[\p{sc=Han}\p{sc=Katakana}ー々]`;
-const LATIN_WORD = "(?<![A-Za-z])[A-Za-z][A-Za-z'.-]{1,19}";
+const LATIN_NAME = "(?<![A-Za-z])(?:[A-Z][a-z]+ )?[A-Za-z][A-Za-z'.-]{1,19}"; // Taro Yamadaさん
 const NAMED = new RegExp(
-  `(${WORD}{1,8}|${LATIN_WORD})(?:さん|くん|ちゃん|先輩|先生)|(${WORD}{2,8}|${LATIN_WORD})様`,
+  `(${WORD}{1,8}|${LATIN_NAME})(?:さん|くん|ちゃん|先輩|先生)` +
+    `|(${WORD}{2,8}|${LATIN_NAME})様` +
+    String.raw`|([\p{sc=Hiragana}ー]{2,4})(?:ちゃん(?!と)|くん|先輩|先生)`,
   "gu",
 );
 const ROLE =
-  /(?:係|課|局|所|部|会|店|屋|社|協|室|庁|館|校|園|院|団|班|組|隊|担当|長|員|役|者|師|医|官|家|幹事|会計|書記|顧問|監督|コーチ|マネージャー|マネ|リーダー|キャプテン|主将|代表|前任|後任|先代|歴代|年度|窓口|事務|業者|大家|皆|客|後輩|同期|上級生|新入生|学生|年生|院生|留学生|新人|本人|友人|知人|管理人|社会人|大人|選手|運転手|相手|助手|弁護士|税理士|会計士|先方|親方|親|母|父|兄|姉|弟|妹|婆|爺|赤|奥|旦那|神|メンバー|スタッフ|ゲスト|オーナー|ママ|パパ|OB|OG|[〇一二三四五六七八九十百]+[名人])$/u;
+  /(?:係|課|局|会|店|社|協|庁|館|校|院|団|班|組|隊|担当|長|員|役|者|師|医|官|家|大学|東大|京大|阪大|早大|名大|北大|九大|幹事|会計|書記|顧問|監督|コーチ|マネージャー|マネ|リーダー|キャプテン|主将|代表|前任|後任|先代|歴代|年度|窓口|事務|業者|大家|皆|客|後輩|同期|上級生|新入生|学生|年生|院生|留学生|新人|本人|友人|知人|管理人|社会人|大人|選手|運転手|相手|助手|弁護士|税理士|会計士|先方|親方|親|母|父|兄|姉|弟|妹|婆|爺|赤|奥|旦那|神|メンバー|スタッフ|ゲスト|オーナー|ママ|パパ|OB|OG|[〇一二三四五六七八九十百]+[名人])$/u;
+// 部, 屋, 所, 室 and 園 end surnames too (阿部, 土屋, 田所, 小室, 前園). A word ending in one is a role only as one of
+// these short words, or with three characters or more unless its end is such a surname (学生部 and 保健所 are roles;
+// 長谷部 and 日下部 are names).
+const PLACE_ROLE =
+  /^(?:幹部|本部|学部|支部|外部|内部|全部|本屋|花屋|肉屋|魚屋|酒屋|米屋|宿屋|部屋|問屋|床屋|薬屋|質屋|役所|近所|台所|部室|教室|和室|個室|公園|学園|農園)$/u;
+const SURNAME_END =
+  /(?:阿部|安部|服部|岡部|渡部|矢部|磯部|武部|長部|南部|卜部|占部|綾部|坂部|岩部|谷部|下部|我部|土屋|古屋|長屋|守屋|高屋|塩屋|杉屋|森屋|関屋|新屋|小屋|田所|別所|小室|氷室|大室|小園|花園|西園|前園|外園|宮園|森園)$/u;
+// Hiragana before ちゃん・くん that is a family word, not a name: あかちゃん, おにいちゃん, みんなくん.
+const KANA_WORD =
+  /^(?:かあ|とう)$|(?:みな|みんな|あか|おかあ|おとう|ばあ|じい|にい|ねえ|おじ|おば|だんな|いもうと|おとうと)$/u;
+const GREETING = /^(?:hi|hello|hey|thanks|thank|dear|mr|ms|mrs|dr|prof)\.?$/i;
+
+function isRole(word: string): boolean {
+  if (!/[部屋所室園]$/u.test(word)) return ROLE.test(word);
+  return (
+    PLACE_ROLE.test(word) || ([...word].length >= 3 && !SURNAME_END.test(word))
+  );
+}
+
+// The names a word before an honorific stands for, and whether each also goes without it. A two- to four-kanji or a
+// Latin name does (田中先輩 … 田中に聞く); a one-character, katakana, hiragana or longer word only with its honorific
+// (マイク is a microphone). A long kanji run often has the name at its end (今日高橋さん): its last two and three
+// characters count as names too.
+function candidates(word: string): [string, boolean][] {
+  if (/^[\p{sc=Hiragana}ー]+$/u.test(word)) {
+    return KANA_WORD.test(word) ? [] : [[word, false]];
+  }
+  if (/^[A-Za-z]/.test(word)) {
+    const parts = word
+      .split(" ")
+      .filter((part) => !GREETING.test(part) && !isRole(part));
+    return parts.length > 0
+      ? [
+          [parts.join(" "), true],
+          ...parts.map((part): [string, boolean] => [part, true]),
+        ]
+      : [];
+  }
+  if (isRole(word)) return [];
+  const found: [string, boolean][] = [
+    [word, /^[\p{sc=Han}々]{2,4}$/u.test(word)],
+  ];
+  if (/^[\p{sc=Han}々]{3,}$/u.test(word)) {
+    for (const size of [2, 3]) {
+      const end = word.slice(-size);
+      if (end.length < word.length && !isRole(end)) found.push([end, true]);
+    }
+  }
+  return found;
+}
 
 // 山田太郎 → 山田太郎, 山田, 太郎; Taro Yamada → Taro, Yamada, TaroYamada; 佐藤花子(会計) → 佐藤花子 too. Emoji and
 // symbols in a display name don't count.

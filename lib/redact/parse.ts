@@ -135,6 +135,16 @@ function splitSpaced(drafts: Draft[]): void {
         break;
       }
     }
+    // Someone who wrote once can't show where their name ends: a second word that could be a name goes with it
+    // (losing a word of their message is better than sending half a name).
+    if (
+      k === 1 &&
+      first < 2 &&
+      words.length > 2 &&
+      /^[^。、!?,.]{1,10}$/u.test(words[1])
+    ) {
+      k = 2;
+    }
     draft.speaker = words.slice(0, k).join(" ");
     draft.text = words.slice(k).join(" ") + draft.text;
   }
@@ -170,8 +180,13 @@ function unquote(text: string): string {
 // message above them, or stand alone without a speaker. Common field labels are never speakers (締切: 10/20).
 
 const COLON_LINE = /^([^\s:][^:]{0,23}?)\s*:\s*(.*)$/;
-const HEADER_LINE =
-  /^(\S.{0,23}?)\s+(?:[—–]\s+.*\d{1,2}:\d{2}.*|\[(?:(?:午前|午後|AM|PM)\s?)?\d{1,2}:\d{2}(?::\d{2})?(?:\s?[AP]M)?\])$/i;
+const CLOCK = String.raw`(?:(?:午前|午後|AM|PM)\s?)?\d{1,2}:\d{2}(?::\d{2})?(?:\s?[AP]M)?`;
+// 名前 — 2024/04/12 21:03, 名前 [21:03], 名前␣␣21:03 (two spaces or a tab) or 名前 9:03 PM. 練習 19:00 is no header.
+const HEADER_LINE = new RegExp(
+  String.raw`^(\S.{0,23}?)(?:\s+[—–]\s+.*\d{1,2}:\d{2}.*|\s+\[${CLOCK}\]|(?: {2,}|\t)\s*${CLOCK}|\s\d{1,2}:\d{2}\s?[AP]M)$`,
+  "i",
+);
+const LEADING_CLOCK = new RegExp(String.raw`^\[${CLOCK}\]\s*`, "i"); // [21:05] 名前: 本文
 const LABELS = new Set([
   "日時",
   "日付",
@@ -256,7 +271,9 @@ export function parsePaste(raw: string): ChatMessage[] {
     const trimmed = line.trim();
     if (!trimmed) continue;
     const header = HEADER_LINE.exec(trimmed);
-    const colon = header ? null : COLON_LINE.exec(trimmed);
+    const colon = header
+      ? null
+      : COLON_LINE.exec(trimmed.replace(LEADING_CLOCK, ""));
     const name = header?.[1] ?? colon?.[1];
     if (name && isSpeaker(name) && !colon?.[2].startsWith("//")) {
       current = { at: null, speaker: name.trim(), text: colon?.[2] ?? "" };
@@ -281,7 +298,7 @@ function isSpeaker(label: string): boolean {
     .toLowerCase();
   return (
     /\p{L}/u.test(name) &&
-    !/[/。、!?「」]|^\d/.test(name) &&
+    !/[/。、!?「」]|^\d|\s\d{1,2}$/.test(name) && // 名前 21:03 split at the colon is no name
     name.split(" ").length <= 3 &&
     !LABELS.has(plain)
   );
