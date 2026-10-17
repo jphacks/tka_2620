@@ -1,5 +1,5 @@
 // The author's own notes (F4.2): POST /api/notes/[id]/withdraw and GET /api/me/notes. Both run as the caller
-// (lib/engine/route.ts), so the database decides: withdraw_note() (0005) refuses a note the caller didn't write and
+// (lib/engine/route.ts), so the database decides: withdraw_note() (0006) refuses a note the caller didn't write and
 // answers again every saved answer that cited it, and the notes policy (0002/0003) shows the author their own notes,
 // withdrawn ones included. Nothing here reads or logs a note's body.
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -11,6 +11,7 @@ import {
   NoteId,
   NoteStatus,
   Scope,
+  SeatSlug,
   Timestamp,
   type WithdrawResponse,
 } from "@/lib/contracts";
@@ -77,27 +78,34 @@ export function handleMyNotes(request: Request): Promise<Response> {
   );
 }
 
+// seat: the seat the note was written at, embedded through notes.seat_id (seats are readable by everyone).
 const NoteRow = z.object({
   id: NoteId,
   title: z.string(),
   scope: Scope,
   status: NoteStatus,
   lang: Lang,
+  seat: z.object({ slug: SeatSlug }),
 });
 
-// 自分のメモ: every note the caller wrote, live and withdrawn, newest first. The author filter is the request; the
-// policy is what keeps other people's withdrawn notes out.
+// 自分のメモ: every note the caller wrote, live and withdrawn, newest first, each with its seat's slug so the scope
+// label uses that seat's words. The author filter is the request; the policy is what keeps other people's withdrawn
+// notes out.
 export async function myNotesAsCaller(
   client: SupabaseClient,
   userId: string,
 ): Promise<MyNotesResponse> {
   const { data, error } = await client
     .from("notes")
-    .select("id, title, scope, status, lang")
+    .select("id, title, scope, status, lang, seat:seats(slug)")
     .eq("author_user_id", userId)
     .order("created_at", { ascending: false });
   if (error) throw dbFailure(error);
   const rows = z.array(NoteRow).safeParse(data);
   if (!rows.success) throw new ApiFailure("unavailable");
-  return { notes: rows.data.map((row) => MyNote.parse(row)) };
+  return {
+    notes: rows.data.map(({ seat, ...row }) =>
+      MyNote.parse({ ...row, seat: seat.slug }),
+    ),
+  };
 }

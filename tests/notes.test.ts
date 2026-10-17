@@ -1,6 +1,6 @@
 // POST /api/notes/[id]/withdraw and GET /api/me/notes (F4.2, issue #26), offline: the handlers return before they
 // touch Supabase unless the request is well-formed, and the flows run on a stub client. withdraw_note() itself (who
-// may withdraw, which answers change, the events row) is SQL in supabase/migrations/0005_withdraw.sql.
+// may withdraw, which answers change, the events row) is SQL in supabase/migrations/0006_withdraw.sql.
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { describe, expect, it } from "vitest";
 import { ApiError, MyNotesResponse, WithdrawResponse } from "@/lib/contracts";
@@ -128,15 +128,16 @@ describe("handleMyNotes", () => {
 });
 
 describe("myNotesAsCaller", () => {
-  it("lists the caller's notes, withdrawn ones included, newest first, without bodies", async () => {
+  it("lists the caller's notes with their seats, withdrawn ones included, newest first, without bodies", async () => {
     const seen: Record<string, unknown> = {};
-    const rows = [
+    const notes = [
       {
         id: "smash-2025-hokenjo",
         title: "保健所申請の締切が早くなった",
         scope: "successor",
         status: "withdrawn",
         lang: "ja",
+        seat: "smash-kaikei",
       },
       {
         id: "smash-2025-ryoshusho",
@@ -144,16 +145,22 @@ describe("myNotesAsCaller", () => {
         scope: "group",
         status: "live",
         lang: "ja",
+        seat: "smash-kaikei",
       },
     ];
+    // PostgREST embeds the seat as an object.
+    const rows = notes.map(({ seat, ...note }) => ({
+      ...note,
+      seat: { slug: seat },
+    }));
     const result = await myNotesAsCaller(
       notesClient({ data: rows }, seen),
       A25,
     );
-    expect(MyNotesResponse.parse(result)).toEqual({ notes: rows });
+    expect(MyNotesResponse.parse(result)).toEqual({ notes });
     expect(seen).toEqual({
       table: "notes",
-      columns: "id, title, scope, status, lang",
+      columns: "id, title, scope, status, lang, seat:seats(slug)",
       filter: ["author_user_id", A25],
       order: ["created_at", { ascending: false }],
     });
