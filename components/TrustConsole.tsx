@@ -256,7 +256,11 @@ export function TrustConsole({
             />
             <div className="dd-col" style={{ gap: 0 }}>
               {answer?.status === "answered" && (
-                <AnswerEntry question={QUESTION} answer={answer} />
+                <AnswerEntry
+                  question={QUESTION}
+                  answer={answer}
+                  api={newcomerApi}
+                />
               )}
               {answer?.status === "abstained" && seat && (
                 <AbstainEntry result={answer} seat={seat} />

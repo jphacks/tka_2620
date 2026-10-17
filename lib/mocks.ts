@@ -31,6 +31,7 @@ import {
   type MyNotesResponse,
   NoteId,
   type NotesRow,
+  type NoteView,
   type PromptRoutesRow,
   type PromptsResponse,
   PublishRequest,
@@ -644,6 +645,80 @@ export const mockMyNotes: Record<Persona, MyNotesResponse> = {
   x: myNotesOf("x"),
 };
 
+// GET /api/notes/[id] ---------------------------------------------------------------------------
+
+// The notes q01's and q02's answers cite, as GET /api/notes/[id] returns them: seed/notes.csv word for word
+// (tests/mocks.test.ts checks it). smash-2025-uchiage stays out: its body carries a leak-test canary.
+export const mockNoteViews: NoteView[] = [
+  {
+    id: "smash-2024-hokenjo",
+    kind: "deadline",
+    title: "模擬店の保健所申請",
+    body: "学祭の模擬店は保健所への臨時出店の届出が必要。学生課でまとめて受け付けていて、2024年の締切は10月27日だった。",
+    deadlineDate: "2024-10-27",
+    lang: "ja",
+    byline: "2024年度 会計",
+  },
+  {
+    id: "smash-2025-hokenjo",
+    kind: "deadline",
+    title: "保健所申請の締切が早くなった",
+    body: "2025年から締切が学祭の3週間前（10月20日）に変わった。学生課の掲示板にしか出ていなかったので、10月に入ったら必ず確認すること。",
+    deadlineDate: "2025-10-20",
+    lang: "ja",
+    byline: "2025年度 会計",
+  },
+  {
+    id: "smash-2025-gasshuku",
+    kind: "unwritten_rule",
+    title: "合宿のお金は別の封筒で",
+    body: "夏合宿のお金は部費と別の封筒で管理する。混ぜると年度末の会計報告で必ず合わなくなる。",
+    lang: "ja",
+    byline: "2025年度 会計",
+  },
+  {
+    id: "gakusai-2025-hokenjo",
+    kind: "rule_of_thumb",
+    title: "模擬店には保健所への届出が必要",
+    body: "模擬店を出す団体は保健所への臨時出店の届出が必要です。手続きは学生課でまとめて受け付けます。締切は学生課の掲示で確認してください。",
+    lang: "ja",
+    byline: "2025年度 模擬店担当",
+  },
+];
+
+// A note with who wrote it and for whom, so the mock can answer like the notes policy. author: none for a holder who
+// isn't a persona (gakusai-2025-hokenjo's, the festival committee's).
+type SourceNote = { note: NoteView; scope: Scope; author?: Persona };
+
+const seedRings: Record<string, Omit<SourceNote, "note">> = {
+  "smash-2024-hokenjo": { scope: "successor", author: "a24" },
+  "smash-2025-hokenjo": { scope: "successor", author: "a25" },
+  "smash-2025-gasshuku": { scope: "successor", author: "a25" },
+  "gakusai-2025-hokenjo": { scope: "institution" },
+};
+
+const seedSources = new Map<string, SourceNote>(
+  mockNoteViews.map((note) => [note.id, { note, ...seedRings[note.id] }]),
+);
+
+// The scope rings as the seed world has them (tests/visibility.test.ts): successor, the author and later holders of
+// the seat; group, every holder (Smash's members); institution, everyone at みなと大学 (all but x); public, everyone.
+function mayRead(persona: Persona, { scope, author }: SourceNote): boolean {
+  if (persona === author) return true;
+  const reader = holders[persona];
+  const writer = author ? holders[author] : undefined;
+  switch (scope) {
+    case "successor":
+      return !!reader && !!writer && Number(reader.term) > Number(writer.term);
+    case "group":
+      return !!reader;
+    case "institution":
+      return persona !== "x";
+    case "public":
+      return true;
+  }
+}
+
 // Realtime rows ----------------------------------------------------------------------------------
 
 export const mockPromptRoutesRow: PromptRoutesRow = {
@@ -729,6 +804,7 @@ type State = {
   answers: Map<string, { asker: Persona; result: AnsweredResult }>; // latest answer per question, as answered
   learned: Map<string, AnsweredResult>; // answers published for a question, by its text
   published: (MyNote & { author: Persona })[];
+  sources: Map<string, SourceNote>; // published notes as GET /api/notes/[id] returns them, by id
   withdrawn: Map<string, string>; // note id → withdrawnAt
 };
 
@@ -739,6 +815,7 @@ function freshState(): State {
     answers: new Map(),
     learned: new Map(),
     published: [],
+    sources: new Map(),
     withdrawn: new Map(),
   };
 }
@@ -1019,6 +1096,19 @@ export function createMockApi(
           lang: card.lang,
           author: persona,
         });
+        state.sources.set(noteIds[i], {
+          note: {
+            id: noteIds[i],
+            kind: card.kind,
+            title: card.title,
+            body: card.body,
+            ...(card.deadline_date && { deadlineDate: card.deadline_date }),
+            lang: card.lang,
+            byline: holder.byline,
+          },
+          scope: card.scope,
+          author: persona,
+        });
       });
       const waiting = promptId ? state.waiting.get(promptId) : undefined;
       const reanswered: string[] = [];
@@ -1125,6 +1215,16 @@ export function createMockApi(
           }),
         ),
       });
+    },
+
+    // Like the notes policy: a note out of the persona's scope, a withdrawn one and a missing one are all not_found.
+    async note(noteId) {
+      const id = NoteId.parse(noteId);
+      const source = state.sources.get(id) ?? seedSources.get(id);
+      if (!source || state.withdrawn.has(id) || !mayRead(persona, source)) {
+        throw new MockApiError("not_found");
+      }
+      return reply(source.note);
     },
 
     subscribe(channel, onRow) {

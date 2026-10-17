@@ -19,6 +19,7 @@ import {
   InboxResponse,
   MyNotesResponse,
   NotesRow,
+  NoteView,
   PromptRoutesRow,
   PromptsResponse,
   PublishResponse,
@@ -107,6 +108,8 @@ export function createApi(db: SupabaseClient): Api {
         {},
       ),
     myNotes: () => call(MyNotesResponse, "/api/me/notes"),
+    note: (noteId) =>
+      call(NoteView, `/api/notes/${encodeURIComponent(noteId)}`),
     subscribe(channel, onRow) {
       const subscription = db
         .channel(`${channel}:${crypto.randomUUID()}`)

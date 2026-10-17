@@ -4,19 +4,22 @@
 // prefers-reduced-motion turns the landing into an instant state change (styles/components.css).
 import { useTranslations } from "next-intl";
 import { AnswerEntry } from "@/components/AnswerEntry";
-import type { LiveAnswer } from "@/lib/contracts";
+import type { Api, LiveAnswer } from "@/lib/contracts";
 
 export function LiveStamp({
   question,
   answer,
+  api,
 }: {
   question: string;
   answer: LiveAnswer;
+  /** The viewer's client, for the stamps' source notes. */
+  api: Pick<Api, "note">;
 }) {
   const t = useTranslations();
   return (
     <section>
-      <AnswerEntry question={question} answer={answer} land />
+      <AnswerEntry question={question} answer={answer} api={api} land />
       <p className="dd-live-note">
         {t("live.answered", { byline: answer.live.byline })}
       </p>
