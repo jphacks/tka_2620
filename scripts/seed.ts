@@ -320,6 +320,15 @@ async function seed() {
   const labelPacks = JSON.parse(
     await readFile(new URL("../messages/ja.json", import.meta.url), "utf8"),
   ).seatTypes as Record<string, { byline: string }>;
+  // What a holder of the seat signs with for a term (「2025年度 会計」): each holder's row keeps it, and the database
+  // accepts a note only with exactly that byline (0007).
+  const bylineOf = (slug: string, term: string) => {
+    const seat = seats.find((candidate) => candidate.slug === slug);
+    if (!seat) throw new Error(`no seat ${slug}`);
+    return labelPacks[seat.type].byline
+      .replace("{term}", term)
+      .replace("{seat}", seat.name);
+  };
 
   for (const [table, column] of tablesInDeleteOrder) {
     const { error } = await db.from(table).delete().not(column, "is", null);
@@ -399,6 +408,7 @@ async function seed() {
         term_order: hold.order,
         status: hold.status,
         reachable: hold.reachable ?? false,
+        byline: bylineOf(hold.seat, hold.term),
       })),
     ),
   );
@@ -407,18 +417,13 @@ async function seed() {
     db,
     "notes",
     notes.map((note, i) => {
-      const seat = seats.find((candidate) => candidate.slug === note.seat_slug);
       const author = personFor(note.author);
       return {
         id: note.id,
         seat_id: seatIds.get(note.seat_slug),
         term_order: Number(note.term_order),
         author_user_id: author && userIds.get(author.key),
-        byline:
-          seat &&
-          labelPacks[seat.type].byline
-            .replace("{term}", note.term_label)
-            .replace("{seat}", seat.name),
+        byline: bylineOf(note.seat_slug, note.term_label),
         kind: note.kind,
         title: note.title,
         body: note.body,

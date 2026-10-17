@@ -40,7 +40,7 @@ const request: PublishRequest = {
 
 const ok = (data: unknown): Result => ({ data, error: null });
 const seat = ok({ id: SEAT_ID, name: "会計", seat_type: "club_role" });
-const term = ok([{ term_label: "2025", term_order: 2025 }]);
+const term = ok([{ term_label: "2025", term_order: 2025, byline: BYLINE }]);
 const prompt = (kind = "demand") =>
   ok({ id: PROMPT_ID, kind, text: mockQuestions.q04 });
 const inserted = ok([
@@ -369,6 +369,34 @@ describe("publishAsCaller", () => {
       tables: { notes: [{ data: null, error: { code: "42501" } }] },
     });
     expect(error).toMatchObject({ name: "ApiFailure", code: "forbidden" });
+  });
+
+  it("turns the database's notes guard into unredacted", async () => {
+    const { error } = await run({
+      tables: { notes: [{ data: null, error: { code: "DD001" } }] },
+    });
+    expect(error).toMatchObject({ name: "ApiFailure", code: "unredacted" });
+  });
+
+  it("signs with the byline the caller's holding keeps, and refuses a holding without one", async () => {
+    const signed = await run({
+      tables: {
+        seat_holders: [
+          ok([{ term_label: "2025", term_order: 2025, byline: "2025 byline" }]),
+        ],
+      },
+    });
+    expect(insertedRows(signed.calls.notes)?.[0].byline).toBe("2025 byline");
+
+    const unsigned = await run({
+      tables: {
+        seat_holders: [
+          ok([{ term_label: "2025", term_order: 2025, byline: null }]),
+        ],
+      },
+    });
+    expect(unsigned.error).toMatchObject({ code: "forbidden" });
+    expect(unsigned.calls.notes).toBeUndefined();
   });
 });
 
