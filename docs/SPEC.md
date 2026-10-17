@@ -239,6 +239,8 @@ type AskResult =
 //   → { cards: (CardDraft & { source: "import" | "file" | "chat"; provenance?: string })[]; missing: { topic: string; reason: string; prompt: string }[];
 //       blocked: { title: string; reason: string }[]; duplicates: { card: number; noteId: string; title: string; byline: string; similarity: number }[] }
 // POST /api/notes/[id]/withdraw          → { withdrawnAt: string }
+// POST /api/console/session { persona: "a26" | "a25" | "x" } → { accessToken: string; refreshToken: string }
+//   the console only: not_found unless the server sets CONSOLE_SIGN_IN=1 (the presenter's laptop, never a public URL)
 // GET  /api/me/notes                     → { notes: { id: string; seat: string; title: string; scope: Scope; status: "live" | "withdrawn"; lang: Lang }[] }
 //   seat: the slug of the seat the note was written at (its scope label uses that seat's words)
 // Any error                              → { error: "invalid_request" | "unauthorized" | "forbidden" | "not_found" | "unredacted" | "unavailable" }
@@ -248,7 +250,11 @@ type AskResult =
 - **Auth:** every API call sends `Authorization: Bearer <access token>`; route handlers create a Supabase
   client with that token so RLS runs as the caller.
 - **Console panes:** each pane creates its own Supabase client signed in as its persona
-  (`persistSession: false`), so three personas run side by side in one browser.
+  (`persistSession: false`), so three personas run side by side in one browser. The session comes from
+  `POST /api/console/session`, which signs in with `DEMO_PASSWORD` on the server, so the password never reaches the
+  browser; the route exists only where `CONSOLE_SIGN_IN=1` (server-only env, set on the presenting laptop alone).
+  `lib/api.ts` is the real client behind each pane. Reset on the real database is `pnpm demo:reset` in a terminal,
+  then a reload (the service-role key stays out of the app); the console's リセット button is for mocks.
 - **Realtime:** clients subscribe to `answers`, `prompt_routes`, `notes` (status changes) and `events` (meter); nothing polls.
   Only inserts and updates are sent: Realtime can't check a deleted row against RLS, so deletes never go out (0005).
 - **Publishing for a routed prompt** re-runs every waiting question linked to it (`questions.prompt_id`) and writes an `answers` row per asker.

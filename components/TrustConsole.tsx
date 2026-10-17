@@ -4,11 +4,11 @@
 // 自分のメモ and 「撤回する」, and x (部外者) who sees nothing. Withdrawing a cited note drops it out of a26's
 // answer while the meter runs; it freezes in ink the moment the last pane has dropped it.
 // The live loop runs in the same panes: a26 asks in the ask field, the question reaches a25's inbox, and the signed
-// answer lands back in a26's pane (F4.1, #25). The outsider's pane stays empty.
-// Mocks only for now (NEXT_PUBLIC_USE_MOCKS=1): each pane's own signed-in client replaces createMockApi (#25)
-// once the withdraw route exists (#26).
+// answer lands back in a26's pane (F4.1, #25). The outsider's pane shows what x can see of the seat: nothing.
+// Each pane runs on its own client (ConsoleSignIn: three signed-in personas, or the mocks), so every view is that
+// persona's own and RLS decides what each one gets.
 import { useTranslations } from "next-intl";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AbstainEntry } from "@/components/AbstainEntry";
 import { AnswerEntry } from "@/components/AnswerEntry";
 import { AskPanel } from "@/components/AskPanel";
@@ -22,8 +22,14 @@ import {
 } from "@/components/NoteEntry";
 import { PersonaPane } from "@/components/PersonaPane";
 import { WithdrawMeter } from "@/components/WithdrawMeter";
-import type { AskResult, Metrics, MyNote, SeatView } from "@/lib/contracts";
-import { createMockApi, mockQuestions, resetMocks } from "@/lib/mocks";
+import type {
+  Api,
+  AskResult,
+  Metrics,
+  MyNote,
+  SeatView,
+} from "@/lib/contracts";
+import { mockQuestions } from "@/lib/mocks";
 import { useRealtime } from "@/lib/realtime";
 
 const SEAT = "smash-kaikei";
@@ -37,12 +43,26 @@ const sleep = (ms: number) =>
 // Each flag is true while that pane is still waiting.
 type Pending = { id: string; api: boolean; answers: boolean };
 
+// One client per pane: a26 the newcomer, a25 last year's treasurer, x the outsider.
+export type ConsoleApis = { newcomer: Api; senpai: Api; outsider: Api };
+
 // leaks: the leak test's numbers from metrics/latest.json (app/console/page.tsx); undefined until it has run.
-export function TrustConsole({ leaks }: { leaks?: Metrics["leaks"] }) {
+// onReset: back to the seed state (resetMocks on mocks). Without it there is no リセット button: on the real
+// database that is `pnpm demo:reset` in a terminal, so the service-role key stays out of the app, then a reload.
+export function TrustConsole({
+  apis,
+  leaks,
+  onReset,
+}: {
+  apis: ConsoleApis;
+  leaks?: Metrics["leaks"];
+  onReset?: () => void;
+}) {
   const t = useTranslations();
-  const newcomerApi = useMemo(() => createMockApi("a26"), []);
-  const senpaiApi = useMemo(() => createMockApi("a25"), []);
+  const { newcomer: newcomerApi, senpai: senpaiApi } = apis;
   const [seat, setSeat] = useState<SeatView["seat"]>();
+  const [outsiderView, setOutsiderView] = useState<SeatView>();
+  const [loadFailed, setLoadFailed] = useState(false);
   const [notes, setNotes] = useState<MyNote[]>();
   const [seats, setSeats] = useState<NoteSeats>();
   const [answer, setAnswer] = useState<AskResult>();
@@ -72,21 +92,29 @@ export function TrustConsole({ leaks }: { leaks?: Metrics["leaks"] }) {
     setMeter({ running: false, ms: 0 });
     setNotes(undefined);
     setAnswer(undefined);
+    setOutsiderView(undefined);
+    setLoadFailed(false);
     answerRef.current = undefined;
     Promise.all([
       newcomerApi.seat(SEAT),
       senpaiApi.myNotes(),
       newcomerApi.ask({ seat: SEAT, question: QUESTION }),
-    ]).then(async ([view, mine, asked]) => {
-      const bySlug = await seatsOf(senpaiApi, mine.notes);
-      if (id !== loadId.current) return; // a reset superseded this load
-      setSeat(view.seat);
-      setSeats(bySlug);
-      setNotes(mine.notes);
-      answerRef.current = asked;
-      setAnswer(asked);
-    });
-  }, [newcomerApi, senpaiApi]);
+      apis.outsider.seat(SEAT),
+    ])
+      .then(async ([view, mine, asked, outsider]) => {
+        const bySlug = await seatsOf(senpaiApi, mine.notes);
+        if (id !== loadId.current) return; // a reset superseded this load
+        setSeat(view.seat);
+        setSeats(bySlug);
+        setNotes(mine.notes);
+        answerRef.current = asked;
+        setAnswer(asked);
+        setOutsiderView(outsider);
+      })
+      .catch(() => {
+        if (id === loadId.current) setLoadFailed(true);
+      });
+  }, [newcomerApi, senpaiApi, apis.outsider]);
 
   useEffect(() => {
     load();
@@ -178,7 +206,7 @@ export function TrustConsole({ leaks }: { leaks?: Metrics["leaks"] }) {
   }
 
   function reset() {
-    resetMocks();
+    onReset?.();
     setRun((n) => n + 1);
     load();
   }
@@ -201,11 +229,18 @@ export function TrustConsole({ leaks }: { leaks?: Metrics["leaks"] }) {
         <div className="dd-row" style={{ gap: "var(--s-5)" }}>
           <WithdrawMeter ms={shownMs} running={meter.running} />
           <LeakCounter leaks={leaks} />
-          <button type="button" className="dd-btn" onClick={reset}>
-            {t("console.reset")}
-          </button>
+          {onReset && (
+            <button type="button" className="dd-btn" onClick={reset}>
+              {t("console.reset")}
+            </button>
+          )}
         </div>
       </header>
+      {loadFailed && (
+        <p role="alert" style={{ margin: 0 }}>
+          {t("console.loadFailed")}
+        </p>
+      )}
 
       <div
         className="dd-row"
@@ -213,7 +248,12 @@ export function TrustConsole({ leaks }: { leaks?: Metrics["leaks"] }) {
       >
         <PersonaPane label={t("console.newcomer")}>
           <div className="dd-col" style={{ gap: "var(--s-6)" }}>
-            <AskPanel key={run} slug={SEAT} mockShortcuts={false} />
+            <AskPanel
+              key={run}
+              slug={SEAT}
+              mockShortcuts={false}
+              api={newcomerApi}
+            />
             <div className="dd-col" style={{ gap: 0 }}>
               {answer?.status === "answered" && (
                 <AnswerEntry question={QUESTION} answer={answer} />
@@ -233,6 +273,7 @@ export function TrustConsole({ leaks }: { leaks?: Metrics["leaks"] }) {
               slug={SEAT}
               mockShortcuts={false}
               closeAfterPublish
+              api={senpaiApi}
             />
             {seats && notes && (
               <MyNotes
@@ -246,10 +287,22 @@ export function TrustConsole({ leaks }: { leaks?: Metrics["leaks"] }) {
           </div>
         </PersonaPane>
 
+        {/* What x gets for the seat page's notes, as x: nothing. Anything listed here would be a leak on screen. */}
         <PersonaPane label={t("console.outsider")}>
-          <p className="dd-cap" style={{ margin: 0 }}>
-            {t("trust.nothing")}
-          </p>
+          {outsiderView?.upcoming.length === 0 && (
+            <p className="dd-cap" style={{ margin: 0 }}>
+              {t("trust.nothing")}
+            </p>
+          )}
+          {outsiderView && outsiderView.upcoming.length > 0 && (
+            <ul className="dd-col" style={{ margin: 0, paddingLeft: "1em" }}>
+              {outsiderView.upcoming.map((item) => (
+                <li key={item.noteId} lang={item.lang}>
+                  {item.title}
+                </li>
+              ))}
+            </ul>
+          )}
         </PersonaPane>
       </div>
     </div>

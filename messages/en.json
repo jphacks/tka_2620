@@ -55,7 +55,9 @@
     "outdated": "Outdated?",
     "outdatedDone": "We'll ask the next handover to check this",
     "ruleChange": "The rule changed in {term}",
-    "sourceChip": "{byline}"
+    "sourceChip": "{byline}",
+    "seatFailed": "Couldn't load this seat. Check your connection and reopen this page.",
+    "failed": "Couldn't send your question. Ask it again."
   },
   "abstain": {
     "routed": "Added to the next handover."
@@ -85,7 +87,11 @@
     "outsider": "Outsider",
     "meter": "Seconds to withdraw",
     "seconds": "{s}s",
-    "reset": "Reset"
+    "reset": "Reset",
+    "signingIn": "Signing in the three personas",
+    "signInOff": "Console sign-in is off on this server. Set CONSOLE_SIGN_IN=1 on the presenting laptop and reopen this page.",
+    "signInFailed": "Couldn't sign the personas in. Check DEMO_PASSWORD and reopen this page.",
+    "loadFailed": "Couldn't load the panes. Reopen this page."
   },
   "onkuri": {
     "credit": "{n} senpai answered {q} of your questions. Your turn!"
