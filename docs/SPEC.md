@@ -130,6 +130,11 @@ They are the shared acceptance tests for F2–F4, and `lib/mocks.ts` is built fr
   the asker is shown by seat and term (「2026年度 会計」), never by name. `answers` rows are readable only by the asker.
 - A question from someone who holds no seat at that seat routes nowhere: no demand prompt is created, the abstain
   carries no `promptId`, and `routedTo` is 0. The question remains readable only by the asker.
+- Demand prompts (F2.5): a routed question's prompt is the question reworded by Haiku about the seat, without names or
+  contact details (the asker's own `questions.text` stays as typed). So that a question can join an open prompt that
+  asks the same thing, a holder of the seat whose own question waits to be routed reads the seat's open demand prompts
+  (id and text, never who asked) through `open_demand_prompts()`; otherwise only the routed holders read them. A
+  question with no prompt text free of contact details, credentials and names routes nowhere.
 
 ## Adding knowledge: text, files and chats (F5)
 Club knowledge lives in old documents, forms, notices and, most of all, group chats. Daidai takes all of them

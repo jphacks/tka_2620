@@ -1,7 +1,8 @@
-// #7, #20 and #21 acceptance checks (docs/SPEC.md → F3, F2) through POST /api/ask: q04, asked by the 2026 treasurer,
-// creates one route, for the 2025 treasurer and nobody else; q01 is answered from the notes, every sentence citing the
-// 2024 or 2025 note, with the 2025 rule change flagged. Runs against the seeded database and a running dev server, with
-// Ollama for the search and the Claude key for q01's answer:
+// #7, #20, #21 and #23 acceptance checks (docs/SPEC.md → F3, F2) through POST /api/ask: q04, asked by the 2026
+// treasurer, creates one route, for the 2025 treasurer and nobody else; asked again in other words, it joins that prompt
+// (ask_count 2, two linked questions); q01 is answered from the notes, every sentence citing the 2024 or 2025 note, with
+// the 2025 rule change flagged. Runs against the seeded database and a running dev server, with Ollama for the search
+// and the Claude key for q01's answer and the dedupe:
 //   pnpm dev          (in another terminal)
 //   pnpm test:ask
 // The asks go over HTTP with a26's own token, as a phone would, so the route handler and RLS are exercised for
@@ -42,6 +43,9 @@ const MUST_SEE_NOTHING = ["a26", "a24", "b", "x"];
 // Every sentence of q01's answer cites one of these, and the deadline moved between them (docs/SPEC.md → F2).
 const Q01_NOTES = ["smash-2024-hokenjo", "smash-2025-hokenjo"];
 const Q01_RULE_CHANGE = { termLabel: "2025", summary: "10/27 → 10/20" };
+// q04 in other words (F2.5): it asks the same thing, so it joins q04's prompt instead of starting one.
+const Q04_REWORDED =
+  "決算が終わってから出てきたレシートは、どう処理すればいいですか？";
 
 function email(persona: string): string {
   const key = EMAIL[persona];
@@ -286,6 +290,15 @@ async function main(): Promise<void> {
   if (seat.error) throw new Error(`read the seat: ${seat.error.code}`);
   const seatId: string = seat.data.id;
 
+  // Nothing is written unless the seat has no open demand prompt, as the seed leaves it: otherwise someone may be
+  // rehearsing, and q04 would join their prompt instead of starting one (F2.5).
+  const alreadyOpen = await openDemandPrompts(service, seatId);
+  if (alreadyOpen > 0) {
+    throw new Error(
+      `the seat has ${alreadyOpen} open demand prompt(s): someone may be rehearsing. If not, run pnpm demo:reset first`,
+    );
+  }
+
   // A minute of slack, in case this laptop's clock is ahead of the database's.
   const since = new Date(Date.now() - 60_000).toISOString();
   const asker = await signIn(url, anonKey, question.persona, password);
@@ -382,7 +395,50 @@ async function main(): Promise<void> {
         mine.data?.lang === "ja",
     );
 
-    // 4. Nobody else sees the route or the demand prompt, not even the asker.
+    // 4. The same question in other words (F2.5, #23) joins the open prompt: one slip, asked twice.
+    const againResponse = await ask(asker.token, {
+      ...question,
+      question: Q04_REWORDED,
+    });
+    check(
+      "asked again in other words, POST /api/ask answers 200",
+      againResponse.ok,
+      againResponse.ok ? "" : `HTTP ${againResponse.status}`,
+    );
+    if (againResponse.ok) {
+      const again = AskResult.parse(await againResponse.json());
+      if (again.status === "abstained")
+        created.questionIds.push(again.questionId);
+      check(
+        "it abstains and joins the same prompt",
+        again.status === "abstained" &&
+          again.promptId === promptId &&
+          again.routedTo === 1,
+        again.status === "abstained"
+          ? `${again.promptId === promptId ? "same" : again.promptId ? "another" : "no"} prompt, routedTo ${again.routedTo}`
+          : again.status,
+      );
+      const merged = await service
+        .from("prompts")
+        .select("ask_count")
+        .eq("id", promptId)
+        .single();
+      const linked = await service
+        .from("questions")
+        .select("id", { count: "exact", head: true })
+        .eq("prompt_id", promptId);
+      check(
+        "one prompt with ask_count 2 and two linked questions",
+        merged.data?.ask_count === 2 && linked.count === 2,
+        `ask_count ${merged.data?.ask_count}, linked ${linked.count}`,
+      );
+      check(
+        "the seat still has one open demand prompt",
+        (await openDemandPrompts(service, seatId)) === 1,
+      );
+    }
+
+    // 5. Nobody else sees the route or the demand prompt, not even the asker.
     for (const persona of MUST_SEE_NOTHING) {
       const peek =
         persona === question.persona
@@ -408,7 +464,7 @@ async function main(): Promise<void> {
       );
     }
 
-    // 5. A signed-out caller is refused, and a question from someone who holds no seat at the seat routes nowhere.
+    // 6. A signed-out caller is refused, and a question from someone who holds no seat at the seat routes nowhere.
     const signedOut = await ask(undefined, question);
     check("a signed-out caller is refused", signedOut.status === 401);
 
@@ -432,18 +488,33 @@ async function main(): Promise<void> {
       openAfter === openBefore,
       `${openAfter - openBefore} new`,
     );
+    // Its question waits unrouted, so open_demand_prompts() (0008) takes it, and gives nothing to someone without a seat.
+    if (strangerResult.status === "abstained") {
+      const offered = await stranger.db.rpc("open_demand_prompts", {
+        question: strangerResult.questionId,
+      });
+      check(
+        `${STRANGER} is offered no open prompts`,
+        !offered.error &&
+          Array.isArray(offered.data) &&
+          offered.data.length === 0,
+        offered.error
+          ? `refused ${offered.error.code}`
+          : `${Array.isArray(offered.data) ? offered.data.length : "?"} row(s)`,
+      );
+    }
   } finally {
-    // 6. Leave the demo database as it was.
+    // 7. Leave the demo database as it was.
     const problem = await cleanUp(service, created, {
       askerIds: [...new Set([asker.userId, q01Asker.userId, stranger.userId])],
       seatId,
-      texts: [question.question, q01.question],
+      texts: [question.question, Q04_REWORDED, q01.question],
       since,
     });
     console.log(
       problem
-        ? `\n✗ /api/ask check (#7, #20, #21): ${checks} checks, ${failed ? "failed" : "all passed"}, but the cleanup failed (${problem}): the demo data may not be as it was`
-        : `\n${failed ? "✗" : "✓"} /api/ask check (#7, #20, #21): ${checks} checks, ${failed ? "failed" : "all passed"} (the demo data is back as it was)`,
+        ? `\n✗ /api/ask check (#7, #20, #21, #23): ${checks} checks, ${failed ? "failed" : "all passed"}, but the cleanup failed (${problem}): the demo data may not be as it was`
+        : `\n${failed ? "✗" : "✓"} /api/ask check (#7, #20, #21, #23): ${checks} checks, ${failed ? "failed" : "all passed"} (the demo data is back as it was)`,
     );
     process.exitCode = failed || problem ? 1 : 0;
   }
