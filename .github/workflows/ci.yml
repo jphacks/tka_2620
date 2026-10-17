@@ -3,6 +3,10 @@ name: CI
 # Every push, on every branch: the check appears before the PR is opened.
 on:
   push:
+  # A PR into dev or main is also checked as merged into its base: the branch alone can pass while the merge
+  # doesn't typecheck (a PR that builds on work dev doesn't have yet, AGENTS.md → Workflow).
+  pull_request:
+    branches: [dev, main]
   # Lets a red run be re-started from the Actions tab without a new commit.
   workflow_dispatch:
 
