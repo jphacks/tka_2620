@@ -1,6 +1,7 @@
 // Plain text files (docs/SPEC.md → F5, step 1): .txt and .md, read on the device as UTF-8. LINE and WhatsApp
 // exports carry a BOM (and Windows editors sometimes UTF-16), so the BOM picks the decoder instead of garbling the
-// first line. The repair helper below is small but load-bearing: see its comment.
+// first line; a file that isn't UTF-8 is read as Shift_JIS. The repair helper below is small but load-bearing: see
+// its comment.
 import { assertWithinSize, type Extracted } from "./types";
 
 export async function extractTextFile(file: Blob): Promise<Extracted> {
@@ -10,13 +11,24 @@ export async function extractTextFile(file: Blob): Promise<Extracted> {
 
 export function decodeText(bytes: Uint8Array): string {
   // utf-8's decoder drops a leading BOM itself; the replace covers encodings that keep it.
-  const decoder =
+  const text =
     bytes[0] === 0xff && bytes[1] === 0xfe
-      ? new TextDecoder("utf-16le")
+      ? new TextDecoder("utf-16le").decode(bytes)
       : bytes[0] === 0xfe && bytes[1] === 0xff
-        ? new TextDecoder("utf-16be")
-        : new TextDecoder("utf-8");
-  return decoder.decode(bytes).replace(/^\uFEFF/, "");
+        ? new TextDecoder("utf-16be").decode(bytes)
+        : decodeUtf8OrShiftJis(bytes);
+  return text.replace(/^\uFEFF/, "");
+}
+
+// Older Windows Notepad and Excel save Japanese text as Shift_JIS (CP932), which a UTF-8 decoder turns into \uFFFD\uFFFD\uFFFD\uFFFD in
+// the preview and in what the model reads. Bytes that aren't valid UTF-8 are read as Shift_JIS instead; ASCII and
+// real UTF-8 never take that path.
+function decodeUtf8OrShiftJis(bytes: Uint8Array): string {
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch {
+    return new TextDecoder("shift_jis").decode(bytes);
+  }
 }
 
 // A subset PDF font (seed/notice-2026.sample.pdf) maps 大 to the Kangxi radical ⼤ (U+2F24) and 月 to ⽉, so pdf.js
