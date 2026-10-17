@@ -35,13 +35,20 @@ jobs:
           cache: pnpm
 
       - name: Install
+        id: install
         run: pnpm install --frozen-lockfile
 
       # Runs on mocks and without secrets: no Supabase, no Anthropic key, no Ollama.
       - name: Typecheck
         run: pnpm typecheck
 
-      # `pnpm lint` (biome check) is not a CI gate: it stays a thing you run by hand
-      # before a PR (AGENTS.md, .github/pull_request_template.md).
+      # Test and Lint run even when a step before them failed (once the install worked), so one push shows all three.
       - name: Test
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: pnpm test
+
+      # biome check: lint and formatting. It passes on the whole repo, so a red step means this change; fix it with
+      # `pnpm exec biome check --write`.
+      - name: Lint
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: pnpm lint
