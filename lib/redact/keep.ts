@@ -1,7 +1,8 @@
 // Keep what matters in a chat (docs/SPEC.md → adding knowledge, step 2): by default the last 12 months, counted back
 // from the chat's last message, and the messages that look like handover knowledge, each with the message before and
 // after it from the same day. What still doesn't fit the request is cut from the oldest end. redactChat runs this on
-// the redacted messages: the placeholders mark contact details, and the cap counts what is actually sent.
+// the redacted messages, after redacting every message in order: the value after a 暗証番号 line is hidden even when
+// the keyword is older than the 12 months, the placeholders mark contact details, and the cap counts what is sent.
 import { ImportRequest } from "@/lib/contracts";
 import type { ChatMessage } from "@/lib/redact/parse";
 
@@ -35,41 +36,53 @@ function monthsBefore(at: string, months: number): string {
   return `${Math.floor(index / 12)}-${month}${at.slice(7)}`;
 }
 
-// Handover knowledge: a date or a time, an amount, a deadline or a procedure, an office, a rule or a pitfall, or a
-// contact detail or secret the redaction replaced. Not what every chat is full of (来週, 明日, 練習, 休み), and no
-// role words: the redaction puts roles in (副会計です).
-const KNOWLEDGE = new RegExp(
+// Handover knowledge. Not what every chat is full of (来週, 明日, 練習, 休み, 去年), and no role words: the redaction
+// puts roles in (副会計です).
+// A strong sign counts in any message: the club's money, a deadline or a procedure, an office, the club's things and
+// files, or a contact detail or secret the redaction replaced.
+const STRONG = new RegExp(
   [
-    // 5/10, 2025-10-20, 10月, 20日, 21:00, 9時, 2週間前, 毎月, 月末, 年度末, 火曜
-    String.raw`\d{1,4}[/.-]\d{1,2}|\d{1,2}月|\d{1,2}日|\d{1,2}:\d{2}|\d{1,2}時|\d+(?:週間|か月|ヶ月|カ月|日前|日後)`,
-    "毎月|毎週|毎年|月末|月初|年度末|年度初め|上旬|中旬|下旬|[月火水木金土日]曜|去年|来年",
-    // 3000円, ¥500, 2万
-    String.raw`\d[\d,]*\s?円|¥\s?\d|\d+万`,
-    "集金|会費|部費|参加費|予算|精算|立て替え|立替|返金|払|振込|振り込|口座|銀行|通帳|現金|領収書|レシート|見積|請求|会計報告",
-    "締切|締め切り|〆切|期限|申請|申込|申し込|提出|予約|手続|届出|届け出|書類|許可|登録|更新|キャンセル|代表者|引き継|引継|ハンコ|印鑑|判子|署名",
-    "学生課|保健所|事務|窓口|顧問|連絡先|問い合わせ|金庫|鍵|備品|必要|注意|気をつけ|忘れずに|必ず|ルール|決まり",
-    // What the redaction put in place of a contact detail, an ID, an account or a secret
+    "集金|会費|部費|参加費|費|予算|精算|立て替え|立替|返金|(?<!酔っ)払|振込|振り込|口座|銀行|通帳|現金|領収書|レシート|見積|請求|会計報告|保険|学割",
+    "締切|締め切り|〆切|期限|申請|申込|申し込|提出|予約|手続|届出|届け出|書類|許可|登録|キャンセル|代表者|引き継|引継|ハンコ|印鑑|判子|署名|エントリー|名簿|抽選|講習|当番",
+    "学生課|保健所|生協|事務|窓口|顧問|業者|連絡先|問い合わせ|金庫|鍵|備品|倉庫|ファイル|フォルダ|ドライブ",
     String.raw`\[(?:電話番号|メール|URL|ID|住所|口座番号|カード番号|学籍番号|秘密)`,
   ].join("|"),
   "u",
 );
+// A weak sign counts unless the message is about someone's health or private life: a date or a time, an amount, a
+// place, a rule or a pitfall. 5/10, 2025-10-20, 10月, 20日, 21:00, 9時, 2週間前, 毎月, 月末, 年度末, 火曜, 3000円.
+const WEAK = new RegExp(
+  [
+    String.raw`\d{1,4}[/.-]\d{1,2}|\d{1,2}月|\d{1,2}日|\d{1,2}:\d{2}|\d{1,2}時|\d+(?:週間|か月|ヶ月|カ月|日前|日後)`,
+    "毎月|毎週|毎年|月末|月初|年度末|年度初め|上旬|中旬|下旬|[月火水木金土日]曜",
+    String.raw`\d[\d,]*\s?円|¥\s?\d|\d+万`,
+    "体育館|会館|会場|施設|更新|共有|注意|気をつけ|忘れずに|必ず|ルール|決まり",
+  ].join("|"),
+  "u",
+);
+// Health, relationships and family. 「土曜の練習休みます、熱が出た」 has a weekday but no knowledge, so a weak sign
+// doesn't count here, and such a message is never sent as context.
+const PERSONAL =
+  /体調|熱が|熱出|発熱|風邪|インフル|コロナ|病院|通院|入院|怪我|ケガ|骨折|生理|しんどい|メンタル|彼氏|彼女|別れ|失恋|家族|親が/u;
 
 export function looksLikeKnowledge(text: string): boolean {
-  return KNOWLEDGE.test(text);
+  return STRONG.test(text) || (!PERSONAL.test(text) && WEAK.test(text));
 }
 
 // Which messages to send: those that look like knowledge, and the message before and after each from the same day
-// (the question it answers, the answer it gets). A message from another day is no context: on the seed, the health
-// message of 2024-06-03 would come back as the neighbour of the 精算 message of 2024-04-12.
+// (the question it answers, the answer it gets), unless that message is personal. A message from another day is no
+// context: on the seed, the health message of 2024-06-03 would come back as the neighbour of the 精算 message of
+// 2024-04-12.
 export function relevant(messages: ChatMessage[]): boolean[] {
   const knowledge = messages.map(({ text }) => looksLikeKnowledge(text));
   const day = (index: number) => messages[index]?.at?.slice(0, 10);
   return messages.map(
-    (_, index) =>
+    ({ text }, index) =>
       knowledge[index] ||
-      [index - 1, index + 1].some(
-        (other) => knowledge[other] && day(other) === day(index),
-      ),
+      (!PERSONAL.test(text) &&
+        [index - 1, index + 1].some(
+          (other) => knowledge[other] && day(other) === day(index),
+        )),
   );
 }
 

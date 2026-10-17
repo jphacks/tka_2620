@@ -106,6 +106,19 @@ describe("what looks like handover knowledge", () => {
     "kaikei.mock@example.org に送って",
     "https://forms.gle/AbC123 から",
     "暗証番号は9876",
+    "合宿費は1人8000円",
+    "保険に入る",
+    "エントリーしておく",
+    "名簿にのせる",
+    "当番を決める",
+    "倉庫にある",
+    "業者に頼む",
+    "講習を受ける",
+    "抽選で決まる",
+    "生協で買える",
+    "学割が使える",
+    "ドライブのフォルダにある",
+    "練習は第二体育館で",
   ])("is kept between chit-chat on other days: %s", (signal) => {
     const chat = [
       message("2025-01-10T10:00", "了解です"),
@@ -124,6 +137,9 @@ describe("what looks like handover knowledge", () => {
     "体調悪くて休みます",
     "それな笑",
     "楽しかった!また行こう",
+    "酔っ払ってた笑",
+    "来年もよろしく!",
+    "去年は楽しかった",
   ])("chit-chat alone is not sent: %s", (text) => {
     const result = redactChat([message("2025-01-11T10:00", text)]);
     expect([result.kept, result.total, result.text]).toEqual([0, 1, ""]);
@@ -135,6 +151,36 @@ describe("what looks like handover knowledge", () => {
       looksLikeKnowledge("副会計です、来週ちょっと体調悪くて練習休みます"),
     ).toBe(false);
     expect(looksLikeKnowledge("会計、部長、メンバーA")).toBe(false);
+  });
+});
+
+describe("a message about someone's health or private life", () => {
+  it.each([
+    "土曜の練習休みます、熱が出た",
+    "風邪で3日休みます",
+    "病院に行くので10時に遅れます",
+    "家族が来るので月末は無理",
+    "インフルで2週間前から休んでる",
+    "彼氏と別れた、金曜は無理",
+  ])("is not sent for a date, a time or a place: %s", (text) => {
+    expect(sentAt([message("2025-01-11T10:00", text)])).toEqual([]);
+  });
+
+  it("is sent for a strong sign of knowledge", () => {
+    expect(
+      sentAt([
+        message("2025-01-11T10:00", "インフルなので来週の集金お願いします"),
+      ]),
+    ).toEqual(["2025-01-11T10:00"]);
+  });
+
+  it("is never sent as context", () => {
+    const chat = [
+      message("2025-01-11T09:00", "熱が出たので休みます"),
+      message("2025-01-11T09:05", "明日10時集合"),
+      message("2025-01-11T09:10", "了解です"),
+    ];
+    expect(sentAt(chat)).toEqual(["2025-01-11T09:05", "2025-01-11T09:10"]);
   });
 });
 
@@ -190,6 +236,20 @@ describe("the last 12 months", () => {
     expect(redactChat(chat, { keepAll: true }).kept).toBe(3);
     expect(recent([message(null, "部費は3000円"), ...chat])).toHaveLength(3);
   });
+
+  it("still hide the value after a 暗証番号 line that is older than them", () => {
+    const result = redactChat([
+      message("2024-03-10T21:00", "金庫の暗証番号は?"), // a minute too old
+      message("2024-03-10T21:01", "9876、毎月変わる", "b"), // the first message kept
+      message("2025-03-10T21:01", "部費は3000円"),
+    ]);
+    expect(result.messages.map(({ at }) => at)).toEqual([
+      "2024-03-10T21:01",
+      "2025-03-10T21:01",
+    ]);
+    expect(result.text.includes("9876"), "the value").toBe(false);
+    expect(result.counts.secrets).toBe(1);
+  });
 });
 
 it("learns a name before an honorific from every message, also those it doesn't send", () => {
@@ -236,6 +296,17 @@ describe("the request's cap", () => {
       redaction: result.counts,
     });
     expect(request.success).toBe(true);
+  });
+
+  it("doesn't cut an emoji in half", () => {
+    // 9 characters, then 2-unit emoji: the cut at 100,000 falls inside one.
+    const { text } = redactChat(
+      parsePaste(`部費は3000円。${"🎾".repeat(60000)}`),
+    );
+    expect(text.length).toBeLessThanOrEqual(MAX_TEXT);
+    expect(/[\uD800-\uDBFF]$/.test(text), "a lone half of an emoji").toBe(
+      false,
+    );
   });
 
   it("cuts one message that alone is over it, keeping its start", () => {

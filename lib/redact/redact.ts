@@ -52,9 +52,11 @@ export type RedactedChat = Redacted & {
 
 // A chat (docs/SPEC.md → adding knowledge, steps 2–4):
 // 1. Names before an honorific are learned from every message, also the ones that aren't sent.
-// 2. The last 12 months are redacted in order, one message at a time: a [秘密] line never takes the date or the
-//    speaker with it, and the value in the message after it is hidden even if that message is then dropped.
-// 3. lib/redact/keep.ts keeps what matters (all of it with keepAll), then the newest messages that fit the request.
+// 2. Every message is redacted in order, one at a time: a [秘密] line never takes the date or the speaker with it,
+//    and the value in the message after it is hidden, even when that message is then dropped or the keyword is
+//    older than the 12 months kept.
+// 3. lib/redact/keep.ts keeps the last 12 months and what matters (all of it with keepAll), then the newest messages
+//    that fit the request.
 // text is the chat as the preview shows it and the request sends it; counts are what the sent messages had hidden.
 export function redactChat(
   messages: ChatMessage[],
@@ -66,17 +68,18 @@ export function redactChat(
   );
   // 加藤先輩 in one message hides 加藤 in every other one, also when the first isn't sent.
   for (const message of messages) run.learn(normalize(message.text));
-  const redacted = (options.keepAll ? messages : recent(messages)).map(
-    (message) => {
-      const before = { ...run.counts };
-      const sent: ChatMessage = {
-        at: message.at,
-        speaker: message.speaker && run.role(message.speaker),
-        text: run.redact(message.text),
-      };
-      return { message: sent, hidden: difference(run.counts, before) };
-    },
-  );
+  const window = options.keepAll ? undefined : new Set(recent(messages));
+  const redacted = messages.flatMap((message) => {
+    const before = { ...run.counts };
+    const sent: ChatMessage = {
+      at: message.at,
+      speaker: message.speaker && run.role(message.speaker),
+      text: run.redact(message.text),
+    };
+    return !window || window.has(message)
+      ? [{ message: sent, hidden: difference(run.counts, before) }]
+      : [];
+  });
   const keep = options.keepAll
     ? redacted.map(() => true)
     : relevant(redacted.map(({ message }) => message));
@@ -105,16 +108,14 @@ export function redactChat(
 }
 
 // The start of a message, short enough to be sent alone: each character cut shortens its line by one or more, so
-// one cut is enough.
+// one cut is enough. Half an emoji (a lone high surrogate) at the cut goes too.
 function cut<T extends { message: ChatMessage }>(entry: T, max: number): T {
   const { text } = entry.message;
   const over = formatChat([entry.message]).length - max;
+  const start = text.slice(0, Math.max(0, text.length - over));
   return {
     ...entry,
-    message: {
-      ...entry.message,
-      text: text.slice(0, Math.max(0, text.length - over)),
-    },
+    message: { ...entry.message, text: start.replace(/[\uD800-\uDBFF]$/, "") },
   };
 }
 
