@@ -1,0 +1,43 @@
+name: CI
+
+# Every push, on every branch: the check appears before the PR is opened.
+on:
+  push:
+  # Lets a red run be re-started from the Actions tab without a new commit.
+  workflow_dispatch:
+
+# A new push replaces the run it superseded (a hackday branch gets pushed a lot).
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      # The pnpm version comes from package.json's `packageManager` field, so CI
+      # and the demo laptop can never disagree.
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      # Runs on mocks and without secrets: no Supabase, no Anthropic key, no Ollama.
+      - name: Typecheck
+        run: pnpm typecheck
+
+      # `pnpm lint` (biome check) is not a CI gate: it stays a thing you run by hand
+      # before a PR (AGENTS.md, .github/pull_request_template.md).
+      - name: Test
+        run: pnpm test
