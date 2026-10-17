@@ -35,8 +35,14 @@ describe("blockReason", () => {
     "10/20 +81 90-1234-5678",
     "2025/10/20 09012345678",
     "受付 9:00-17:00 03.1234.5678",
+    "+81 (0)90 1234 5678",
+    "0800-123-4567",
+    // A colon between groups that aren't a time's two digits
+    "090:1234:5678",
+    "090-1234:5678",
     // Invisible characters
     "kaikei@\u200Bexample.com",
+    "kaikei@\u2066example.com",
   ])("blocks contact details: %s", (text) => {
     expect(blockReason(text)).toBe("contact");
   });
@@ -77,6 +83,10 @@ describe("blockReason", () => {
     "09:00-10:30 12人",
     "日時 10/20 09:30 〜 10/21 12:00",
     "会計年度は 2025/04/01〜2026/03/31。09:30 1200円",
+    // A date before an amount or a count has fewer digits than a phone number
+    "2026.01.05 1500円、2026-01-10 300人、R07.01.10 300人",
+    "No.012-345-678、01.10.2025",
+    "10:00:00 開始、1:25000 の地図",
   ])("lets seat knowledge through: %s", (text) => {
     expect(blockReason(text)).toBeUndefined();
   });
