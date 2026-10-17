@@ -1,0 +1,1362 @@
+// #28 acceptance check (docs/SPEC.md → F4): nothing leaks, shown with numbers. Every persona, and a visitor who isn't
+// signed in, tries every way in as itself: questions (POST /api/ask), direct reads (every table, embedded selects, the
+// seat page, 自分のメモ, a note by id), search (search_notes with no threshold), the inbox (the route and the
+// functions), ids it shouldn't know (withdraw, route, draft, seen, the answers trigger), and Realtime, listening from
+// the start of the run to the end of its cleanup. tests/leak-judge.ts decides each answer against the hand-written
+// visibility table (tests/visibility-table.ts) and the rows the run created, never against what RLS returned. A leak
+// is a note the viewer can't read (its id, its body or its canary from seed/notes.csv), someone else's question,
+// answer, route, prompt or membership, or an events row it isn't meant to see. The outsider x makes at least 50
+// attempts. The counts go to events (kind "leak", numbers only), and `Metrics.leaks` is printed for `pnpm metrics`.
+// Runs against the seeded database and a running dev server, with Ollama (the search) and the Claude key (answers from
+// the notes a persona may read):
+//   pnpm dev          (in another terminal)
+//   pnpm test:leak
+// The personas act through the API and PostgREST with their own tokens. The service-role key, which only scripts/ may
+// hold, reads the truth, re-saves the seed notes unchanged (the Realtime probe), writes the events rows and removes
+// what the run created. The run ends with the database as it found it, and says so only when it is.
+// Don't run it during a rehearsal: the holders' questions reach a25's inbox for a moment, and an open phone keeps
+// showing them until it reloads (deletes aren't sent by Realtime). It writes nothing unless a25's inbox is empty.
+// Ids, personas and counts only: never a question, answer or note text, a canary or an email.
+import { randomBytes } from "node:crypto";
+import { readFile } from "node:fs/promises";
+import { isDeepStrictEqual } from "node:util";
+import {
+  createClient,
+  type RealtimePostgresChangesPayload,
+  type SupabaseClient,
+} from "@supabase/supabase-js";
+import { parse } from "csv-parse/sync";
+import {
+  ApiError,
+  AskResult,
+  EventsRow,
+  InboxResponse,
+  type Metrics,
+} from "@/lib/contracts";
+import { EMBEDDING_DIMENSIONS } from "@/lib/embed";
+import {
+  type Finding,
+  type Judge,
+  judgeFor,
+  type SeedNote,
+  sameAnswer,
+  type World,
+} from "@/tests/leak-judge";
+import { reads, seedIds, viewers } from "@/tests/visibility-table";
+
+const BASE_URL = process.env.CHECK_BASE_URL ?? "http://localhost:3000";
+const OUTSIDER = "x";
+const MIN_OUTSIDER_ATTEMPTS = 50; // SPEC F4
+const SUBSCRIBE_MS = 20_000; // longer than the server's postgres_changes wait (15 s)
+const PROBE_MS = 15_000; // the re-saved seed notes reach every viewer well inside this
+const SETTLE_MS = 3_000; // late Realtime messages after the cleanup
+const SEAT = "smash-kaikei"; // the golden-path seat: the live loop's prompts are here
+const MADE_UP_NOTE = "leak-test-no-such-note";
+const MADE_UP_UUID = "00000000-0000-4000-8000-000000000000";
+const PROBE_TEXT = "leak test probe"; // the text of the rows the oracles write: no note text, no canary
+// A unit vector: search_notes ranks by similarity with no threshold, so k = 100 returns every note the caller can find.
+const UNIT = JSON.stringify(
+  Array.from({ length: EMBEDDING_DIMENSIONS }, (_, i) => (i === 0 ? 1 : 0)),
+);
+const NOTE_COLUMNS =
+  "id, seat_id, term_order, scope, status, author_user_id, title, body";
+
+type NoteRow = SeedNote & { seat_slug: string; scope: string };
+type QuestionRow = { id: string; seat_slug: string; question: string };
+type Channel =
+  | "questions"
+  | "reads"
+  | "search"
+  | "inbox"
+  | "oracles"
+  | "realtime";
+const CHANNELS: Channel[] = [
+  "questions",
+  "reads",
+  "search",
+  "inbox",
+  "oracles",
+  "realtime",
+];
+
+// One Realtime postgres_changes message as a viewer received it.
+type Heard = {
+  table?: string;
+  eventType?: string;
+  new?: Record<string, unknown>;
+  old?: Record<string, unknown>;
+  errors?: unknown;
+};
+
+// One viewer with its own client, as on its own phone.
+type Session = {
+  key: string; // a24 … x, "signed out"
+  userId?: string;
+  token?: string;
+  db: SupabaseClient;
+  judge: Judge;
+  heard: Heard[];
+  trouble?: string; // the Realtime channel closed or failed after it was ready
+  closing?: boolean; // set at the end of the run, before the channels close
+};
+
+// One try at getting something out, judged.
+type Attempt = {
+  viewer: string;
+  channel: Channel;
+  label: string; // what was tried: a route, table or function and ids, never text
+  findings: Finding[];
+  inconclusive?: string;
+};
+const attempts: Attempt[] = [];
+
+// The attempt got an answer that can't be judged (a server error, a mistyped route or column, a status nobody
+// expected), so it proves nothing either way.
+class Inconclusive extends Error {}
+
+async function attempt(
+  session: Session,
+  channel: Channel,
+  label: string,
+  run: () => Promise<Finding[]>,
+): Promise<void> {
+  let findings: Finding[] = [];
+  let inconclusive: string | undefined;
+  try {
+    findings = await run();
+  } catch (error) {
+    // Our own reasons, a network failure, or the error's class: never a message that could quote a row.
+    inconclusive =
+      error instanceof Inconclusive
+        ? error.message
+        : error instanceof TypeError
+          ? `${error.name}: ${error.message}`
+          : error instanceof Error
+            ? error.name
+            : "error";
+  }
+  const unknown = findings.filter((finding) => finding.unknown);
+  if (unknown.length > 0 && !inconclusive) {
+    inconclusive = `rows this run didn't create (${unknown.map((finding) => finding.ref ?? finding.reason).join(", ")}): someone else acting?`;
+  }
+  attempts.push({
+    viewer: session.key,
+    channel,
+    label,
+    findings: findings.filter((finding) => !finding.unknown),
+    inconclusive,
+  });
+}
+
+function env(name: string): string {
+  const value = process.env[name];
+  if (!value) throw new Error(`${name} is not set in .env.local`);
+  return value;
+}
+
+const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function waitFor(condition: () => boolean, ms: number): Promise<boolean> {
+  const until = performance.now() + ms;
+  while (performance.now() < until) {
+    if (condition()) return true;
+    await pause(100);
+  }
+  return condition();
+}
+
+async function readCsv<Row>(file: string): Promise<Row[]> {
+  const text = await readFile(
+    new URL(`../seed/${file}`, import.meta.url),
+    "utf8",
+  );
+  return parse(text, {
+    columns: true,
+    skip_empty_lines: true,
+    bom: true,
+  }) as Row[];
+}
+
+// HTTP ---------------------------------------------------------------------------------------
+
+type Reply = { status: number; body: unknown; json: boolean };
+
+async function http(
+  session: Session,
+  method: "GET" | "POST",
+  path: string,
+  body?: unknown,
+  headers: Record<string, string> = {},
+): Promise<Reply> {
+  const response = await fetch(`${BASE_URL}${path}`, {
+    method,
+    headers: {
+      ...(body !== undefined && { "content-type": "application/json" }),
+      ...(session.token && { authorization: `Bearer ${session.token}` }),
+      ...headers,
+    },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const text = await response.text();
+  try {
+    return { status: response.status, body: JSON.parse(text), json: true };
+  } catch {
+    return { status: response.status, body: undefined, json: false };
+  }
+}
+
+// The reply has one of the expected statuses, as JSON, and an error is the routes' own ({ error: code }), so a
+// mistyped path (Next's HTML 404) or a crash can't pass for a refusal.
+function expectReply(reply: Reply, statuses: number[]): void {
+  if (!statuses.includes(reply.status)) {
+    throw new Inconclusive(
+      `HTTP ${reply.status}, expected ${statuses.join(" or ")}`,
+    );
+  }
+  if (!reply.json) throw new Inconclusive(`HTTP ${reply.status} without JSON`);
+  if (reply.status >= 400 && !ApiError.safeParse(reply.body).success) {
+    throw new Inconclusive(`HTTP ${reply.status} without an error code`);
+  }
+}
+
+// PostgREST ----------------------------------------------------------------------------------
+
+type DbResult = { data: unknown; error: { code?: string } | null };
+
+// A PostgREST call's rows, or undefined when the database refused the role (42501) where a refusal is the right
+// answer. Anything else (a mistyped column, embed or function, a bad argument) can't be judged.
+async function rowsOf(
+  query: PromiseLike<DbResult>,
+  expect: "rows" | "refused",
+): Promise<unknown[] | undefined> {
+  const { data, error } = await query;
+  if (!error) return Array.isArray(data) ? data : data == null ? [] : [data];
+  if (error.code === "42501" && expect === "refused") return undefined;
+  throw new Inconclusive(
+    `PostgREST ${error.code ?? "error"}, expected ${expect === "rows" ? "rows" : "a refusal"}`,
+  );
+}
+
+// Sessions and Realtime ------------------------------------------------------------------------
+
+async function signIn(
+  url: string,
+  anonKey: string,
+  key: string,
+  email: string | undefined,
+  password: string,
+  world: World,
+): Promise<Session> {
+  const db = createClient(url, anonKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  if (!email) {
+    return { key, db, judge: judgeFor(world, { key }), heard: [] };
+  }
+  const { data, error } = await db.auth.signInWithPassword({ email, password });
+  if (error || !data.session) {
+    throw new Error(
+      `sign in as ${key}: ${error?.code ?? "no session"} (has pnpm seed run?)`,
+    );
+  }
+  return {
+    key,
+    userId: data.user.id,
+    token: data.session.access_token,
+    db,
+    judge: judgeFor(world, { key, userId: data.user.id }),
+    heard: [],
+  };
+}
+
+// Listens to every change in the public schema that this viewer's policies let through, from now until the end of the
+// cleanup. The join waits for the server to confirm the subscription and for the replication-ready system event, so a
+// change made right after this resolves is never missed (as in check-loop.ts).
+async function listen(session: Session): Promise<void> {
+  if (session.token) await session.db.realtime.setAuth(session.token);
+  return new Promise((resolve, reject) => {
+    let subscribed = false;
+    let replicating = false;
+    let ready = false;
+    const settle = (error?: Error) => {
+      clearTimeout(timer);
+      if (ready) return;
+      ready = !error;
+      if (error) reject(error);
+      else resolve();
+    };
+    const timer = setTimeout(
+      () => settle(new Error(`${session.key}: Realtime not ready in time`)),
+      SUBSCRIBE_MS,
+    );
+    session.db
+      .channel(`check-leak-${session.key.replace(/\s/g, "-")}`, {
+        config: {
+          broadcast: { replication_ready: true },
+          postgres_changes_options: { wait: true },
+        },
+      })
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public" },
+        (payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => {
+          const message = payload as unknown as Heard;
+          session.heard.push({
+            table: message.table,
+            eventType: message.eventType,
+            new: message.new,
+            old: message.old,
+            errors: message.errors,
+          });
+        },
+      )
+      .on("system", {}, (payload: { extension?: string; status?: string }) => {
+        if (payload.extension !== "system") return;
+        if (payload.status === "ok") {
+          replicating = true;
+          if (subscribed) settle();
+        } else if (ready) {
+          if (!session.closing) {
+            session.trouble = `Realtime replication ${payload.status} during the run`;
+          }
+        } else {
+          settle(
+            new Error(`${session.key}: Realtime replication ${payload.status}`),
+          );
+        }
+      })
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          subscribed = true;
+          if (replicating) settle();
+        } else if (
+          status === "CHANNEL_ERROR" ||
+          status === "TIMED_OUT" ||
+          status === "CLOSED"
+        ) {
+          // Closing at the end of the run is no trouble; anything before it means the viewer stopped listening.
+          if (ready) {
+            if (!session.closing) {
+              session.trouble = `Realtime ${status} during the run`;
+            }
+          } else settle(new Error(`${session.key}: Realtime ${status}`));
+        }
+      });
+  });
+}
+
+// The truth, as the service role reads it -----------------------------------------------------
+
+type Snapshot = {
+  counts: Record<string, number>;
+  statuses: Record<string, string>;
+};
+
+async function snapshot(service: SupabaseClient): Promise<Snapshot> {
+  const counts: Record<string, number> = {};
+  for (const table of ["questions", "answers", "prompts", "prompt_routes"]) {
+    const { count, error } = await service
+      .from(table)
+      .select("*", { count: "exact", head: true });
+    if (error || count === null)
+      throw new Error(`count ${table}: ${error?.code}`);
+    counts[table] = count;
+  }
+  const events = await service.from("events").select("kind");
+  if (events.error) throw new Error(`read events: ${events.error.code}`);
+  for (const { kind } of events.data as { kind: string }[]) {
+    counts[`events:${kind}`] = (counts[`events:${kind}`] ?? 0) + 1;
+  }
+  const notes = await service
+    .from("notes")
+    .select("id, status")
+    .in("id", [...seedIds]);
+  if (notes.error) throw new Error(`read the seed notes: ${notes.error.code}`);
+  const statuses = Object.fromEntries(
+    (notes.data as { id: string; status: string }[]).map((row) => [
+      row.id,
+      row.status,
+    ]),
+  );
+  return { counts, statuses };
+}
+
+// What the run's questions created: who asked each, which prompts exist and to whom they were routed.
+async function readRun(service: SupabaseClient, world: World): Promise<void> {
+  const [questions, prompts, routes] = await Promise.all([
+    service.from("questions").select("id, asker_user_id, prompt_id"),
+    service.from("prompts").select("id, seat_id, kind"),
+    service.from("prompt_routes").select("prompt_id, user_id"),
+  ]);
+  if (questions.error || prompts.error || routes.error) {
+    throw new Error("read the run's questions, prompts and routes");
+  }
+  world.questions.clear();
+  for (const row of questions.data as {
+    id: string;
+    asker_user_id: string;
+    prompt_id: string | null;
+  }[]) {
+    world.questions.set(row.id, {
+      askerUserId: row.asker_user_id,
+      promptId: row.prompt_id,
+    });
+  }
+  world.prompts.clear();
+  for (const row of prompts.data as {
+    id: string;
+    seat_id: string;
+    kind: string;
+  }[]) {
+    world.prompts.set(row.id, { seatId: row.seat_id, kind: row.kind });
+  }
+  world.routes.clear();
+  for (const row of routes.data as { prompt_id: string; user_id: string }[]) {
+    world.routes.add(`${row.prompt_id} ${row.user_id}`);
+  }
+}
+
+// The channels ---------------------------------------------------------------------------------
+
+type Context = {
+  world: World;
+  seats: Map<string, string>; // slug → id
+  asks: { label: string; seat: string; text: string }[];
+  personaIds: Map<string, string>; // viewer key → user id
+  readIds: Map<string, string[]>; // viewer key → the seed notes its select returned
+};
+
+async function questions(session: Session, context: Context): Promise<void> {
+  for (const ask of context.asks) {
+    await attempt(
+      session,
+      "questions",
+      `POST /api/ask: ${ask.label} at ${ask.seat}`,
+      async () => {
+        const reply = await http(session, "POST", "/api/ask", {
+          seat: ask.seat,
+          question: ask.text,
+        });
+        expectReply(reply, session.token ? [200] : [401]);
+        if (reply.status !== 200) return [];
+        if (!AskResult.safeParse(reply.body).success)
+          throw new Inconclusive("not an AskResult");
+        return session.judge.ask(reply.body, context.seats.get(ask.seat) ?? "");
+      },
+    );
+  }
+}
+
+// The answers trigger (0006) and the questions policy: an asker who saves an answer citing notes it can't read gets
+// back exactly what it gets for made-up ids, and nobody saves a question in someone else's name.
+async function savedRows(session: Session, context: Context): Promise<void> {
+  const seatId = context.seats.get(SEAT) ?? "";
+  const other =
+    [...context.personaIds].find(([key]) => key !== session.key)?.[1] ??
+    MADE_UP_UUID;
+  await attempt(
+    session,
+    "oracles",
+    "insert a question in someone else's name",
+    async () => {
+      const rows = await rowsOf(
+        session.db
+          .from("questions")
+          .insert({
+            asker_user_id: other,
+            seat_id: seatId,
+            text: PROBE_TEXT,
+            lang: "en",
+          })
+          .select("id"),
+        "refused",
+      );
+      return rows === undefined
+        ? []
+        : [
+            {
+              reason: "saved a question in someone else's name",
+              ref: "questions",
+            },
+          ];
+    },
+  );
+  if (!session.userId) return;
+  const unreadable = [...seedIds].filter(
+    (id) => reads(session.key, id) === false,
+  );
+  await attempt(
+    session,
+    "oracles",
+    "answers citing notes it can't read vs made-up ids",
+    async () => {
+      const saved = await rowsOf(
+        session.db
+          .from("questions")
+          .insert(
+            [0, 1].map(() => ({
+              asker_user_id: session.userId,
+              seat_id: seatId,
+              text: PROBE_TEXT,
+              lang: "en",
+            })),
+          )
+          .select("id"),
+        "rows",
+      );
+      const [real, madeUp] = (saved ?? []) as { id: string }[];
+      if (!real || !madeUp)
+        throw new Inconclusive("the two questions weren't saved");
+      const answer = (questionId: string, noteIds: string[]) => ({
+        status: "answered",
+        questionId,
+        sentences: noteIds.map((noteId) => ({
+          text: PROBE_TEXT,
+          citations: [{ noteId, byline: PROBE_TEXT, termLabel: PROBE_TEXT }],
+        })),
+        language: "en",
+      });
+      const stored = async (questionId: string, noteIds: string[]) => {
+        const rows = await rowsOf(
+          session.db
+            .from("answers")
+            .insert({
+              question_id: questionId,
+              payload: answer(questionId, noteIds),
+            })
+            .select("payload"),
+          "rows",
+        );
+        return (rows?.[0] as { payload?: unknown } | undefined)?.payload;
+      };
+      const fromReal = await stored(real.id, unreadable);
+      const fromMadeUp = await stored(
+        madeUp.id,
+        unreadable.map((_, i) => `${MADE_UP_NOTE}-${i}`),
+      );
+      const findings = [...session.judge.text(fromReal)];
+      if (!sameAnswer(fromReal, fromMadeUp)) {
+        findings.push({
+          reason:
+            "the answers trigger keeps notes it can't read apart from made-up ones",
+          ref: "answers",
+        });
+      }
+      return findings;
+    },
+  );
+}
+
+async function directReads(session: Session, context: Context): Promise<void> {
+  await attempt(session, "reads", "select notes", async () => {
+    const rows =
+      (await rowsOf(session.db.from("notes").select(NOTE_COLUMNS), "rows")) ??
+      [];
+    context.readIds.set(
+      session.key,
+      (rows as { id: string }[])
+        .map((row) => row.id)
+        .filter((id) => seedIds.has(id)),
+    );
+    return session.judge.rows("notes", rows);
+  });
+  for (const table of [
+    "questions",
+    "answers",
+    "prompts",
+    "prompt_routes",
+    "events",
+    "seat_holders",
+    "group_members",
+  ]) {
+    await attempt(session, "reads", `select ${table}`, async () =>
+      session.judge.rows(
+        table,
+        await rowsOf(session.db.from(table).select("*"), "rows"),
+      ),
+    );
+  }
+  await attempt(
+    session,
+    "reads",
+    "select institutions with everything under them",
+    async () =>
+      session.judge.rows(
+        "institutions",
+        await rowsOf(
+          session.db
+            .from("institutions")
+            .select(
+              `id, groups(id, group_members(*), seats(id, slug, seat_holders(*), notes(${NOTE_COLUMNS}), prompts(*, prompt_routes(*))))`,
+            ),
+          "rows",
+        ),
+      ),
+  );
+  await attempt(
+    session,
+    "reads",
+    "select prompt_routes with prompts, questions and answers",
+    async () =>
+      session.judge.rows(
+        "prompt_routes",
+        await rowsOf(
+          session.db
+            .from("prompt_routes")
+            .select(
+              "*, prompts(*, questions!questions_prompt_id_fkey(*, answers(*)))",
+            ),
+          "rows",
+        ),
+      ),
+  );
+  for (const [slug, seatId] of context.seats) {
+    await attempt(session, "reads", `seat_lineage ${slug}`, async () =>
+      session.judge.lineage(
+        (await rowsOf(
+          session.db.rpc("seat_lineage", { seat: seatId }),
+          "rows",
+        )) ?? [],
+      ),
+    );
+    await attempt(session, "reads", `GET /api/seats/${slug}`, async () => {
+      const reply = await http(session, "GET", `/api/seats/${slug}`);
+      expectReply(reply, session.token ? [200] : [401]);
+      return reply.status === 200 ? session.judge.seatView(reply.body) : [];
+    });
+  }
+  await attempt(session, "reads", "GET /api/me/notes", async () => {
+    const reply = await http(session, "GET", "/api/me/notes");
+    expectReply(reply, session.token ? [200] : [401]);
+    return reply.status === 200 ? session.judge.myNotes(reply.body) : [];
+  });
+
+  // A note by id: one the viewer can't read must look exactly like one that doesn't exist.
+  const missing = await http(session, "GET", `/api/notes/${MADE_UP_NOTE}`);
+  await attempt(
+    session,
+    "reads",
+    `GET /api/notes/${MADE_UP_NOTE}`,
+    async () => {
+      expectReply(missing, session.token ? [404] : [401]);
+      return [];
+    },
+  );
+  for (const id of seedIds) {
+    await attempt(session, "reads", `GET /api/notes/${id}`, async () => {
+      const reply = await http(session, "GET", `/api/notes/${id}`);
+      // Whatever it gets is judged; a note it reads may still be 404 here (withdrawn, or past its valid_until).
+      if (reply.status === 200) return session.judge.rows("notes", reply.body);
+      expectReply(reply, session.token ? [404] : [401]);
+      if (!reads(session.key, id) && !isDeepStrictEqual(reply, missing)) {
+        return [
+          {
+            reason:
+              "answers differently for a note it can't read than for none",
+            ref: id,
+          },
+        ];
+      }
+      return [];
+    });
+  }
+}
+
+async function search(session: Session, context: Context): Promise<void> {
+  for (const slug of context.seats.keys()) {
+    await attempt(
+      session,
+      "search",
+      `search_notes ${slug}, k 100, no threshold`,
+      async () =>
+        session.judge.rows(
+          "notes",
+          await rowsOf(
+            session.db.rpc("search_notes", {
+              seat: slug,
+              query_embedding: UNIT,
+              k: 100,
+            }),
+            session.token ? "rows" : "refused",
+          ),
+        ),
+    );
+  }
+}
+
+async function inbox(session: Session, context: Context): Promise<void> {
+  const expect = session.token ? "rows" : "refused";
+  for (const [slug, seatId] of context.seats) {
+    await attempt(session, "inbox", `GET /api/inbox?seat=${slug}`, async () => {
+      const reply = await http(session, "GET", `/api/inbox?seat=${slug}`);
+      expectReply(reply, session.token ? [200] : [401]);
+      if (reply.status !== 200) return [];
+      const parsed = InboxResponse.safeParse(reply.body);
+      if (!parsed.success) throw new Inconclusive("not an InboxResponse");
+      return session.judge.inbox(parsed.data.items);
+    });
+    await attempt(session, "inbox", `inbox() ${slug}`, async () =>
+      session.judge.inbox(
+        (await rowsOf(session.db.rpc("inbox", { seat: seatId }), expect)) ?? [],
+      ),
+    );
+  }
+  for (const promptId of context.world.prompts.keys()) {
+    await attempt(
+      session,
+      "inbox",
+      `waiting_questions() ${promptId}`,
+      async () =>
+        session.judge.waiting(
+          (await rowsOf(
+            session.db.rpc("waiting_questions", {
+              prompt: promptId,
+              note_ids: [...seedIds],
+            }),
+            expect,
+          )) ?? [],
+        ),
+    );
+  }
+}
+
+// Ids the viewer shouldn't be able to use: each must be answered exactly like a made-up id, so the answer doesn't
+// even tell that the note, question or prompt exists.
+async function oracles(session: Session, context: Context): Promise<void> {
+  const { world } = context;
+  const refused = session.token ? [403] : [401];
+
+  // Withdraw: never a note this viewer wrote (that would really withdraw it).
+  const madeUp = await http(
+    session,
+    "POST",
+    `/api/notes/${MADE_UP_NOTE}/withdraw`,
+  );
+  await attempt(
+    session,
+    "oracles",
+    `POST /api/notes/${MADE_UP_NOTE}/withdraw`,
+    async () => {
+      expectReply(madeUp, refused);
+      return [];
+    },
+  );
+  for (const id of seedIds) {
+    const author = world.noteAuthors.get(id);
+    if (author === undefined || (session.userId && author === session.userId))
+      continue;
+    await attempt(
+      session,
+      "oracles",
+      `POST /api/notes/${id}/withdraw`,
+      async () => {
+        const reply = await http(session, "POST", `/api/notes/${id}/withdraw`);
+        if (reply.status === 200)
+          return [{ reason: "withdrew a note it didn't write", ref: id }];
+        expectReply(reply, refused);
+        return isDeepStrictEqual(reply, madeUp)
+          ? []
+          : [
+              {
+                reason:
+                  "answers differently for someone else's note than for none",
+                ref: id,
+              },
+            ];
+      },
+    );
+  }
+
+  // route_question with someone else's waiting, unrouted question.
+  const others = [...world.questions].filter(
+    ([, question]) =>
+      question.askerUserId !== session.userId && question.promptId === null,
+  );
+  const otherQuestion = others[0]?.[0];
+  if (otherQuestion) {
+    const call = (question: string) =>
+      session.db.rpc("route_question", { question, prompt_text: PROBE_TEXT });
+    const none = await call(MADE_UP_UUID);
+    await attempt(
+      session,
+      "oracles",
+      "route_question() a made-up question",
+      async () => {
+        if (none.error?.code !== "42501")
+          throw new Inconclusive(
+            `PostgREST ${none.error?.code ?? "rows"}, expected a refusal`,
+          );
+        return [];
+      },
+    );
+    await attempt(
+      session,
+      "oracles",
+      `route_question() someone else's question ${otherQuestion}`,
+      async () => {
+        const result = await call(otherQuestion);
+        if (!result.error)
+          return [
+            { reason: "routed someone else's question", ref: otherQuestion },
+          ];
+        if (result.error.code !== "42501")
+          throw new Inconclusive(
+            `PostgREST ${result.error.code}, expected a refusal`,
+          );
+        return result.error.code === none.error?.code &&
+          result.error.message === none.error?.message
+          ? []
+          : [
+              {
+                reason:
+                  "answers differently for someone else's question than for none",
+                ref: otherQuestion,
+              },
+            ];
+      },
+    );
+  }
+
+  // Draft and seen with a prompt that isn't routed to this viewer (for a26, the prompt its own question started).
+  // Never one routed to it: that would draft with Sonnet or mark its slip seen.
+  const promptId = [...world.prompts].find(
+    ([id, prompt]) =>
+      prompt.seatId === context.seats.get(SEAT) &&
+      !world.routes.has(`${id} ${session.userId}`),
+  )?.[0];
+  if (promptId) {
+    const routes: [string, (id: string) => unknown][] = [
+      [
+        "/api/handover/draft",
+        (id) => ({ seat: SEAT, promptId: id, answer: PROBE_TEXT }),
+      ],
+      ["/api/inbox/seen", (id) => ({ promptId: id })],
+    ];
+    for (const [path, body] of routes) {
+      const none = await http(session, "POST", path, body(MADE_UP_UUID));
+      await attempt(
+        session,
+        "oracles",
+        `POST ${path} a made-up prompt`,
+        async () => {
+          expectReply(none, session.token ? [404] : [401]);
+          return [];
+        },
+      );
+      await attempt(
+        session,
+        "oracles",
+        `POST ${path} prompt ${promptId}`,
+        async () => {
+          const reply = await http(session, "POST", path, body(promptId));
+          if (reply.status === 200)
+            return [
+              {
+                reason: `${path} works on a prompt not routed to it`,
+                ref: promptId,
+              },
+            ];
+          expectReply(reply, session.token ? [404] : [401]);
+          return isDeepStrictEqual(reply, none)
+            ? []
+            : [
+                {
+                  reason:
+                    "answers differently for a prompt not routed to it than for none",
+                  ref: promptId,
+                },
+              ];
+        },
+      );
+    }
+  }
+
+  // The console's sign-in route hands out a25's and a26's sessions: never without the passphrase.
+  if (session.key === OUTSIDER || !session.token) {
+    const wrongKey = randomBytes(16).toString("hex");
+    for (const [label, headers] of [
+      ["no key", {}],
+      ["a wrong key", { "x-console-key": wrongKey }],
+    ] as const) {
+      await attempt(
+        session,
+        "oracles",
+        `POST /api/console/session as a25, ${label}`,
+        async () => {
+          const reply = await http(
+            session,
+            "POST",
+            "/api/console/session",
+            { persona: "a25" },
+            headers,
+          );
+          if (reply.status === 200)
+            return [
+              { reason: "handed out a25's session", ref: "console/session" },
+            ];
+          expectReply(reply, [404]);
+          return [];
+        },
+      );
+    }
+  }
+}
+
+// Realtime: each re-saved seed note, the events probe, and everything else the viewer heard during the run.
+function judgeRealtime(
+  session: Session,
+  touched: string[],
+  probeEventId: number,
+): void {
+  const isNote = (message: Heard, id: string) =>
+    message.table === "notes" && message.new?.id === id;
+  for (const id of touched) {
+    const messages = session.heard.filter((message) => isNote(message, id));
+    const findings = messages.flatMap((message) =>
+      session.judge.realtime(message),
+    );
+    attempts.push({
+      viewer: session.key,
+      channel: "realtime",
+      label: `notes ${id} re-saved`,
+      findings: findings.filter((finding) => !finding.unknown),
+      inconclusive:
+        reads(session.key, id) && messages.length === 0
+          ? "never arrived, so Realtime wasn't really listening"
+          : undefined,
+    });
+  }
+  const isProbe = (message: Heard) =>
+    message.table === "events" && message.new?.id === probeEventId;
+  attempts.push({
+    viewer: session.key,
+    channel: "realtime",
+    label: "events row of kind leak",
+    findings: session.heard
+      .filter(isProbe)
+      .flatMap((message) => session.judge.realtime(message))
+      .filter((finding) => !finding.unknown),
+  });
+  const rest = session.heard.filter(
+    (message) =>
+      !isProbe(message) && !touched.some((id) => isNote(message, id)),
+  );
+  const findings = rest.flatMap((message) => session.judge.realtime(message));
+  const unknown = findings.filter((finding) => finding.unknown);
+  attempts.push({
+    viewer: session.key,
+    channel: "realtime",
+    label: `everything else it heard (${rest.length} messages)`,
+    findings: findings.filter((finding) => !finding.unknown),
+    inconclusive:
+      session.trouble ??
+      (unknown.length > 0
+        ? `rows this run didn't create (${unknown.length}): someone else acting?`
+        : undefined),
+  });
+}
+
+// Cleanup ------------------------------------------------------------------------------------------
+
+// Removes what the run created: the events probe, the prompts its questions started and the questions themselves
+// (their answers and routes go with them; Realtime sends no deletes). A seed note a withdraw probe took is restored.
+// Then the counts and the seed notes' statuses must be what they were before. Answers what isn't.
+async function cleanUp(
+  service: SupabaseClient,
+  before: Snapshot,
+  run: {
+    since: string;
+    texts: Set<string>;
+    askers: string[];
+    probeEventId?: number;
+  },
+): Promise<string[]> {
+  const problems: string[] = [];
+  if (run.probeEventId !== undefined) {
+    const { error } = await service
+      .from("events")
+      .delete()
+      .eq("id", run.probeEventId);
+    if (error) problems.push(`delete the events probe: ${error.code}`);
+  }
+  const asked = await service
+    .from("questions")
+    .select("id, text")
+    .in("asker_user_id", run.askers)
+    .gte("created_at", run.since);
+  if (asked.error)
+    return [...problems, `find the run's questions: ${asked.error.code}`];
+  const ids = (asked.data as { id: string; text: string }[])
+    .filter((row) => run.texts.has(row.text))
+    .map((row) => row.id);
+  for (let at = 0; at < ids.length; at += 50) {
+    const chunk = ids.slice(at, at + 50);
+    // Before the questions go: deleting one sets its prompts' source_question_id to null.
+    const started = await service
+      .from("prompts")
+      .select("id")
+      .in("source_question_id", chunk);
+    if (started.error) {
+      problems.push(`find the run's prompts: ${started.error.code}`);
+      continue;
+    }
+    const promptIds = (started.data as { id: string }[]).map((row) => row.id);
+    if (promptIds.length > 0) {
+      const { error } = await service
+        .from("prompts")
+        .delete()
+        .in("id", promptIds);
+      if (error) problems.push(`delete prompts: ${error.code}`);
+    }
+    const { error } = await service.from("questions").delete().in("id", chunk);
+    if (error) problems.push(`delete questions: ${error.code}`);
+  }
+
+  // Only when a withdraw probe got through (a leak already reported): put the note back and drop its events row.
+  const now = await snapshot(service);
+  const taken = Object.keys(before.statuses).filter(
+    (id) => before.statuses[id] === "live" && now.statuses[id] !== "live",
+  );
+  if (taken.length > 0) {
+    const { error } = await service
+      .from("notes")
+      .update({ status: "live", withdrawn_at: null })
+      .in("id", taken);
+    if (error) problems.push(`restore ${taken.join(", ")}: ${error.code}`);
+    const events = await service
+      .from("events")
+      .delete()
+      .eq("kind", "withdraw")
+      .gte("created_at", run.since);
+    if (events.error)
+      problems.push(`delete the withdraw events: ${events.error.code}`);
+  }
+
+  const after = await snapshot(service);
+  const keys = new Set([
+    ...Object.keys(before.counts),
+    ...Object.keys(after.counts),
+  ]);
+  for (const key of keys) {
+    if ((before.counts[key] ?? 0) !== (after.counts[key] ?? 0)) {
+      problems.push(
+        `${key}: ${before.counts[key] ?? 0} before, ${after.counts[key] ?? 0} after`,
+      );
+    }
+  }
+  if (!isDeepStrictEqual(before.statuses, after.statuses)) {
+    problems.push("the seed notes' statuses changed");
+  }
+  return problems;
+}
+
+// Report -----------------------------------------------------------------------------------------
+
+const camel = (key: string) =>
+  key.replace(/\s+(\w)/g, (_, letter: string) => letter.toUpperCase());
+const cell = (text: string | number, width: number) =>
+  String(text).padEnd(width);
+
+function report(sessions: Session[], notes: NoteRow[], context: Context): void {
+  const width = 12;
+  console.log(
+    `\n${cell("viewer", width)}${CHANNELS.map((channel) => cell(channel, 11)).join("")}${cell("total", 8)}leaks`,
+  );
+  for (const session of sessions) {
+    const mine = attempts.filter((item) => item.viewer === session.key);
+    const leaked = mine.filter((item) => item.findings.length > 0).length;
+    const counts = CHANNELS.map((channel) =>
+      cell(mine.filter((item) => item.channel === channel).length, 11),
+    ).join("");
+    const outsider =
+      session.key === OUTSIDER
+        ? ` (outsider, at least ${MIN_OUTSIDER_ATTEMPTS})`
+        : "";
+    console.log(
+      `${cell(session.key, width)}${counts}${cell(mine.length, 8)}${leaked}${outsider}`,
+    );
+  }
+
+  // What each viewer's own select returned, by scope ring: the persona × scope matrix of docs/SPEC.md.
+  const rings = ["successor", "group", "institution", "public"];
+  console.log(`\nseed notes each viewer read (select notes), by scope ring`);
+  console.log(
+    `${cell("viewer", width)}${rings.map((ring) => cell(ring, 13)).join("")}`,
+  );
+  for (const session of sessions) {
+    const read = new Set(context.readIds.get(session.key) ?? []);
+    const cells = rings.map((ring) => {
+      const inRing = notes.filter((note) => note.scope === ring);
+      return cell(
+        `${inRing.filter((note) => read.has(note.id)).length}/${inRing.length}`,
+        13,
+      );
+    });
+    console.log(`${cell(session.key, width)}${cells.join("")}`);
+  }
+
+  const leaks = attempts.filter((item) => item.findings.length > 0);
+  if (leaks.length > 0) console.log(`\nleaks:`);
+  for (const item of leaks) {
+    for (const finding of item.findings) {
+      console.log(
+        `  ✗ ${item.viewer} · ${item.channel} · ${item.label}: ${finding.reason}${finding.ref ? ` (${finding.ref})` : ""}`,
+      );
+    }
+  }
+  const unsure = attempts.filter((item) => item.inconclusive);
+  if (unsure.length > 0)
+    console.log(`\ninconclusive (they prove nothing either way):`);
+  for (const item of unsure.slice(0, 20)) {
+    console.log(
+      `  ? ${item.viewer} · ${item.channel} · ${item.label}: ${item.inconclusive}`,
+    );
+  }
+  if (unsure.length > 20) console.log(`  … and ${unsure.length - 20} more`);
+}
+
+// The run ---------------------------------------------------------------------------------------
+
+async function main(): Promise<void> {
+  const url = env("NEXT_PUBLIC_SUPABASE_URL");
+  const anonKey = env("NEXT_PUBLIC_SUPABASE_ANON_KEY");
+  const password = env("DEMO_PASSWORD");
+  const service = createClient(url, env("SUPABASE_SERVICE_ROLE_KEY"), {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+
+  const notes = await readCsv<NoteRow>("notes.csv");
+  const csvQuestions = await readCsv<QuestionRow>("questions.csv");
+  const seatRows = await service.from("seats").select("id, slug");
+  if (seatRows.error) throw new Error(`read the seats: ${seatRows.error.code}`);
+  const seats = new Map(
+    (seatRows.data as { id: string; slug: string }[]).map((row) => [
+      row.slug,
+      row.id,
+    ]),
+  );
+  const [authors, holders] = await Promise.all([
+    service.from("notes").select("id, author_user_id"),
+    service.from("seat_holders").select("user_id, seat_id"),
+  ]);
+  if (authors.error || holders.error)
+    throw new Error("read the notes' authors and the seat holders");
+
+  const world: World = {
+    seedNotes: notes,
+    noteAuthors: new Map(
+      (authors.data as { id: string; author_user_id: string | null }[]).map(
+        (row) => [row.id, row.author_user_id],
+      ),
+    ),
+    seatsHeld: new Map(),
+    questions: new Map(),
+    prompts: new Map(),
+    routes: new Set(),
+    personas: new Map(),
+  };
+  for (const row of holders.data as { user_id: string; seat_id: string }[]) {
+    const held = world.seatsHeld.get(row.user_id) ?? new Set<string>();
+    held.add(row.seat_id);
+    world.seatsHeld.set(row.user_id, held);
+  }
+
+  const sessions = await Promise.all(
+    viewers.map((viewer) =>
+      signIn(url, anonKey, viewer.key, viewer.email, password, world),
+    ),
+  );
+  const personaIds = new Map<string, string>();
+  for (const session of sessions) {
+    if (session.userId) {
+      personaIds.set(session.key, session.userId);
+      world.personas.set(session.userId, session.key);
+    }
+  }
+
+  // Nothing is written unless a25's inbox is empty, as the seed leaves it: otherwise someone may be rehearsing.
+  const a25 = sessions.find((session) => session.key === "a25");
+  if (!a25) throw new Error("no a25 in tests/visibility-table.ts");
+  const waiting = await http(a25, "GET", `/api/inbox?seat=${SEAT}`);
+  const items = InboxResponse.safeParse(waiting.body);
+  if (!items.success)
+    throw new Error(
+      `read a25's inbox: HTTP ${waiting.status} (is pnpm dev running?)`,
+    );
+  if (items.data.items.length > 0) {
+    throw new Error(
+      `a25's inbox holds ${items.data.items.length} question(s): someone may be rehearsing. If not, run pnpm demo:reset first`,
+    );
+  }
+
+  const before = await snapshot(service);
+  const context: Context = {
+    world,
+    seats,
+    asks: [
+      ...csvQuestions.map((row) => ({
+        label: row.id,
+        seat: row.seat_slug,
+        text: row.question,
+      })),
+      ...notes.map((note) => ({
+        label: `the title of ${note.id}`,
+        seat: note.seat_slug,
+        text: note.title,
+      })),
+    ],
+    personaIds,
+    readIds: new Map(),
+  };
+  const run = {
+    since: new Date(Date.now() - 60_000).toISOString(), // a minute of slack for the clocks
+    texts: new Set([...context.asks.map((ask) => ask.text), PROBE_TEXT]),
+    askers: [...personaIds.values()],
+    probeEventId: undefined as number | undefined,
+  };
+
+  let touched: string[] = [];
+  let problems: string[] = [];
+  let stopped: string | undefined;
+  try {
+    await Promise.all(sessions.map(listen));
+    console.log(
+      `✓ ${sessions.length} viewers listen to every Realtime change they're allowed`,
+    );
+
+    // The Realtime probe: the live seed notes saved again unchanged, and an events row nobody signed in may read.
+    const saved = await service
+      .from("notes")
+      .update({ status: "live" })
+      .in("id", [...seedIds])
+      .eq("status", "live")
+      .select("id");
+    if (saved.error)
+      throw new Error(`re-save the seed notes: ${saved.error.code}`);
+    touched = (saved.data as { id: string }[]).map((row) => row.id).sort();
+    const probe = await service
+      .from("events")
+      .insert({
+        kind: "leak",
+        payload: EventsRow.shape.payload.parse({ probe: 1 }),
+      })
+      .select("id")
+      .single();
+    if (probe.error)
+      throw new Error(`write the events probe: ${probe.error.code}`);
+    run.probeEventId = (probe.data as { id: number }).id;
+    const heardAll = (session: Session) =>
+      touched
+        .filter((id) => reads(session.key, id))
+        .every((id) =>
+          session.heard.some(
+            (message) => message.table === "notes" && message.new?.id === id,
+          ),
+        );
+    await waitFor(() => sessions.every(heardAll), PROBE_MS);
+    console.log(
+      `✓ Realtime probe: ${touched.length} seed notes re-saved, 1 events row`,
+    );
+
+    const started = performance.now();
+    await Promise.all(sessions.map((session) => questions(session, context)));
+    await Promise.all(sessions.map((session) => savedRows(session, context)));
+    console.log(
+      `✓ questions asked (${Math.round((performance.now() - started) / 1000)} s)`,
+    );
+
+    await readRun(service, world);
+    await Promise.all(
+      sessions.map(async (session) => {
+        await directReads(session, context);
+        await search(session, context);
+        await inbox(session, context);
+        await oracles(session, context);
+      }),
+    );
+    // Rows an oracle may have created (only if it leaked) are known before the cleanup removes them.
+    await readRun(service, world);
+    console.log(`✓ reads, search, inbox and oracles done`);
+  } catch (error) {
+    // Still clean up below: the run may have written something before the error.
+    stopped = error instanceof Error ? error.message : String(error);
+  } finally {
+    problems = await cleanUp(service, before, run);
+    await pause(SETTLE_MS);
+    for (const session of sessions) {
+      session.closing = true;
+      await session.db.removeAllChannels();
+      session.db.realtime.disconnect();
+    }
+  }
+  if (run.probeEventId !== undefined) {
+    for (const session of sessions)
+      judgeRealtime(session, touched, run.probeEventId);
+  }
+
+  report(sessions, notes, context);
+
+  const outsiderAttempts = attempts.filter(
+    (item) => item.viewer === OUTSIDER,
+  ).length;
+  const found = attempts.filter((item) => item.findings.length > 0).length;
+  const inconclusive = attempts.filter((item) => item.inconclusive).length;
+  const payload = EventsRow.shape.payload.parse({
+    outsiderAttempts,
+    totalAttempts: attempts.length,
+    found,
+    inconclusive,
+    ...Object.fromEntries(
+      sessions.flatMap((session) => {
+        const mine = attempts.filter((item) => item.viewer === session.key);
+        return [
+          [`${camel(session.key)}Attempts`, mine.length],
+          [
+            `${camel(session.key)}Found`,
+            mine.filter((item) => item.findings.length > 0).length,
+          ],
+        ];
+      }),
+    ),
+  });
+  const recorded = await service
+    .from("events")
+    .insert({ kind: "leak", payload });
+
+  const enough = outsiderAttempts >= MIN_OUTSIDER_ATTEMPTS;
+  const conclusive = !stopped && inconclusive === 0 && enough;
+  console.log(
+    `\n${found === 0 ? "✓" : "✗"} ${found} leak(s) in ${attempts.length} attempts, ${outsiderAttempts} by the outsider x${enough ? "" : ` (fewer than ${MIN_OUTSIDER_ATTEMPTS})`}${inconclusive > 0 ? `; ${inconclusive} inconclusive` : ""}`,
+  );
+  if (stopped) console.log(`✗ stopped early: ${stopped}`);
+  console.log(
+    recorded.error
+      ? `✗ write the events row: ${recorded.error.code}`
+      : `✓ 1 events row of kind leak (numbers only)`,
+  );
+  console.log(
+    problems.length === 0
+      ? "✓ the database is as the run found it"
+      : `✗ the database isn't as the run found it:\n  ${problems.join("\n  ")}`,
+  );
+  // Only a conclusive run gives numbers: a missing number is honest, a 0 from a run that proved nothing is not.
+  if (conclusive && found === 0) {
+    const leaks: NonNullable<Metrics["leaks"]> = {
+      outsiderAttempts,
+      totalAttempts: attempts.length,
+      found,
+    };
+    console.log(`  Metrics.leaks ${JSON.stringify(leaks)}`);
+  }
+  process.exitCode =
+    conclusive && found === 0 && problems.length === 0 && !recorded.error
+      ? 0
+      : 1;
+}
+
+try {
+  await main();
+} catch (error) {
+  console.error(`✗ ${error instanceof Error ? error.message : error}`);
+  process.exitCode = 1;
+}

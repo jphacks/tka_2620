@@ -8,6 +8,13 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { parse } from "csv-parse/sync";
 import { describe, expect, it } from "vitest";
 import type { Scope } from "@/lib/contracts";
+import {
+  column,
+  seedIds,
+  table,
+  type Viewer,
+  viewers,
+} from "./visibility-table";
 
 // The project's public URL and key and the demo password, from the shell or .env.local. Nothing else is taken from
 // .env.local: the test acts as each persona, never with the service-role key.
@@ -25,40 +32,7 @@ const env = Object.fromEntries(
 ) as Record<(typeof names)[number], string>;
 const missing = names.filter((name) => !env[name]);
 
-// The personas of docs/SPEC.md with the emails scripts/seed.ts gives them, and a visitor who isn't signed in.
-type Viewer = { key: string; email?: string };
-const viewers: Viewer[] = [
-  { key: "a24", email: "smash-kaikei-2024@example.com" }, // Smash / 会計 / 2024, alumni
-  { key: "a25", email: "smash-kaikei-2025@example.com" }, // Smash / 会計 / 2025, reachable
-  { key: "a26", email: "smash-kaikei-2026@example.com" }, // Smash / 会計 / 2026, the newcomer
-  { key: "b", email: "keion-member@example.com" }, // 軽音サークル, another group at みなと大学
-  { key: "x", email: "yamate-outsider@example.com" }, // やまて大学, nothing at みなと大学
-  { key: "signed out" },
-];
-
-// Who reads each seed note (✓), one column per viewer above. The canary note is smash-2025-uchiage.
-// biome-ignore format: the table reads best aligned
-const table: Record<string, string> = {
-  //                        a24  a25  a26  b    x    signed out
-  "smash-2024-hokenjo":    "✓    ✓    ✓    ·    ·    ·", // successor, 2024: its author and the later terms
-  "smash-2025-hokenjo":    "·    ✓    ✓    ·    ·    ·", // successor, 2025: not the earlier term
-  "smash-2025-ryoshusho":  "✓    ✓    ✓    ·    ·    ·", // group: every holder of the seat and member of Smash
-  "smash-2025-gasshuku":   "·    ✓    ✓    ·    ·    ·", // successor, 2025
-  "smash-2025-uchiage":    "·    ✓    ✓    ·    ·    ·", // successor, 2025, the canary note
-  "gakusai-2025-hokenjo":  "✓    ✓    ✓    ✓    ·    ·", // institution: every member of a group at みなと大学
-  "gakusai-2025-tsurisen": "✓    ✓    ✓    ✓    ✓    ✓", // public: everyone, signed out too
-  "tum-2025-tenyu":        "·    ·    ·    ·    ·    ·", // group of TUM交換留学
-  "lab-2025-cartridge":    "·    ·    ·    ·    ·    ·", // group of 生体工学研
-};
-const seedIds = new Set(Object.keys(table));
-
-function column(viewer: Viewer): string[] {
-  const at = viewers.indexOf(viewer);
-  return Object.entries(table)
-    .filter(([, row]) => row.split(/\s+/)[at] === "✓")
-    .map(([id]) => id)
-    .sort();
-}
+// The viewers and the persona × seed note table live in tests/visibility-table.ts, shared with `pnpm test:leak`.
 
 type Note = {
   id: string;
@@ -191,7 +165,7 @@ describe.skipIf(missing.length > 0)(
       expect(
         seeded.map((note) => note.id).sort(),
         "seed notes this viewer reads (the table is the seed state: after a withdrawal, pnpm demo:reset)",
-      ).toEqual(column(viewer));
+      ).toEqual(column(viewer.key));
 
       const allowed = await scopeRules(client, userId);
       expect(
