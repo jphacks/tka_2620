@@ -239,7 +239,8 @@ type AskResult =
 //   → { cards: (CardDraft & { source: "import" | "file" | "chat"; provenance?: string })[]; missing: { topic: string; reason: string; prompt: string }[];
 //       blocked: { title: string; reason: string }[]; duplicates: { card: number; noteId: string; title: string; byline: string; similarity: number }[] }
 // POST /api/notes/[id]/withdraw          → { withdrawnAt: string }
-// GET  /api/me/notes                     → { notes: { id: string; title: string; scope: Scope; status: "live" | "withdrawn"; lang: Lang }[] }
+// GET  /api/me/notes                     → { notes: { id: string; seat: string; title: string; scope: Scope; status: "live" | "withdrawn"; lang: Lang }[] }
+//   seat: the slug of the seat the note was written at (its scope label uses that seat's words)
 // Any error                              → { error: "invalid_request" | "unauthorized" | "forbidden" | "not_found" | "unredacted" | "unavailable" }
 // Realtime `notes` → { id, status }; `events` → { id, kind, payload: Record<string, number>, created_at }
 ```
@@ -266,6 +267,8 @@ type AskResult =
 Build order: contracts → F1 + F3 screens on mocks → F2 → F3 end to end (14:00 go/no-go) → F4 → F5 → F6 → F7 polish.
 
 ## Numbers for the README (`pnpm metrics` → `metrics/latest.json`, committed)
+Shape: `Metrics` in `lib/contracts.ts`. The console's leak counter reads the leak numbers from this file and says the
+test hasn't run when it's missing; no screen shows a typed-in number.
 - Leaks: outsider attempts (≥50), total attempts, leaks found (target 0)
 - Withdrawal: 10 runs, median and max seconds from click to absent in every pane
 - Citations: share of answer sentences with a valid source note across `seed/questions.csv` (target 100%)

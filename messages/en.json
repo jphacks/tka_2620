@@ -75,7 +75,8 @@
     "done": "Withdrawn (gone from answers in {ms} ms)"
   },
   "leak": {
-    "counter": "Leaks <safe>{leaks}</safe> / {probes} checks"
+    "counter": "Leaks <safe>{leaks}</safe> / {probes} checks",
+    "notRun": "Leak test not run yet"
   },
   "console": {
     "title": "Trust proof",
