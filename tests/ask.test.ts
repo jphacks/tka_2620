@@ -15,7 +15,7 @@ import {
 import { type AskModels, askAsCaller, handleAsk } from "@/lib/engine/ask";
 import { questionLang } from "@/lib/engine/lang";
 import { mockAnswer, mockModelReplies, mockQuestions } from "@/lib/mocks";
-import { fakeModel, promptText, q01Notes, SMASH_KAIKEI } from "./fakes";
+import { fakeModel, promptTexts, q01Notes, SMASH_KAIKEI } from "./fakes";
 
 // seed/questions.csv q04, asked by a26.
 const QUESTION = "決算後に申請された領収書はどうすれば良いですか？";
@@ -35,6 +35,7 @@ type Stub = {
   found?: unknown[]; // search_notes' rows: none by default, so the question abstains
   open?: unknown; // open_demand_prompts' rows: none by default
   openError?: { code: string } | null;
+  listError?: { code: string } | null; // list_prompt's
   routed?: unknown; // route_question's reply, as PostgREST hands it over
   routes?: Reply[]; // or one reply per call, in order
   seatError?: { code: string } | null;
@@ -89,6 +90,9 @@ function stubClient(stub: Stub): SupabaseClient {
       }
       if (name === "open_demand_prompts") {
         return { data: stub.open ?? [], error: stub.openError ?? null };
+      }
+      if (name === "list_prompt") {
+        return { data: null, error: stub.listError ?? null };
       }
       const reply = stub.routes?.shift();
       return reply
@@ -286,6 +290,7 @@ describe("askAsCaller", () => {
       "search_notes",
       "open_demand_prompts",
       "route_question",
+      "list_prompt",
     ]);
   });
 
@@ -318,6 +323,7 @@ describe("askAsCaller", () => {
       "search_notes",
       "open_demand_prompts",
       "route_question",
+      "list_prompt",
     ]);
     expect(AskResult.parse(result)).toEqual({
       status: "abstained",
@@ -467,15 +473,22 @@ describe("askAsCaller: dedupe (F2.5)", () => {
     expect(stub.args?.route_question).toEqual([
       { question: QUESTION_ID, join_prompt: PROMPT_ID },
     ]);
-    // Haiku saw the seat, the question and the open prompt, each in its own tag.
-    const asked = promptText(model);
-    expect(asked).toContain("Seat: 会計");
-    expect(asked).toContain(`<question>\n${QUESTION}\n</question>`);
-    expect(asked).toContain(
+    // Two calls: the match saw the seat, the question and the open prompt, each in its own tag; the wording saw the
+    // question alone.
+    const calls = promptTexts(model);
+    expect(calls).toHaveLength(2);
+    const match = calls.find((call) => call.includes("<prompt"));
+    const wording = calls.find((call) => !call.includes("<prompt"));
+    expect(match).toContain("Seat: 会計");
+    expect(match).toContain(`<question>\n${QUESTION}\n</question>`);
+    expect(match).toContain(
       `<prompt id="${PROMPT_ID}">\n${OPEN_PROMPT.text}\n</prompt>`,
     );
-    // The asker's own question stays as typed.
+    expect(wording).toContain(`<question>\n${QUESTION}\n</question>`);
+    expect(wording).not.toContain(OPEN_PROMPT.text);
+    // The asker's own question stays as typed, and a joined question lists nothing.
     expect(stub.inserted?.questions).toMatchObject([{ text: QUESTION }]);
+    expect(stub.called).not.toContain("list_prompt");
   });
 
   it("starts a new prompt worded about the seat when none asks the same thing", async () => {
@@ -500,6 +513,26 @@ describe("askAsCaller: dedupe (F2.5)", () => {
     expect(stub.args?.route_question).toEqual([
       { question: QUESTION_ID, prompt_text: reworded },
     ]);
+    // In Haiku's words, so the seat's later askers may join it.
+    expect(stub.args?.list_prompt).toEqual([{ question: QUESTION_ID }]);
+  });
+
+  it("still answers when listing fails: the prompt only misses a merge", async () => {
+    const log = errorLog();
+    const stub: Stub = {
+      seat,
+      routed: { prompt_id: PROMPT_ID, routed_to: 1 },
+      listError: { code: "PGRST202" },
+    };
+    const result = await askAsCaller(
+      stubClient(stub),
+      "asker-1",
+      q04,
+      noAnswer,
+    );
+    expect(result).toMatchObject({ promptId: PROMPT_ID, routedTo: 1 });
+    expect(log()).toContain("list_prompt failed: unavailable");
+    expect(log()).not.toContain(QUESTION);
   });
 
   it("never joins a prompt it wasn't given", async () => {
@@ -557,10 +590,12 @@ describe("askAsCaller: dedupe (F2.5)", () => {
     expect(stub.args?.route_question).toEqual([
       { question: QUESTION_ID, prompt_text: QUESTION },
     ]);
+    // As typed, the prompt reaches the routed predecessors and is never listed for the seat's other askers.
+    expect(stub.called).not.toContain("list_prompt");
     expect(log()).not.toContain(QUESTION);
   });
 
-  it("drops Haiku's wording when it names someone, and keeps the question's own", async () => {
+  it("drops Haiku's wording when it names someone, and keeps the question's own, unlisted", async () => {
     const stub: Stub = {
       seat,
       routed: { prompt_id: PROMPT_ID, routed_to: 1 },
@@ -573,6 +608,7 @@ describe("askAsCaller: dedupe (F2.5)", () => {
     expect(stub.args?.route_question).toEqual([
       { question: QUESTION_ID, prompt_text: QUESTION },
     ]);
+    expect(stub.called).not.toContain("list_prompt");
   });
 
   it("routes nowhere when no prompt text passes the guard, and saves the question as typed", async () => {

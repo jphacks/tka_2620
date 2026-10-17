@@ -500,13 +500,17 @@ export const FollowupOutput = z.object({
 });
 export type FollowupOutput = z.infer<typeof FollowupOutput>;
 
-// Dedupe and classification (Haiku): a new question + the seat's open demand prompts in <prompt id=…> tags.
-// duplicate_of is the prompt it joins (checked against the given ids) or null; prompt is the question as a
-// demand prompt about the seat, reframed when it asked about a person.
-export const DedupeOutput = z.object({
-  duplicate_of: z.string().nullable(),
-  prompt: z.string(),
-});
+// Dedupe and classification (Haiku), two calls side by side, so another holder's prompt text can't steer the wording:
+// - match: a new question + the seat's open demand prompts in <prompt id=…> tags. duplicate_of is the prompt it joins
+//   (checked against the given ids) or null.
+// - wording: the new question alone. prompt is the question as a demand prompt about the seat, reframed when it asked
+//   about a person.
+export const DedupeMatch = z.object({ duplicate_of: z.string().nullable() });
+export type DedupeMatch = z.infer<typeof DedupeMatch>;
+export const DedupeWording = z.object({ prompt: z.string() });
+export type DedupeWording = z.infer<typeof DedupeWording>;
+// Both replies together, as the mocks give them.
+export const DedupeOutput = DedupeMatch.extend(DedupeWording.shape);
 export type DedupeOutput = z.infer<typeof DedupeOutput>;
 
 // The client ---------------------------------------------------------------------------------

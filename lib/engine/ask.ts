@@ -166,7 +166,8 @@ type Routing = { promptId?: string; routedTo: number };
 // Dedupe (F2.5): Haiku joins the question to an open prompt of the seat that asks the same thing, or words it as a new
 // prompt about the seat. Both are best effort, so the live loop never waits on them: with no open prompts, or no
 // Haiku, the question starts a new prompt as typed. A prompt text the guard refuses (contact details, a credential, a
-// name) is never sent, so a question with none to send routes nowhere.
+// name) is never sent, so a question with none to send routes nowhere. Only a prompt in Haiku's words is offered to
+// the seat's later askers (list_prompt(), 0008): one as typed reaches the routed predecessors and nobody else.
 async function routeQuestion(
   client: SupabaseClient,
   questionId: string,
@@ -174,7 +175,7 @@ async function routeQuestion(
   models: AskModels,
 ): Promise<Routing> {
   const prompts = await openPrompts(client, questionId);
-  let dedupe: Dedupe = {};
+  let dedupe: Dedupe = { errors: [] };
   try {
     dedupe = await dedupeQuestion({
       model: models.dedupe(),
@@ -183,6 +184,9 @@ async function routeQuestion(
       prompts,
     });
   } catch (error) {
+    dedupe = { errors: [error] };
+  }
+  for (const error of dedupe.errors) {
     logFailure("POST /api/ask dedupe", error);
   }
 
@@ -203,7 +207,20 @@ async function routeQuestion(
     prompt_text: text,
   });
   if (!routed) throw new ApiFailure("unavailable");
+  if (routed.promptId && text === dedupe.promptText) {
+    await listPrompt(client, questionId);
+  }
   return routed;
+}
+
+// Offers the prompt this question started to the seat's later askers, so theirs can join it. Unlisted when this
+// fails (0008 not applied yet, say): it only misses a merge.
+async function listPrompt(
+  client: SupabaseClient,
+  questionId: string,
+): Promise<void> {
+  const { error } = await client.rpc("list_prompt", { question: questionId });
+  if (error) logFailure("POST /api/ask list_prompt", dbFailure(error));
 }
 
 // The seat's open demand prompts, for the asker's waiting question; none when the function fails (0008 not applied

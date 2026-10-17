@@ -346,7 +346,7 @@ async function main(): Promise<void> {
     // 2. The database agrees: one prompt, one route, and it is the reachable predecessor.
     const prompt = await service
       .from("prompts")
-      .select("kind, ask_count, retired, seat_id")
+      .select("kind, ask_count, retired, seat_id, listed")
       .eq("id", promptId)
       .single();
     check(
@@ -358,6 +358,11 @@ async function main(): Promise<void> {
     check(
       "the prompt belongs to the seat asked",
       prompt.data?.seat_id === seatId,
+    );
+    // Haiku worded it, so the seat's later askers may join it (F2.5); as typed (Haiku down) it would stay unlisted.
+    check(
+      "the prompt is in Haiku's words, listed for the seat's later askers",
+      prompt.data?.listed === true,
     );
 
     const routes = await service

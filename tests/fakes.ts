@@ -74,11 +74,17 @@ export function fakeModel(reply: unknown, finish: "stop" | "length" = "stop") {
 
 // What the model was asked: the user message's text.
 export function promptText(model: ReturnType<typeof fakeModel>): string {
-  const [call] = model.doGenerateCalls;
-  return call.prompt
-    .flatMap((message) => (message.role === "user" ? message.content : []))
-    .flatMap((part) => (part.type === "text" ? [part.text] : []))
-    .join("\n");
+  return promptTexts(model)[0];
+}
+
+// What the model was asked in each call, in order.
+export function promptTexts(model: ReturnType<typeof fakeModel>): string[] {
+  return model.doGenerateCalls.map((call) =>
+    call.prompt
+      .flatMap((message) => (message.role === "user" ? message.content : []))
+      .flatMap((part) => (part.type === "text" ? [part.text] : []))
+      .join("\n"),
+  );
 }
 
 // The seats' ids: Smash's 会計 is the seat q01 is asked at.
