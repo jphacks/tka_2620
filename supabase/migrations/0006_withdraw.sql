@@ -10,16 +10,19 @@
 
 -- Answers stand on live notes only -------------------------------------------------
 
--- An answered result keeps only the sentences whose citations are all live notes (SPEC → Scope rules: withdrawn notes
--- are never in answers; AGENTS.md: every sentence cites a note). Unchanged when every sentence stands, which is every
--- answer POST /api/ask and deliver_answer() write today. Otherwise:
+-- An answered result keeps only the sentences whose citations are all live notes its asker may read (SPEC → Scope
+-- rules: withdrawn notes are never in answers, answers come only from notes the asker may read; AGENTS.md: every
+-- sentence cites a note). Readability is checked too so the trigger tells an asker nothing: citing a note they can't
+-- read looks exactly like citing one that doesn't exist or was withdrawn (otherwise anyone could save an answer citing
+-- guessed note ids and read back which exist). Unchanged when every sentence stands, which is every answer
+-- POST /api/ask and deliver_answer() write today (both cite only such notes). Otherwise:
 --   - the rule-change note goes: it is computed from the deadline notes the sentences cite (lib/engine/rule-change.ts),
 --     so it may rest on a sentence that went, and better none than a wrong one;
 --   - `live` stays only while a remaining citation carries its byline;
 --   - with no sentence left the answer is the blank line again, abstained and routed nowhere (withdrawing never sends
 --     the question back to the person who just withdrew), with the row's own question id.
 -- A malformed answered payload (anyone can write their own answers row) keeps no sentence, so it becomes that same
--- valid abstain instead of an error. It reads notes' status only, never their content.
+-- valid abstain instead of an error. It reads notes' status and scope only, never their content.
 create function private.on_live_notes(answer jsonb, question uuid)
 returns jsonb
 language plpgsql
@@ -29,12 +32,14 @@ set search_path = ''
 as $$
 declare
   sentences jsonb := case when jsonb_typeof(answer -> 'sentences') = 'array' then answer -> 'sentences' else '[]'::jsonb end;
+  asker uuid;
   kept jsonb;
   next_answer jsonb;
 begin
   if answer ->> 'status' is distinct from 'answered' then
     return answer;
   end if;
+  select q.asker_user_id into asker from public.questions q where q.id = question;
 
   -- Each array function gets an array whatever the payload holds (SQL doesn't promise to test the type first).
   select coalesce(jsonb_agg(s order by ord), '[]'::jsonb) into kept
@@ -46,7 +51,12 @@ begin
     and not exists (
       select 1
       from jsonb_array_elements(cited.citations) c
-      where not exists (select 1 from public.notes n where n.id = c ->> 'noteId' and n.status = 'live')
+      where not exists (
+        select 1 from public.notes n
+        where n.id = c ->> 'noteId'
+          and n.status = 'live'
+          and private.can_read_note_as(asker, n.seat_id, n.term_order, n.scope, n.status, n.author_user_id)
+      )
     );
 
   if kept = answer -> 'sentences' and kept <> '[]'::jsonb then
