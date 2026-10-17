@@ -9,7 +9,8 @@ Add the seat type `$0` ($1) to Daidai, keeping one interface for everyone.
 1. Add `$0` to the `seat_type` check constraint in a new migration, and to `SeatType` in `lib/contracts.ts`
    (shared file: PR plus one line in Slack; `pnpm test` checks it matches the label packs).
 2. Add a label pack under `seatTypes.$0` in BOTH `messages/ja.json` and `messages/en.json`, with the same
-   keys as `club_role`: `seat`, `term`, `byline`, `lineage`, `scope.{successor,group,institution,public}`, `abstain`.
+   keys as `club_role`: `seat`, `term`, `byline`, `lineage`, `scope.{successor,group,institution,public}`, `abstain`,
+   `routed`, and `roles` (the role picker's choices in 「＋ 追加」, one string: 「部長・会計・顧問」 / "President, Treasurer").
    Ask the user to confirm the Japanese wording.
 3. If the type needs special behavior, express it only as `seats.settings` flags that already exist
    (`noteExpiry`, `groupOwnsCriticalNotes`, `requiredPrompts`). If a genuinely new flag is needed, stop and

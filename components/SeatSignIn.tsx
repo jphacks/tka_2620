@@ -6,6 +6,7 @@
 // page says sign-in is off. There is no sign-in screen this weekend (docs/SPEC.md → The golden path).
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
+import { AddPanel } from "@/components/AddPanel";
 import { AskPanel } from "@/components/AskPanel";
 import { consoleKey } from "@/components/ConsoleSignIn";
 import { InboxPanel } from "@/components/InboxPanel";
@@ -88,6 +89,9 @@ export function SeatSignIn({
   return panel === "ask" ? (
     <AskPanel slug={slug} api={api} mockShortcuts={false} />
   ) : (
-    <InboxPanel slug={slug} api={api} mockShortcuts={false} />
+    <div className="dd-col" style={{ gap: "var(--s-7)" }}>
+      <InboxPanel slug={slug} api={api} mockShortcuts={false} />
+      <AddPanel slug={slug} api={api} />
+    </div>
   );
 }
