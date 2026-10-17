@@ -7,6 +7,8 @@
 // The asks go over HTTP with a26's own token, as a phone would, so the route handler and RLS are exercised for
 // real. The reads that must see past a persona's own rows use the service-role key, which only scripts/ may hold.
 // Everything this check creates is removed afterwards, and it says the demo data is back only when it is.
+// Don't run it during a rehearsal: it puts a slip in a25's inbox, and its cleanup removes a26's q01 and q04 questions
+// from the last minutes.
 // Counts, ids and personas only: never the question or answer text, never an email.
 import { readFile } from "node:fs/promises";
 import { isDeepStrictEqual } from "node:util";
@@ -60,6 +62,18 @@ function check(what: string, ok: boolean, detail = ""): void {
   checks += 1;
   if (!ok) failed = true;
   console.log(`${ok ? "✓" : "✗"} ${what}${detail ? ` — ${detail}` : ""}`);
+}
+
+// For a "sees nothing" check: only a query that worked and came back empty counts. A failed query proves nothing.
+function sawNothing(result: {
+  data: unknown[] | null;
+  error: { code: string } | null;
+}): { ok: boolean; detail: string } {
+  if (result.error) {
+    return { ok: false, detail: `query failed: ${result.error.code}` };
+  }
+  const rows = result.data?.length ?? 0;
+  return { ok: rows === 0, detail: `${rows} row(s)` };
 }
 
 async function readQuestions(): Promise<QuestionRow[]> {
@@ -124,7 +138,7 @@ async function openDemandPrompts(
   return count ?? 0;
 }
 
-type Created = { questionIds: string[]; promptIds: string[] };
+type Created = { questionIds: string[] };
 type Run = {
   askerIds: string[];
   seatId: string;
@@ -163,12 +177,8 @@ async function cleanUp(
     .select("id")
     .in("source_question_id", questionIds);
   if (started.error) return `find the run's prompts: ${started.error.code}`;
-  const promptIds = [
-    ...new Set([
-      ...created.promptIds,
-      ...(started.data ?? []).map((row) => row.id),
-    ]),
-  ];
+  // Only these: once dedupe (F2.5) lets a question join an open prompt, the prompt it joined isn't the run's to delete.
+  const promptIds = (started.data ?? []).map((row) => row.id);
   if (promptIds.length > 0) {
     const { error } = await service
       .from("prompts")
@@ -201,9 +211,6 @@ async function checkAnswered(
   if (!response.ok) return;
   const result = AskResult.parse(await response.json());
   created.questionIds.push(result.questionId);
-  if (result.status === "abstained" && result.promptId) {
-    created.promptIds.push(result.promptId);
-  }
   check(
     `${question.id}: it is answered from the notes`,
     result.status === "answered",
@@ -288,7 +295,7 @@ async function main(): Promise<void> {
     q01.persona === question.persona
       ? asker
       : await signIn(url, anonKey, q01.persona, password);
-  const created: Created = { questionIds: [], promptIds: [] };
+  const created: Created = { questionIds: [] };
 
   try {
     // q01 first, so a failing q04 can't hide whether it's answered.
@@ -316,7 +323,6 @@ async function main(): Promise<void> {
     if (result.status !== "abstained") return;
     created.questionIds.push(result.questionId);
     const promptId = result.promptId;
-    if (promptId) created.promptIds.push(promptId);
     check(
       "the question became one demand prompt that reached predecessors",
       result.routedTo === 1 && Boolean(promptId),
@@ -392,10 +398,13 @@ async function main(): Promise<void> {
         .from("prompts")
         .select("id")
         .eq("id", promptId);
-      check(`${persona} sees no route`, (seenRoute.data ?? []).length === 0);
+      const route = sawNothing(seenRoute);
+      check(`${persona} sees no route`, route.ok, route.detail);
+      const prompt = sawNothing(seenPrompt);
       check(
         `${persona} can't read the demand prompt`,
-        (seenPrompt.data ?? []).length === 0,
+        prompt.ok,
+        prompt.detail,
       );
     }
 

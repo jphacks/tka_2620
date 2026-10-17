@@ -40,13 +40,18 @@ export function dbFailure(error: { code?: string } | null): ApiFailure {
   return new ApiFailure(error?.code === "42501" ? "forbidden" : "unavailable");
 }
 
-// The answer to a request that threw: an ApiFailure's code, otherwise unavailable. The log line has the code and the
-// error's class name only.
-export function failed(route: string, error: unknown): Response {
+// Logs a failure by its code (an ApiFailure's, otherwise unavailable) and the error's class name only, and answers the
+// code. For a step the request survives, such as re-answering after the notes are already published.
+export function logFailure(what: string, error: unknown): ApiErrorCode {
   const code = error instanceof ApiFailure ? error.code : "unavailable";
   const name = error instanceof Error ? error.name : typeof error;
-  console.error(`${route} failed: ${code} (${name})`);
-  return apiError(code);
+  console.error(`${what} failed: ${code} (${name})`);
+  return code;
+}
+
+// The answer to a request that threw, logged as logFailure() does.
+export function failed(route: string, error: unknown): Response {
+  return apiError(logFailure(route, error));
 }
 
 // The access token in the request's Authorization: Bearer header.

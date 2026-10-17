@@ -75,7 +75,17 @@
     "done": "Withdrawn (gone from answers in {ms} ms)"
   },
   "leak": {
-    "counter": "Leaks {leaks} / {probes} checks"
+    "counter": "Leaks <safe>{leaks}</safe> / {probes} checks",
+    "notRun": "Leak test not run yet"
+  },
+  "console": {
+    "title": "Trust proof",
+    "newcomer": "The new treasurer",
+    "predecessor": "Last year's treasurer",
+    "outsider": "Outsider",
+    "meter": "Seconds to withdraw",
+    "seconds": "{s}s",
+    "reset": "Reset"
   },
   "onkuri": {
     "credit": "{n} senpai answered {q} of your questions. Your turn!"
@@ -97,7 +107,11 @@
     "unwritten_rule": "Unwritten rule"
   },
   "myNotes": {
-    "used": "This note was used in {n} answers"
+    "used": "This note was used in {n} answers",
+    "empty": "You haven't written any notes yet.",
+    "withdrawn": "Withdrawn",
+    "failed": "Couldn't load your notes. Reopen this page.",
+    "withdrawFailed": "Couldn't withdraw the note. Press Withdraw again."
   },
   "inbox": {
     "title": "Questions from newcomers",
