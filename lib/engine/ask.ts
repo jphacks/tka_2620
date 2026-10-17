@@ -1,47 +1,38 @@
 // POST /api/ask (F3.5): the newcomer asks at a seat. The question is saved with its lang and, when nobody could
 // answer it, it becomes a demand prompt that reaches the seat's reachable predecessors (docs/SPEC.md → F3).
 //
-// Everything here runs as the caller (lib/engine/http.ts), so the database does the scope work: questions and answers
+// Everything here runs as the caller (lib/engine/route.ts), so the database does the scope work: questions and answers
 // are the asker's own rows, and route_question() (0003) creates the prompt and the prompt_routes rows, refusing
 // anyone who holds no seat at the seat they asked — their question routes nowhere and no prompt is created.
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { AskRequest, type AskResult } from "@/lib/contracts";
+import { questionLang } from "@/lib/engine/lang";
 import {
   ApiFailure,
   apiError,
-  callerClient,
-  callerToken,
+  bearerToken,
+  callerFor,
   dbFailure,
-} from "@/lib/engine/http";
-import { questionLang } from "@/lib/engine/lang";
+  failed,
+} from "@/lib/engine/route";
 
 export async function handleAsk(request: Request): Promise<Response> {
-  const token = callerToken(request);
+  const token = bearerToken(request);
   if (!token) return apiError("unauthorized");
-
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return apiError("invalid_request");
-  }
-  const parsed = AskRequest.safeParse(body);
+  const parsed = AskRequest.safeParse(
+    await request.json().catch(() => undefined),
+  );
   if (!parsed.success) return apiError("invalid_request");
 
-  let code: ApiFailure["code"] = "unavailable";
   try {
-    const client = callerClient(token);
-    const {
-      data: { user },
-      error,
-    } = await client.auth.getUser(token);
-    if (error || !user) return apiError("unauthorized");
-    return Response.json(await askAsCaller(client, user.id, parsed.data));
+    const caller = await callerFor(token);
+    if (!caller) return apiError("unauthorized");
+    return Response.json(
+      await askAsCaller(caller.db, caller.userId, parsed.data),
+    );
   } catch (error) {
-    if (error instanceof ApiFailure) code = error.code;
     // The code only: no question text, ever (docs/SPEC.md → Scope rules).
-    console.error(`POST /api/ask: ${code}`);
-    return apiError(code);
+    return failed("POST /api/ask", error);
   }
 }
 
