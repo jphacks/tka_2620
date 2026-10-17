@@ -12,7 +12,11 @@
 // last minutes.
 // Counts, ids, personas and timings only: never the question text, never an email.
 import { readFile } from "node:fs/promises";
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import {
+  createClient,
+  type RealtimePostgresChangesPayload,
+  type SupabaseClient,
+} from "@supabase/supabase-js";
 import { parse } from "csv-parse/sync";
 import {
   AnswersRow,
@@ -93,11 +97,12 @@ async function readQuestions(): Promise<QuestionRow[]> {
   }) as QuestionRow[];
 }
 
-// A Realtime row as one phone received it.
+// A Realtime row as one phone received it. errors holds Realtime's own, such as "Error 401: Unauthorized".
 type Received = {
   at: number;
   event: string;
   row: Record<string, unknown>;
+  errors: string[];
 };
 type Phone = {
   persona: string;
@@ -107,6 +112,18 @@ type Phone = {
   routes: Received[];
   answers: Received[];
 };
+
+// What a phone heard, for a failed check: table, event and Realtime's errors, never a value.
+function heard(phone: Phone): string {
+  const lines = [
+    ...phone.routes.map((received) => ["prompt_routes", received] as const),
+    ...phone.answers.map((received) => ["answers", received] as const),
+  ].map(
+    ([table, received]) =>
+      `${table} ${received.event}${received.errors.length > 0 ? ` (${received.errors.join("; ")})` : ""}`,
+  );
+  return lines.length > 0 ? lines.join(", ") : "nothing";
+}
 
 // One signed-in persona per client, as on its own phone.
 async function signIn(
@@ -136,52 +153,77 @@ async function signIn(
 }
 
 // Listens to every prompt_routes and answers row this phone may read, with its own token (none when signed out) and no
-// filter. Answers "refused" when Realtime turns the subscription down and that's allowed (a signed-out client).
+// filter. A channel is SUBSCRIBED as soon as it joins, which can be before Realtime streams changes from the database,
+// and a change in between is lost; so this waits for the replication-ready system event as well. Answers "refused"
+// when Realtime turns the subscription down and that's allowed (a signed-out client).
 async function listen(
   phone: Phone,
   refusable = false,
 ): Promise<"listening" | "refused"> {
   if (phone.token) await phone.db.realtime.setAuth(phone.token);
   return new Promise((resolve, reject) => {
+    let subscribed = false;
+    let replicating = false;
+    const settle = (outcome: "listening" | "refused" | Error) => {
+      clearTimeout(timer);
+      if (outcome instanceof Error) reject(outcome);
+      else resolve(outcome);
+    };
     const timer = setTimeout(
       () =>
-        reject(
-          new Error(`${phone.persona}: Realtime didn't subscribe in time`),
+        settle(
+          new Error(
+            `${phone.persona}: Realtime not ready in time (${subscribed ? "joined" : "not joined"}, ${replicating ? "replicating" : "no replication"})`,
+          ),
         ),
       SUBSCRIBE_MS,
     );
+    const into =
+      (received: Received[]) =>
+      (payload: RealtimePostgresChangesPayload<Record<string, unknown>>) =>
+        received.push({
+          at: performance.now(),
+          event: payload.eventType,
+          row: payload.new as Record<string, unknown>,
+          errors: payload.errors ?? [],
+        });
     phone.db
-      .channel(`check-inbox-${phone.persona}`)
+      .channel(`check-inbox-${phone.persona}`, {
+        config: { broadcast: { replication_ready: true } },
+      })
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "prompt_routes" },
-        (payload) =>
-          phone.routes.push({
-            at: performance.now(),
-            event: payload.eventType,
-            row: payload.new as Record<string, unknown>,
-          }),
+        into(phone.routes),
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "answers" },
-        (payload) =>
-          phone.answers.push({
-            at: performance.now(),
-            event: payload.eventType,
-            row: payload.new as Record<string, unknown>,
-          }),
+        into(phone.answers),
       )
+      .on("system", {}, (payload: { extension?: string; status?: string }) => {
+        if (payload.extension !== "system") return;
+        if (payload.status === "ok") {
+          replicating = true;
+          if (subscribed) settle("listening");
+        } else {
+          settle(
+            refusable
+              ? "refused"
+              : new Error(
+                  `${phone.persona}: Realtime replication ${payload.status}`,
+                ),
+          );
+        }
+      })
       .subscribe((status) => {
         if (status === "SUBSCRIBED") {
-          clearTimeout(timer);
-          resolve("listening");
+          subscribed = true;
+          if (replicating) settle("listening");
         } else if (status === "CHANNEL_ERROR" && refusable) {
-          clearTimeout(timer);
-          resolve("refused");
+          settle("refused");
         } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-          clearTimeout(timer);
-          reject(new Error(`${phone.persona}: Realtime ${status}`));
+          settle(new Error(`${phone.persona}: Realtime ${status}`));
         }
       });
   });
@@ -341,7 +383,7 @@ async function main(): Promise<void> {
       arrived,
       route
         ? `${Math.round(route.at - askedAt)} ms after a26 asked`
-        : `nothing within ${ARRIVE_MS} ms`,
+        : `nothing matching within ${ARRIVE_MS} ms; heard: ${heard(recipient)}`,
     );
     const row = PromptRoutesRow.safeParse(route?.row);
     check(
@@ -358,7 +400,7 @@ async function main(): Promise<void> {
       check(
         `${phone.persona}'s phone gets nothing`,
         phone.routes.length === 0,
-        `${phone.routes.length} route row(s)`,
+        phone.routes.length > 0 ? `heard: ${heard(phone)}` : "0 route rows",
       );
     }
 
@@ -503,14 +545,14 @@ async function main(): Promise<void> {
       answered && AnswersRow.safeParse(answer?.row).success,
       answer
         ? `${Math.round(answer.at - answerSent)} ms after it was saved`
-        : `nothing within ${ARRIVE_MS} ms`,
+        : `nothing matching within ${ARRIVE_MS} ms; heard: ${heard(asker)}`,
     );
     await pause(GRACE_MS);
     for (const phone of [recipient, ...others]) {
       check(
         `${phone.persona}'s phone gets no answers row`,
         phone.answers.length === 0,
-        `${phone.answers.length} answers row(s)`,
+        phone.answers.length > 0 ? `heard: ${heard(phone)}` : "0 answers rows",
       );
     }
   } finally {
@@ -537,7 +579,7 @@ async function main(): Promise<void> {
         check(
           `${phone.persona} got nothing in the whole run`,
           received === 0,
-          `${received} row(s)`,
+          received > 0 ? `heard: ${heard(phone)}` : "0 rows",
         );
       }
     }

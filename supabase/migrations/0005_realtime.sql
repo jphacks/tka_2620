@@ -9,10 +9,10 @@
 -- prompt_routes, who received which prompt (Supabase docs: "RLS policies are not applied to DELETE statements").
 -- Nothing in the live loop needs deletes (a prompt is retired, a note withdrawn, both updates), so the publication sends
 -- inserts and updates only. The setting belongs to the publication, so it also holds for tables published later.
--- No policy lets anon read these tables, and now anon can't select them either, so a signed-out client can't
--- subscribe to them at all.
+-- anon keeps Supabase's default select grant on purpose. No policy lets it read a row, so Realtime's policy check drops
+-- every change for a signed-out client; a role without the grant would instead get an "Error 401: Unauthorized" event
+-- for each change (realtime.apply_rls), which tells it that something happened.
 -- The default replica identity is enough: an insert or update carries the whole new row, and nobody needs the old one.
 
 alter publication supabase_realtime add table public.prompt_routes, public.answers;
 alter publication supabase_realtime set (publish = 'insert, update');
-revoke select on public.prompt_routes, public.answers from anon;
