@@ -275,6 +275,7 @@ export function TrustConsole({
               slug={SEAT}
               mockShortcuts={false}
               api={newcomerApi}
+              history={false}
             />
             <div className="dd-col" style={{ gap: 0 }}>
               {answer?.status === "answered" && (

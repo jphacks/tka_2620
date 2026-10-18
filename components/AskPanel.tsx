@@ -1,17 +1,43 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { AbstainEntry } from "@/components/AbstainEntry";
 import { AnswerEntry } from "@/components/AnswerEntry";
 import { AskField } from "@/components/AskField";
 import { LiveStamp } from "@/components/LiveStamp";
 import { RetryLine } from "@/components/RetryLine";
-import type { Api, AskResult, SeatView } from "@/lib/contracts";
+import type { Api, AskResult, GuideAsked, SeatView } from "@/lib/contracts";
 import { createMockApi, mockIds, mockPredecessorAnswers } from "@/lib/mocks";
 import { useRealtime } from "@/lib/realtime";
 
 type Asked = { question: string; result?: AskResult };
+
+// Which answers this device has already shown, per seat, so an answer that came while the tab was closed is marked
+// 「新しい答え」 once. A convenience only: storage can be off (private window), and then nothing is marked.
+const SEEN = (slug: string) => `daidai-seen-answers:${slug}`;
+function readSeen(slug: string): Set<string> | undefined {
+  try {
+    const raw = localStorage.getItem(SEEN(slug));
+    return raw ? new Set(JSON.parse(raw) as string[]) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+function writeSeen(slug: string, ids: Iterable<string>) {
+  try {
+    localStorage.setItem(SEEN(slug), JSON.stringify([...ids]));
+  } catch {
+    // storage off: the marks simply don't carry over
+  }
+}
 
 // 聞く on the seat page: the ask field, then each question in blue with its result underneath.
 // Mocks only for now (NEXT_PUBLIC_USE_MOCKS=1); the real client replaces createMockApi when /api/ask exists.
@@ -22,6 +48,7 @@ export function AskPanel({
   api: given,
   onSeat,
   onSeatFailed,
+  history = true,
 }: {
   slug: string;
   mockShortcuts?: boolean;
@@ -31,6 +58,9 @@ export function AskPanel({
   onSeat?: (view: SeatView) => void;
   /** The seat didn't load: the page shows this panel anyway, with its retry. */
   onSeatFailed?: () => void;
+  /** List the asker's earlier questions and their answers (GET /api/seats/[slug]/asked). Off on the console, whose
+   * newcomer pane starts clean for the trust proof. */
+  history?: boolean;
 }) {
   const t = useTranslations();
   const api = useMemo(() => given ?? createMockApi("a26"), [given]);
@@ -42,6 +72,50 @@ export function AskPanel({
   const [failed, setFailed] = useState<"seat" | "ask">();
   const busy = asked.some((entry) => !entry.result);
   const [seatTry, setSeatTry] = useState(0);
+  // The asker's earlier questions at this seat, from the server: they outlast a reload or a closed tab, so an answer that
+  // arrived meanwhile is here (docs/SPEC.md → the notification "your question was answered").
+  const [earlier, setEarlier] = useState<GuideAsked[]>();
+  const [fresh, setFresh] = useState<ReadonlySet<string>>(new Set());
+  // The questions asked in this tab, by id, for the Realtime handler (a row for one of them is shown right here).
+  const shownIds = useRef<Set<string>>(new Set());
+  const earlierId = useId();
+  // An answer shown in this tab (聞く's own, or the live one) is seen: it won't come back as 「新しい答え」.
+  const markSeen = useCallback(
+    (questionId: string) => {
+      writeSeen(slug, new Set([...(readSeen(slug) ?? []), questionId]));
+    },
+    [slug],
+  );
+  const loadEarlier = useCallback(() => {
+    if (!history) return;
+    api.asked(slug).then(
+      ({ asked: rows }) => {
+        setEarlier(rows);
+        const answered = rows.flatMap((row) =>
+          row.answer ? [row.questionId] : [],
+        );
+        const seen = readSeen(slug);
+        // The first visit on a device marks nothing; afterwards, an answer not shown before is new.
+        if (seen) {
+          const added = answered.filter((id) => !seen.has(id));
+          if (added.length > 0) {
+            setFresh((current) => new Set([...current, ...added]));
+          }
+        }
+        writeSeen(slug, new Set([...(seen ?? []), ...answered]));
+      },
+      () => undefined, // the list stays as it was; the ask field works regardless
+    );
+  }, [api, slug, history]);
+  useEffect(() => {
+    loadEarlier();
+    // A phone that slept may have missed the Realtime row: read the list again when the page is back.
+    const again = () => {
+      if (document.visibilityState === "visible") loadEarlier();
+    };
+    document.addEventListener("visibilitychange", again);
+    return () => document.removeEventListener("visibilitychange", again);
+  }, [loadEarlier]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: seatTry is the retry button's way to read the seat again
   useEffect(() => {
@@ -70,6 +144,8 @@ export function AskPanel({
   // The asker's latest answer replaces the entry: the live answer, then any re-answer after a withdrawal
   // (fewer sentences, or the blank line again).
   useRealtime(api, "answers", (row) => {
+    if (shownIds.current.has(row.question_id)) markSeen(row.question_id);
+    loadEarlier(); // an earlier question may be the one answered
     setAsked((entries) =>
       entries.map((entry) =>
         entry.result?.questionId === row.question_id
@@ -99,14 +175,26 @@ export function AskPanel({
           : entry,
       ),
     );
+    if (result.status === "answered") markSeen(result.questionId);
   }
+
+  // The earlier questions not already shown above (a question asked in this tab is listed once, with its live state).
+  const shownHere = new Set(
+    asked.flatMap((entry) => (entry.result ? [entry.result.questionId] : [])),
+  );
+  shownIds.current = shownHere;
+  const previous = (earlier ?? []).filter(
+    (row) => !shownHere.has(row.questionId),
+  );
 
   // The newest question's state in words: searching, an answer from the notes, nobody knew (and whether it reached last
   // year's holder), or the live answer that just landed.
   const newestEntry = asked[0];
   const searching = newestEntry !== undefined && !newestEntry.result;
   const status = (() => {
-    if (!newestEntry) return "";
+    if (!newestEntry) {
+      return fresh.size > 0 ? t("ask.newAnswers", { n: fresh.size }) : "";
+    }
     const result = newestEntry.result;
     if (!result) return t("ask.searching");
     if (result.status === "answered") {
@@ -197,6 +285,44 @@ export function AskPanel({
             )}
         </article>
       ))}
+      {previous.length > 0 && (
+        <section
+          className="dd-col"
+          style={{ gap: "var(--s-5)" }}
+          aria-labelledby={earlierId}
+        >
+          <h2 id={earlierId} className="dd-h">
+            {t("ask.earlierTitle")}
+          </h2>
+          {previous.map((row) => (
+            <article
+              key={row.questionId}
+              className="dd-col"
+              style={{ gap: "var(--s-1)" }}
+            >
+              {fresh.has(row.questionId) && (
+                <p className="dd-new-answer">{t("ask.newAnswer")}</p>
+              )}
+              {row.answer ? (
+                <AnswerEntry
+                  question={row.text}
+                  answer={row.answer}
+                  api={api}
+                />
+              ) : (
+                <>
+                  <p className="dd-q" lang={row.lang}>
+                    {row.text}
+                  </p>
+                  <p className="dd-cap" style={{ margin: 0 }}>
+                    {t("ask.noAnswerYet")}
+                  </p>
+                </>
+              )}
+            </article>
+          ))}
+        </section>
+      )}
     </section>
   );
 }
