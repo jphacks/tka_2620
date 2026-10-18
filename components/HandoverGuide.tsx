@@ -66,7 +66,17 @@ export function HandoverGuide({ slug }: { slug: string }) {
   );
 }
 
-function Guide({ slug, api }: { slug: string; api: Api }) {
+// The guide itself, for the signed-in client: its own page (/s/[seat]/guide) or, inline, under the deadlines on 聞く.
+export function Guide({
+  slug,
+  api,
+  inline = false,
+}: {
+  slug: string;
+  api: Api;
+  inline?: boolean;
+}) {
+  const Title = inline ? "h2" : "h1";
   const t = useTranslations();
   const locale = useLocale();
   const format = useFormatter();
@@ -96,7 +106,7 @@ function Guide({ slug, api }: { slug: string; api: Api }) {
   if (failed) {
     return (
       <section className="dd-col" style={{ gap: "var(--s-4)" }}>
-        <h1 className="dd-h dd-guide-title">{t("guide.titlePlain")}</h1>
+        <Title className="dd-h dd-guide-title">{t("guide.titlePlain")}</Title>
         <p style={{ margin: 0, color: "var(--ink-2)" }}>{t("guide.failed")}</p>
       </section>
     );
@@ -104,7 +114,7 @@ function Guide({ slug, api }: { slug: string; api: Api }) {
   if (!view || !guide) {
     return (
       <section className="dd-col" style={{ gap: "var(--s-4)" }}>
-        <h1 className="dd-h dd-guide-title">{t("guide.titlePlain")}</h1>
+        <Title className="dd-h dd-guide-title">{t("guide.titlePlain")}</Title>
         <output className="dd-cap">{t("profile.loading")}</output>
       </section>
     );
@@ -223,9 +233,9 @@ function Guide({ slug, api }: { slug: string; api: Api }) {
   return (
     <div className="dd-col dd-guide" style={{ gap: "var(--s-6)" }}>
       <header className="dd-col" style={{ gap: "var(--s-2)" }}>
-        <h1 className="dd-h dd-guide-title">
+        <Title className="dd-h dd-guide-title">
           {t("guide.title", { seat: seat.name })}
-        </h1>
+        </Title>
         <p style={{ margin: 0 }}>
           <span className="dd-seat-group">{seat.group}</span>
           <br />
@@ -252,7 +262,17 @@ function Guide({ slug, api }: { slug: string; api: Api }) {
           <button
             type="button"
             className="dd-btn dd-btn-primary"
-            onClick={() => window.print()}
+            onClick={() => {
+              // Inline on 聞く, the page around the guide stays off the paper (styles/components.css → print).
+              const root = document.documentElement;
+              root.classList.add("dd-printing-guide");
+              window.addEventListener(
+                "afterprint",
+                () => root.classList.remove("dd-printing-guide"),
+                { once: true },
+              );
+              window.print();
+            }}
           >
             {t("guide.print")}
           </button>

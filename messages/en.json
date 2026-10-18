@@ -183,6 +183,7 @@
     "titlePlain": "Handover guide",
     "title": "Handover guide: {seat}",
     "open": "Open the handover guide",
+    "close": "Close the handover guide",
     "where": "{group} ({institution})",
     "asOf": "As of {date}",
     "counts": "<fig>{notes}</fig> notes, <fig>{open}</fig> things not written yet",
@@ -232,6 +233,7 @@
   },
   "seat": {
     "upcoming": "Coming up",
+    "tagKind": "{kind}: ",
     "you": "You",
     "youAt": "You ({term})",
     "upcomingDate": "{weekday} {date}"

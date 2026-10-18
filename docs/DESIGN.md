@@ -110,7 +110,8 @@ Use Japanese notebook marks, not coloured chips or emoji. Each mark is followed 
 - Tap targets at least 44px; the voice button 80px.
 
 ## Components (golden path)
-- **`SeatHeader`**: the key tag on the left (seat name in Yusei Magic, a ring through the punched hole),
+- **`SeatHeader`**: the key tag on the left, 44px tall (Nico's call): the seat type's word in UI text, then the seat's
+  name in Yusei Magic 20px, 「役職：会計」 (a ring through the punched hole),
   group and institution in UI text beside it. One line icon per seat type (club = flag, exchange = route,
   lab = flask); seat types never get their own colour.
 - **`LineageRail`** (歴代の札): one small key tag per term, oldest left, newest right, vertical Yusei Magic
@@ -184,6 +185,8 @@ Use Japanese notebook marks, not coloured chips or emoji. Each mark is followed 
        questions in blue
     4. 「あなたの質問と答え」 as `AnswerEntry`s, whose stamps open their notes
   - **Who wrote it:** people appear only as bylines (「2025年度 会計」).
+  - **Inline on 聞く:** 「引き継ぎ書を開く」 opens the same guide in place under the deadlines (no screen change),
+    「引き継ぎ書を閉じる」 folds it; printing from there puts only the guide on paper. `/s/[seat]/guide` stays for /me.
 - **`WithdrawMeter`**: figures face, 39px on the console; counts in `--red` from the click, freezes in `--ink`
   when the last pane drops the note: 「0.8秒」.
 - **`LeakCounter`**: 「漏れ 0 / 50 回」, the 0 in `--green`.

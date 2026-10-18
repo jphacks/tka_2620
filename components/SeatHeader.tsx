@@ -36,7 +36,13 @@ export function SeatHeader({ seat }: { seat: SeatView["seat"] }) {
     <header className="dd-seat-head">
       <div className="dd-tag">
         <span className="dd-tag-ring" aria-hidden="true" />
-        <h1 className="dd-tag-name">{seat.name}</h1>
+        {/* 「役職：会計」: the seat type's own word for a seat (label pack), then its name */}
+        <h1 className="dd-tag-name">
+          <span className="dd-tag-kind">
+            {t("seat.tagKind", { kind: t(`seatTypes.${seat.seatType}.seat`) })}
+          </span>
+          {seat.name}
+        </h1>
       </div>
       <div className="dd-seat-where">
         <svg

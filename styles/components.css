@@ -228,6 +228,18 @@ a.dd-tab { display: grid; place-items: center; text-decoration: none; }
   .dd-ask input { padding-inline: var(--s-1); }
   .dd-ask .dd-btn { padding-inline: var(--s-3); }
 }
+/* The key tag, smaller and saying what it is (Nico's call): 「役職：」 in the UI face, then the seat's name in the marker */
+.dd-seat-head .dd-tag { min-height: 44px; padding: var(--s-1) var(--s-3) var(--s-1) var(--s-6); }
+.dd-seat-head .dd-tag-name { font-size: var(--text-m); line-height: 28px; }
+.dd-tag-kind { font-family: var(--font-ui); font-size: var(--text-s); font-weight: 700; color: var(--ink-2); letter-spacing: .04em; }
+/* The guide opened inline on 聞く sits under the deadlines, ruled off from them */
+.dd-guide-inline { margin-top: var(--s-3); padding-top: var(--s-5); border-top: 1px solid var(--rule); }
+@media print {
+  /* Printing the inline guide: only the guide goes on paper, not the seat page around it */
+  :root.dd-printing-guide .dd-seat-home > :not(:has(.dd-guide-inline)),
+  :root.dd-printing-guide .dd-guide-wrap > :not(.dd-guide-inline) { display: none !important; }
+  :root.dd-printing-guide .dd-guide-inline { margin: 0; padding: 0; border: 0; }
+}
 /* The search field heads a filter, across its whole width */
 .dd-filter-search { grid-column: 1 / -1; display: grid; gap: var(--s-1); }
 

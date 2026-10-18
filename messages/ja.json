@@ -183,6 +183,7 @@
     "titlePlain": "引き継ぎ書",
     "title": "{seat}の引き継ぎ書",
     "open": "引き継ぎ書を開く",
+    "close": "引き継ぎ書を閉じる",
     "where": "{group}（{institution}）",
     "asOf": "{date}時点",
     "counts": "メモ <fig>{notes}</fig>件、まだ書かれていないこと <fig>{open}</fig>件",
@@ -232,6 +233,7 @@
   },
   "seat": {
     "upcoming": "これからの締切",
+    "tagKind": "{kind}：",
     "you": "あなた",
     "youAt": "あなた（{term}）",
     "upcomingDate": "{date} {weekday}"
