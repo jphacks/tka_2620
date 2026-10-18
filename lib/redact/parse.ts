@@ -62,6 +62,12 @@ export function parseLine(raw: string): ChatMessage[] {
   let open = false; // inside a quoted multi-line message
 
   for (const line of lines(raw)) {
+    // A WhatsApp line is no part of a LINE message: its name would go out as text. It goes, with the lines after it.
+    if (whatsAppHead(line)) {
+      current = null;
+      open = false;
+      continue;
+    }
     const tab = day ? TAB_LINE.exec(line) : null;
     // Inside quotes every line belongs to the message, even one that looks like a date; only a new message line
     // ends it, so a message that merely starts with a quote can't swallow the rest of the chat.
@@ -161,11 +167,11 @@ function at(day: string, time: RegExpExecArray): string {
   return `${day}T${clock(time[1], time[2], time[3])}`;
 }
 
-// 21:03, 午後9:03 and 9:03 PM → 21:03.
+// 21:03, 午後9:03 (下午9:03) and 9:03 PM → 21:03.
 function clock(half: string | undefined, hour: string, minute: string): string {
   const marker = half?.toUpperCase();
   let hours = Number(hour) % (marker ? 12 : 24);
-  if (marker === "午後" || marker === "PM") hours += 12;
+  if (marker === "午後" || marker === "下午" || marker === "PM") hours += 12;
   return `${pad(String(hours))}:${minute}`;
 }
 
@@ -193,13 +199,15 @@ function unquote(text: string): string {
 // (someone added, someone left, a new group name) has no name on Android; an iPhone gives it the chat's own name and
 // starts its text with a direction mark (U+200E), as it does for media.
 
-const WA_STAMP = String.raw`(\d{1,4}[/.-]\d{1,2}[/.-]\d{1,4}),? {1,2}(?:(午前|午後) ?)?(\d{1,2})[:.](\d{2})(?:[:.]\d{2})?(?: ?([AaPp])\.? ?[Mm]\.?)?`;
+const WA_STAMP = String.raw`(\d{1,4}[/.-]\d{1,2}[/.-]\d{1,4}),? {1,2}(?:(午前|午後|上午|下午) ?)?(\d{1,2})[:.](\d{2})(?:[:.]\d{2})?(?: ?([AaPp])\.? ?[Mm]\.?)?`;
 const WA_ANDROID = new RegExp(`^${WA_STAMP} [-–] (.*)$`);
 const WA_IPHONE = new RegExp(`^\\[${WA_STAMP}\\] ?(.*)$`);
 // 名前: 本文, or 名前: alone when the text starts on the next line. The shortest name that fits, so a colon in the text
 // stays there (加藤: 締切: 10/20).
 const WA_SPEAKER = /^(.{1,60}?):(?: (.*))?$/;
-const MARK = /^\s*[‎‏]/;
+// An iPhone marks the chat's own lines and media after the colon (テニス部: \u200e加藤 健 added …), and the chat's
+// name may hold a colon too (Tennis: 会計: \u200e…).
+const SYSTEM_MARK = /^.{0,110}?:\s{0,2}[\u200e\u200f]/;
 
 // A message with no text of its own: <Media omitted> or <メディアなし> (any words in those brackets), null, a file
 // (IMG-20251016-WA0001.jpg (file attached)), image omitted, a deleted message, one still on its way, a shared location,
@@ -208,7 +216,7 @@ const WA_MEDIA = new RegExp(
   [
     String.raw`^<[^<>\n]{1,80}>$`,
     "^null$",
-    String.raw`^[^\n]{1,120}\.[A-Za-z0-9]{2,5} \([^()\n]{1,30}\)$`,
+    String.raw`^[^\n]{1,120}\.[A-Za-z0-9]{2,5} ?\([^()\n]{1,30}\)$`,
     "(?:image|video|audio|sticker|GIF|document|contact card) omitted$",
     "^(?:This message was deleted|You deleted this message|Waiting for this message|(?:この)?メッセージ(?:は削除されました|を削除しました|を待)|Live location shared|Missed (?:group )?(?:voice|video) call|不在着信)",
     String.raw`^(?:location|位置情報): ?https?://\S+$`,
@@ -223,14 +231,16 @@ const WA_SYSTEM = new RegExp(
   [
     "end-to-end|エンドツーエンド|security code|セキュリティコード",
     String.raw`^[^\n]{1,60}? (?:added|removed) [^\n]{1,100}$`,
-    String.raw`^[^\n]{1,60}? (?:left|joined using|joined from|created group|created this group|changed (?:the subject|the group|this group's|their phone number)|deleted this group's|pinned a message|turned (?:on|off) disappearing)`,
-    String.raw`が[^\n]{1,60}を(?:追加|削除)しました$|が(?:退出|参加)しました$|(?:グループ|招待リンク|コミュニティ|アイコン|説明)[^\n]{0,40}(?:参加|作成|変更|削除|退出)しました$|電話番号を[^\n]{0,40}変更しました$`,
+    String.raw`^[^\n]{1,60}? (?:left|joined|was added|was removed|is now an admin|is no longer an admin|requested to join|created group|created this group|changed (?:the subject|the group|this group's|their phone number)|deleted this group's|pinned a message|turned (?:on|off) disappearing)`,
+    String.raw`^[^\n]{1,60}? (?:made [^\n]{1,60} an admin|invited [^\n]{1,100})$`,
+    String.raw`が[^\n]{1,60}を(?:追加|削除)しました$|が(?:退出|参加)しました$|(?:グループ|招待リンク|コミュニティ|アイコン|説明)[^\n]{0,40}(?:参加|作成|変更|削除|退出)しました$|電話番号を[^\n]{0,40}変更しました$|電話番号が変わりました$|管理者|参加(?:を)?リクエスト`,
   ].join("|"),
   "i",
 );
 
 // What WhatsApp adds to a message edited after sending.
-const EDITED = /[ ‎‏]{0,3}<[^<>\n]{0,40}(?:edited|編集)[^<>\n]{0,40}>$/i;
+const EDITED =
+  /[ \u200e\u200f]{0,3}<[^<>\n]{0,40}(?:edited|編集)[^<>\n]{0,40}>$/i;
 
 type WhatsAppDraft = {
   date: string; // as written (16/10/2025); which field is the day is decided from every date in the export
@@ -238,6 +248,7 @@ type WhatsAppDraft = {
   speaker: string;
   text: string;
   iphone: boolean;
+  marked: boolean; // an iPhone's own line or media, by its mark
 };
 
 export function parseWhatsApp(raw: string): ChatMessage[] {
@@ -256,18 +267,19 @@ export function parseWhatsApp(raw: string): ChatMessage[] {
   }
 
   const dayFirst = readsDayFirst(drafts.map(({ date }) => date));
-  const marked = drafts.some(({ text }) => MARK.test(text)); // the export marks its system lines
-  return drafts.flatMap(({ date, time, speaker, text, iphone }) => {
+  // When the export marks its system lines, their words aren't needed. One marked line could be a member's own.
+  const trusted = drafts.filter(({ marked }) => marked).length >= 2;
+  return drafts.flatMap(({ date, time, speaker, text, iphone, marked }) => {
     const message = {
       at: whatsAppAt(date, dayFirst, time),
       speaker,
       text: text.replace(EDITED, "").trim(),
     };
     const dropped =
-      MARK.test(message.text) ||
+      marked ||
       WA_MEDIA.test(message.text) ||
       (iphone &&
-        !marked &&
+        !trusted &&
         !message.text.includes("\n") &&
         WA_SYSTEM.test(message.text));
     return speaker && !dropped && keep(message.text) ? [message] : [];
@@ -280,8 +292,19 @@ export function isWhatsAppLine(line: string): boolean {
   return Boolean(whatsAppHead(line.normalize("NFKC"))?.speaker);
 }
 
+// How many lines parseLine would read as LINE messages, for the same: tab rows, and space rows after a date line.
+export function lineRows(raw: string): number {
+  let day = false;
+  let rows = 0;
+  for (const line of lines(raw)) {
+    if (DATE_LINE.test(line.trim())) day = true;
+    else if (TAB_LINE.test(line) || (day && SPACE_LINE.test(line))) rows += 1;
+  }
+  return rows;
+}
+
 function whatsAppHead(line: string): WhatsAppDraft | null {
-  const bare = line.replace(/^[‎‏﻿]+/, "");
+  const bare = line.replace(/^[\s\p{Cf}]+/u, "");
   const iphone = WA_IPHONE.exec(bare);
   const head = iphone ?? WA_ANDROID.exec(bare);
   if (!head) return null;
@@ -293,6 +316,7 @@ function whatsAppHead(line: string): WhatsAppDraft | null {
     speaker,
     text: speaker ? (said?.[2] ?? "") : head[6],
     iphone: iphone !== null,
+    marked: SYSTEM_MARK.test(head[6]),
   };
 }
 
@@ -303,8 +327,9 @@ function speakerName(raw: string): string {
   return /[\p{L}\p{N}]/u.test(name) && !/["“”„「」『』]/.test(name) ? name : "";
 }
 
+// A LINE row: a message (21:03⇥名前⇥本文) or a system line (21:03⇥名前がグループに参加しました).
 function isLineRow(line: string): boolean {
-  return TAB_LINE.exec(line)?.[4].includes("\t") ?? false;
+  return TAB_LINE.test(line);
 }
 
 // Whether 05/10/2025 is the 5th of October: a field over 12 is the day; else the reading under which the dates run in

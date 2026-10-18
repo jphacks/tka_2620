@@ -3,7 +3,12 @@
 // (tests/redact.test.ts): no speaker's name, nobody named in a system line, no phone number, email, account or PIN is
 // left, and a second pass finds nothing. The names and numbers are made up and none is a canary (checked below).
 import { describe, expect, it } from "vitest";
-import { parseChat, parseWhatsApp, speakers } from "@/lib/redact/parse";
+import {
+  parseChat,
+  parseLine,
+  parseWhatsApp,
+  speakers,
+} from "@/lib/redact/parse";
 import { redactChat, redactText } from "@/lib/redact/redact";
 import { leaked, nothing } from "./canaries";
 
@@ -249,16 +254,53 @@ describe("parseWhatsApp: what isn't a member's message", () => {
   it("drops an iPhone's system lines by their words only when the export lost its marks: a member may write them", () => {
     const words = "会計が名簿に新入生を追加しました";
     const unmarked = [
-      "[16/10/2025, 17:01:00] テニス部 会計: 加藤 健 added 小林 陽菜",
-      "[16/10/2025, 17:02:00] テニス部 会計: 加藤が小林を追加しました",
-      `[16/10/2025, 17:03:00] 高橋 美咲: ${words}`,
-    ].join("\n");
-    expect(parseWhatsApp(unmarked)).toEqual([]);
+      "加藤 健 added 小林 陽菜",
+      "加藤が小林を追加しました",
+      "小林 陽菜 was added",
+      "加藤 健 made 小林 陽菜 an admin",
+      "小林 陽菜 requested to join",
+      "加藤 健 invited 小林 陽菜",
+      "小林 陽菜さんを管理者にしました",
+      "小林 陽菜さんの電話番号が変わりました",
+    ].map((line) => `[16/10/2025, 17:01:00] テニス部 会計: ${line}`);
+    const member = `[16/10/2025, 17:03:00] 高橋 美咲: ${words}`;
+    expect(parseWhatsApp([...unmarked, member].join("\n"))).toEqual([]);
+    // One marked line could be a member's own; an export marks every system line and media.
+    const oneMark = `[16/10/2025, 17:02:00] 高橋 美咲: ${LRM}了解です`;
+    expect(parseWhatsApp([oneMark, ...unmarked].join("\n"))).toEqual([]);
     const marked = [
       `[16/10/2025, 17:01:00] テニス部 会計: ${LRM}加藤 健 added 小林 陽菜`,
-      `[16/10/2025, 17:03:00] 高橋 美咲: ${words}`,
+      `${LRM}[16/10/2025, 17:02:00] 加藤 健: ${LRM}image omitted`,
+      member,
     ].join("\n");
     expect(parseWhatsApp(marked).map(({ text }) => text)).toEqual([words]);
+  });
+
+  it("drops an iPhone's own lines when the chat's name holds a colon", () => {
+    const raw = [
+      `[16/10/2025, 17:01:00] Tennis: 会計: ${LRM}加藤 健 added 小林 陽菜`,
+      `[16/10/2025, 17:02:00] Tennis: 会計: ${LRM}加藤 健が小林 陽菜を追加しました`,
+      `${LRM}[16/10/2025, 17:03:00] 加藤 健: ${LRM}image omitted`,
+      "[16/10/2025, 17:04:00] 加藤 健: 部費の集金は10/20までです",
+    ].join("\n");
+    expect(
+      parseWhatsApp(raw).map(({ speaker, text }) => [speaker, text]),
+    ).toEqual([["加藤 健", "部費の集金は10/20までです"]]);
+  });
+
+  it("reads a line as a new message despite spaces or invisible characters before it", () => {
+    const raw = [
+      "16/10/2025, 17:03 - 加藤 健: 合宿の予定です",
+      "  16/10/2025, 17:04 - 小林 陽菜: 了解です",
+      `${String.fromCharCode(0x200b)}16/10/2025, 17:05 - 中村: 了解しました`,
+      `${String.fromCharCode(0x2068)}16/10/2025, 17:06 - 高橋 美咲: 振込します`,
+    ].join("\n");
+    expect(speakers(parseWhatsApp(raw)).map(({ name }) => name)).toEqual([
+      "加藤 健",
+      "小林 陽菜",
+      "中村",
+      "高橋 美咲",
+    ]);
   });
 
   it.each([
@@ -267,6 +309,7 @@ describe("parseWhatsApp: what isn't a member's message", () => {
     "null",
     "IMG-20251016-WA0001.jpg (file attached)",
     "加藤 健.vcf (file attached)",
+    "加藤 健.vcf（ファイル添付）",
     "This message was deleted",
     "このメッセージは削除されました",
     "location: https://maps.google.com/?q=35.6,139.7",
@@ -284,12 +327,30 @@ describe("parseWhatsApp: what isn't a member's message", () => {
       "21:03\t高橋 美咲\t部費は振込で",
       "続きの行",
       "16/10/2025, 17:05 - 中村: 了解しました",
+      "21:05\t小林 陽菜がグループに参加しました",
     ].join("\n");
     expect(
       parseWhatsApp(raw).map(({ speaker, text }) => [speaker, text]),
     ).toEqual([
       ["加藤 健", "合宿の予定\n8/10 出発"],
       ["中村", "了解しました"],
+    ]);
+  });
+});
+
+describe("parseLine: a WhatsApp line is no part of a LINE message", () => {
+  it("drops it, with or without a name, and the lines under it", () => {
+    const raw = [
+      "2025/10/20(月)",
+      "9:00\t正門\t集合場所の確認です",
+      "16/10/2025, 17:05 - 小林 陽菜: ありがとうございます",
+      "16/10/2025, 17:06 - 加藤 健 added 中村",
+      "続きの行",
+      "9:30\t体育館\t練習開始の連絡です",
+    ].join("\n");
+    expect(parseLine(raw).map(({ speaker, text }) => [speaker, text])).toEqual([
+      ["正門", "集合場所の確認です"],
+      ["体育館", "練習開始の連絡です"],
     ]);
   });
 });
@@ -314,5 +375,64 @@ describe("foreign phone numbers, as WhatsApp writes members saved only by number
     "2025/10/16",
   ])("leaves %s", (text) => {
     expect(redactText(text).text).toBe(text);
+  });
+});
+
+describe("names as WhatsApp writes them", () => {
+  const FSI = String.fromCharCode(0x2068); // a mention's name sits between direction isolates
+  const PDI = String.fromCharCode(0x2069);
+
+  it.each([
+    [`@${FSI}小林 陽菜${PDI} 部費をお願いします`, "[人] 部費をお願いします"],
+    [`@${FSI}Hina Kobayashi${PDI} please check`, "[人] please check"],
+    [`@${FSI}~ 伊藤 優${PDI} よろしく`, "[人] よろしく"],
+  ])("hides all of a mention, also of someone who never wrote: %s", (text, redacted) => {
+    expect(redactText(text).text).toBe(redacted);
+  });
+
+  it("hides a mentioned name in the other messages too, and keeps a speaker's role for their own mention", () => {
+    const messages = [
+      {
+        at: null,
+        speaker: "加藤 健",
+        text: `@${FSI}小林 陽菜${PDI} @${FSI}加藤 健${PDI} 部費の件です`,
+      },
+      { at: null, speaker: "加藤 健", text: "小林 陽菜 さんに確認しました" },
+    ];
+    const { text } = redactChat(messages, {
+      roles: { "加藤 健": "会計" },
+      keepAll: true,
+    });
+    expect(text).toBe(
+      "会計: [人] 会計 部費の件です\n会計: [人] さんに確認しました",
+    );
+  });
+
+  it("hides a name with WhatsApp's ~ (not in the contacts) without the ~ too", () => {
+    const { text } = redactChat(
+      [
+        {
+          at: null,
+          speaker: "~ 伊藤 優",
+          text: "部費は伊藤 優 に聞いてください",
+        },
+      ],
+      { roles: { "~ 伊藤 優": "会計" }, keepAll: true },
+    );
+    expect(text).toBe("会計: 部費は会計 に聞いてください");
+  });
+
+  it("keeps amounts that share digits with a member saved by number", () => {
+    const { text } = redactChat(
+      [{ at: null, speaker: "+44 7700 900123", text: "部費は7700円です" }],
+      { keepAll: true },
+    );
+    expect(text).toBe("[人]: 部費は7700円です");
+  });
+
+  it("reads 下午 as the afternoon", () => {
+    expect(
+      parseWhatsApp("2025/10/16 下午5:03 - 加藤: 部費は10/20まで")[0].at,
+    ).toBe("2025-10-16T17:03");
   });
 });

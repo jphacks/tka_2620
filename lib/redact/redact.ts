@@ -35,7 +35,7 @@ export function redactText(
   text: string,
   options: RedactOptions = {},
 ): Redacted {
-  const run = new Run(options, []);
+  const run = new Run(options, [], mentions([text]));
   return { text: run.redact(text), counts: run.counts };
 }
 
@@ -65,6 +65,7 @@ export function redactChat(
   const run = new Run(
     options,
     messages.map((message) => message.speaker),
+    mentions(messages.map((message) => message.text)),
   );
   // 加藤先輩 in one message hides 加藤 in every other one, also when the first isn't sent.
   for (const message of messages) run.learn(normalize(message.text));
@@ -179,7 +180,11 @@ class Run {
   private readonly names: RegExp | undefined;
   private readonly owners = new Map<string, string>(); // a name's variant, lower case → what it becomes
 
-  constructor({ roles = {}, hide = [] }: RedactOptions, speakers: string[]) {
+  constructor(
+    { roles = {}, hide = [] }: RedactOptions,
+    speakers: string[],
+    mentioned: string[],
+  ) {
     for (const name of new Set([...Object.keys(roles), ...speakers])) {
       if (!name.trim()) continue;
       const role = normalize(roles[name] ?? "").trim() || PLACEHOLDER.person;
@@ -187,6 +192,7 @@ class Run {
       this.own(name, role);
     }
     for (const word of hide) if (word.trim()) this.own(word, PLACEHOLDER.name);
+    for (const name of mentioned) this.mention(name);
     this.names = alternation(
       [...this.owners.keys()].map((variant) => [
         variant,
@@ -229,6 +235,14 @@ class Run {
       TOKEN,
       (_, code: string) => this.values[decode(code)] ?? "",
     );
+  }
+
+  // A mention's name becomes [人] wherever it's written, unless it's a speaker's or a word to hide.
+  private mention(name: string): void {
+    for (const variant of variants(name)) {
+      const key = variant.toLowerCase();
+      if (!this.owners.has(key)) this.owners.set(key, PLACEHOLDER.person);
+    }
   }
 
   // Two people share 佐藤: the variant can't say which one, so it becomes [人].
@@ -532,6 +546,16 @@ const HANDLE =
 
 // Names --------------------------------------------------------------------------------------------------------------
 
+// WhatsApp marks a mention's name with direction isolates (@\u2068小林 陽菜\u2069): someone's whole name, also when
+// they never wrote, so it goes from every message. normalize() drops the isolates, so they're read before it.
+const MENTION = /@\u2068([^\u2069\n]{1,64})\u2069/g;
+
+function mentions(texts: string[]): string[] {
+  return texts.flatMap((text) =>
+    [...text.matchAll(MENTION)].map((match) => match[1]),
+  );
+}
+
 // After a known name, any honorific goes with it; on its own, only the ones that mark a person.
 const HONORIFIC = "(?:さん|さま|様|くん|君|ちゃん|氏|殿|先輩|先生)";
 // 様 only after two characters or more: 同様, 仕様 and 模様 are words. Hiragana only before ちゃん, くん, 先輩 and 先生:
@@ -601,15 +625,17 @@ function candidates(word: string): [string, boolean][] {
 }
 
 // 山田太郎 → 山田太郎, 山田, 太郎; Taro Yamada → Taro, Yamada, TaroYamada; 佐藤花子(会計) → 佐藤花子 too. Emoji and
-// symbols in a display name don't count.
+// symbols in a display name don't count, nor WhatsApp's ~ before someone not in the contacts, and a part without a
+// letter (+44, 7700, 2025) is no name alone: 部費は7700円 stays.
 function variants(name: string): string[] {
-  const full = normalize(name)
+  const shown = normalize(name)
     .replace(/[\p{Extended_Pictographic}\p{So}]/gu, "")
     .trim();
+  const full = shown.replace(/^~\s*/, "");
   const bare = full.replace(/\([^)]*\)|\[[^\]]*\]|【[^】]*】/g, " ").trim();
-  const parts = bare.split(/[\s・_.]+/).filter((part) => part.length > 0);
+  const parts = bare.split(/[\s・_.]+/).filter((part) => /\p{L}/u.test(part));
   const joined = parts.join("");
-  const found = new Set([full, bare, joined, ...parts]);
+  const found = new Set([shown, full, bare, joined, ...parts]);
   // Without a space, the starts and ends of a three- to five-kanji name stand for the family and given names.
   if (/^[\p{sc=Han}々]{3,5}$/u.test(joined)) {
     for (let i = 1; i < joined.length; i++) {

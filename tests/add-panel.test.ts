@@ -236,6 +236,23 @@ describe("readSource: WhatsApp exports are chats too (F5.2, #32)", () => {
     }
   });
 
+  // As many LINE rows as WhatsApp lines is read as LINE; parseLine then drops the WhatsApp lines, names and all.
+  it("sends no WhatsApp name as text when a schedule copied from a spreadsheet makes it read as LINE", () => {
+    const raw = [
+      "16/10/2025, 17:03 - 加藤 健: 合宿の予定です",
+      "2025/10/20(月)",
+      "9:00\t正門\t集合",
+      "9:30\t体育館\t練習開始",
+      "16/10/2025, 17:05 - 小林 陽菜: ありがとうございます",
+    ].join("\n");
+    for (const tab of ["text", "chat"] as const) {
+      const source = readSource(raw, tab);
+      if (source?.kind !== "chat") throw new Error(`expected a chat on ${tab}`);
+      const texts = source.messages.map(({ text }) => text).join("\n");
+      expect(texts.includes("加藤") || texts.includes("小林")).toBe(false);
+    }
+  });
+
   it("refuses WhatsApp lines it doesn't read as WhatsApp, or that leave no message, rather than send them as text", () => {
     const tie =
       "21:03\t加藤 健\t部費の集金は10/20まで\n16/10/2025, 17:05 - 高橋 美咲: 了解です";

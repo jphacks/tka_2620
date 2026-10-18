@@ -22,7 +22,9 @@ export function FileDrop({
   const input = useRef<HTMLInputElement>(null);
   return (
     <div className={over ? "dd-drop is-over" : "dd-drop"}>
-      <p style={{ margin: 0 }}>{hint}</p>
+      <p className="dd-phrase" style={{ margin: 0 }}>
+        {hint}
+      </p>
       <button
         type="button"
         className="dd-btn"

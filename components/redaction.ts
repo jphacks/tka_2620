@@ -8,6 +8,7 @@ import {
   type ChatPlatform,
   isChatHeader,
   isWhatsAppLine,
+  lineRows,
   parseLine,
   parsePaste,
   parseWhatsApp,
@@ -43,9 +44,9 @@ export type Read =
 
 // Where text goes, wherever it arrives (pasted, dropped on any tab, picked as any file type):
 // - A LINE or WhatsApp export is a chat, so its speaker column gets roles: redactText alone doesn't know that a
-//   speaker is a name. With lines of both, the one with more message lines wins, and a tie or a [LINE] header is LINE:
-//   a WhatsApp message can hold a date line and 9:00 正門 集合です, and read as LINE, the rest of the chat would go out
-//   as that message's text, names and all.
+//   speaker is a name. With lines of both, the one with more message lines wins, and a tie or a [LINE] header is LINE
+//   (a WhatsApp message can hold a date line and 9:00 正門 集合です). Each parser drops the other's lines, with the
+//   lines under them, so a wrong guess loses messages but never sends a speaker's name as text.
 // - WhatsApp lines that aren't read as WhatsApp, or leave no message, are refused: parsePaste would take each as text
 //   with no speaker. So is a LINE row copied without its date line (21:03⇥名前⇥本文): parseLine needs the date line.
 // - On トーク履歴, pasted messages need someone speaking.
@@ -61,7 +62,7 @@ export function readSource(
   if (!raw.trim()) return undefined;
   const lines = raw.split(/\r\n|\r|\n/).filter((row) => row.trim());
   const whatsapp = whatsAppLines(lines, tab);
-  if (whatsapp > lines.filter((row) => LINE_ROW.test(row)).length) {
+  if (whatsapp > lineRows(raw)) {
     const messages = parseWhatsApp(raw);
     return messages.length > 0
       ? { kind: "chat", platform: "whatsapp", messages }
