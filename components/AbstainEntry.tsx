@@ -7,9 +7,12 @@ import type { AbstainedResult, SeatView } from "@/lib/contracts";
 export function AbstainEntry({
   result,
   seat,
+  isHolder,
 }: {
   result: AbstainedResult;
   seat: SeatView["seat"];
+  /** Whether the asker holds this seat: a question reaches predecessors only from a holder. */
+  isHolder?: boolean;
 }) {
   const t = useTranslations();
   return (
@@ -29,10 +32,17 @@ export function AbstainEntry({
       <p style={{ margin: 0, color: "var(--ink-2)" }}>
         {t(`seatTypes.${seat.seatType}.abstain`, { seat: seat.name })}
       </p>
-      {result.routedTo > 0 && (
+      {result.routedTo > 0 ? (
         <output style={{ display: "block", color: "var(--blue)" }}>
           {t(`seatTypes.${seat.seatType}.routed`, { seat: seat.name })}
         </output>
+      ) : (
+        // Reached nobody: say why, so nobody waits for an answer that can't come.
+        <p className="dd-cap" style={{ margin: 0 }}>
+          {t(
+            isHolder === false ? "abstain.notHolder" : "abstain.noOneReachable",
+          )}
+        </p>
       )}
     </div>
   );

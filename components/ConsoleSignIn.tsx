@@ -257,6 +257,7 @@ function PanesSignIn({
 }) {
   const t = useTranslations();
   const lead = useId();
+  const failureId = useId();
   const field = useRef<HTMLInputElement>(null);
   const message = useRef<HTMLParagraphElement>(null);
 
@@ -307,7 +308,8 @@ function PanesSignIn({
         className="dd-line"
         placeholder={t("signIn.password")}
         aria-label={t("signIn.password")}
-        aria-describedby={lead}
+        aria-describedby={failure ? `${lead} ${failureId}` : lead}
+        aria-invalid={failure === "wrongPassword" || undefined}
         autoComplete="current-password"
         enterKeyHint="go"
       />
@@ -321,6 +323,7 @@ function PanesSignIn({
       {failure && (
         <p
           ref={message}
+          id={failureId}
           role="alert"
           className="dd-phrase"
           style={{ margin: 0, color: "var(--ink-2)" }}
