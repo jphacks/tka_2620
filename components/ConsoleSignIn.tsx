@@ -39,7 +39,7 @@ export function consoleKey(): string | undefined {
   }
 }
 
-export function ConsoleSignIn({ leaks }: { leaks?: Metrics["leaks"] }) {
+export function ConsoleSignIn({ metrics }: { metrics?: Metrics }) {
   const t = useTranslations("console");
   const [apis, setApis] = useState<ConsoleApis>();
   const [failure, setFailure] = useState<"off" | "failed">();
@@ -95,7 +95,7 @@ export function ConsoleSignIn({ leaks }: { leaks?: Metrics["leaks"] }) {
   return (
     <TrustConsole
       apis={apis}
-      leaks={leaks}
+      metrics={metrics}
       onReset={USE_MOCKS ? resetMocks : undefined}
     />
   );

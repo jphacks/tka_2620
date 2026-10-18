@@ -14,6 +14,7 @@ import { AnswerEntry } from "@/components/AnswerEntry";
 import { AskPanel } from "@/components/AskPanel";
 import { InboxPanel } from "@/components/InboxPanel";
 import { LeakCounter } from "@/components/LeakCounter";
+import { MeasuredNumbers } from "@/components/MeasuredNumbers";
 import { MyNotes, type NoteSeats, seatsOf } from "@/components/MyNotes";
 import {
   COLLAPSE_MS,
@@ -46,16 +47,16 @@ type Pending = { id: string; api: boolean; answers: boolean };
 // One client per pane: a26 the newcomer, a25 last year's treasurer, x the outsider.
 export type ConsoleApis = { newcomer: Api; senpai: Api; outsider: Api };
 
-// leaks: the leak test's numbers from metrics/latest.json (app/console/page.tsx); undefined until it has run.
+// metrics: what the checks measured, from metrics/latest.json (app/console/page.tsx); undefined until they have run.
 // onReset: back to the seed state (resetMocks on mocks). Without it there is no リセット button: on the real
 // database that is `pnpm demo:reset` in a terminal, so the service-role key stays out of the app, then a reload.
 export function TrustConsole({
   apis,
-  leaks,
+  metrics,
   onReset,
 }: {
   apis: ConsoleApis;
-  leaks?: Metrics["leaks"];
+  metrics?: Metrics;
   onReset?: () => void;
 }) {
   const t = useTranslations();
@@ -215,8 +216,9 @@ export function TrustConsole({
 
   return (
     // Centred on the projector, with the header as wide as the three panes.
+    // On a laptop narrower than the three panes, the panes row scrolls sideways (.dd-console, .dd-panes).
     <div
-      className="dd-pad dd-col"
+      className="dd-pad dd-col dd-console"
       style={{ gap: "var(--s-5)", width: "fit-content", marginInline: "auto" }}
     >
       <header
@@ -228,7 +230,7 @@ export function TrustConsole({
         </h1>
         <div className="dd-row" style={{ gap: "var(--s-5)" }}>
           <WithdrawMeter ms={shownMs} running={meter.running} />
-          <LeakCounter leaks={leaks} />
+          <LeakCounter leaks={metrics?.leaks} />
           {onReset && (
             <button type="button" className="dd-btn" onClick={reset}>
               {t("console.reset")}
@@ -241,9 +243,11 @@ export function TrustConsole({
           {t("console.loadFailed")}
         </p>
       )}
+      {/* Everything pnpm metrics measured, collapsed; the reset hint where リセット is a terminal command. */}
+      <MeasuredNumbers metrics={metrics} resetHint={!onReset} />
 
       <div
-        className="dd-row"
+        className="dd-row dd-panes"
         style={{ gap: "var(--s-5)", alignItems: "flex-start" }}
       >
         <PersonaPane label={t("console.newcomer")}>

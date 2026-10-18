@@ -1,7 +1,6 @@
 import { MyNotesPanel } from "@/components/MyNotesPanel";
 import { VerbTabs } from "@/components/VerbTabs";
 import { SeatSlug } from "@/lib/contracts";
-import { USE_MOCKS } from "@/lib/mocks";
 
 export default async function MyNotesPage({
   searchParams,
@@ -14,8 +13,8 @@ export default async function MyNotesPage({
         className={`dd-pad${seat ? " dd-with-verbs" : ""}`}
         style={{ maxWidth: "640px", marginInline: "auto" }}
       >
-        {/* 自分のメモ runs on mocks until the real API client exists. */}
-        {USE_MOCKS && <MyNotesPanel />}
+        {/* On mocks as a25; on real data as this tab's or this device's user (components/useSeatApi.ts). */}
+        <MyNotesPanel seat={seat} />
       </main>
       {seat && <VerbTabs seat={seat} current="myNotes" />}
     </>

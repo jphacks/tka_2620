@@ -1369,14 +1369,17 @@ export function createMockApi(
       return reply({ withdrawnAt });
     },
 
+    // Newest first, as GET /api/me/notes lists them (created_at descending, lib/engine/notes.ts).
     async myNotes() {
       return reply({
-        notes: notesOf(persona).map(
-          ({ author: _author, ...note }): MyNote => ({
-            ...note,
-            status: state.withdrawn.has(note.id) ? "withdrawn" : "live",
-          }),
-        ),
+        notes: notesOf(persona)
+          .toReversed()
+          .map(
+            ({ author: _author, ...note }): MyNote => ({
+              ...note,
+              status: state.withdrawn.has(note.id) ? "withdrawn" : "live",
+            }),
+          ),
       });
     },
 
