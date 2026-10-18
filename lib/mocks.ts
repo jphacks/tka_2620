@@ -14,6 +14,7 @@ import {
   type CardDraft,
   type Citation,
   type DedupeOutput,
+  type DemoAccount,
   type DraftOutput,
   DraftRequest,
   type DraftResponse,
@@ -54,8 +55,8 @@ import { shownReason } from "@/lib/engine/shown";
 
 export const USE_MOCKS = process.env.NEXT_PUBLIC_USE_MOCKS === "1";
 
-// The demo accounts (docs/SPEC.md → Personas).
-export type Persona = "a24" | "a25" | "a26" | "b" | "x";
+// The demo accounts (docs/SPEC.md → Personas), as lib/contracts.ts lists them.
+export type Persona = DemoAccount;
 
 // Fixed v4 uuids, so a question, its prompt and its answer line up across panes and tests
 // (crypto.randomUUID needs https, and phones may load the dev server over plain http).
@@ -354,11 +355,12 @@ export const mockDraftRequest: DraftRequest = {
 
 export const mockDraft: DraftResponse = { cards: [mockLiveCard] };
 
-// An answer without a date gets one follow-up (F6).
+// An answer without a date gets one follow-up (F6). Until a reply gives the date, the deadline is a rule of thumb, so
+// the card can be published as it is when the predecessor skips the question.
 export const mockDraftWithFollowup: DraftResponse = {
   cards: [
     {
-      kind: "deadline",
+      kind: "rule_of_thumb",
       title: "保健所申請の締切",
       body: "学祭の前までに学生課に出す。",
       suggested_scope: "successor",
@@ -368,6 +370,29 @@ export const mockDraftWithFollowup: DraftResponse = {
     },
   ],
   followup: { missing: "date", question: "締切は何月何日でしたか？" },
+};
+
+// The reply round: the same answer with the follow-up and the reply, which gives the date. It never asks again.
+export const mockDraftFollowupRequest: DraftRequest = {
+  seat: SEAT,
+  promptId: mockIds.corePrompt,
+  answer: "学祭の前までに学生課に出す。",
+  followup: { question: "締切は何月何日でしたか？", answer: "10月20日です。" },
+};
+
+export const mockDraftAfterFollowup: DraftResponse = {
+  cards: [
+    {
+      kind: "deadline",
+      title: "保健所申請の締切",
+      body: "10月20日までに学生課に出す。",
+      deadline_date: "2026-10-20",
+      suggested_scope: "successor",
+      critical: false,
+      lang: "ja",
+      flags: noFlags,
+    },
+  ],
 };
 
 export const mockPublishRequest: PublishRequest = {
@@ -430,7 +455,7 @@ export const mockGapRequest: GapRequest = { seat: SEAT, text: gapPrompt.text };
 export const mockGap: GapResponse = { promptId: gapPrompt.id };
 
 // GET /api/handover/readers: people besides the author (a25) in the seed world. successor: a26; group: a24 and
-// a26; institution: every member at みなと大学; public: every account.
+// a26; institution: every member at みなと大学; public: every member or holder anywhere (scope_readers, 0011).
 export const mockReaders: Record<Scope, number> = {
   successor: 1,
   group: 2,
@@ -804,6 +829,7 @@ type State = {
   sources: Map<string, SourceNote>; // published notes as GET /api/notes/[id] returns them, by id
   withdrawn: Map<string, string>; // note id → withdrawnAt
   gaps: Map<string, string>; // gap prompts added with 「先輩に聞く」: text → prompt id
+  answered: Map<string, string>; // note id → the gap or core prompt it answered (notes.prompt_id, 0011)
 };
 
 function freshState(): State {
@@ -816,6 +842,7 @@ function freshState(): State {
     sources: new Map(),
     withdrawn: new Map(),
     gaps: new Map([[gapPrompt.text, gapPrompt.id]]),
+    answered: new Map(),
   };
 }
 
@@ -879,7 +906,7 @@ function push<C extends keyof RealtimeRows>(
 }
 
 // Like the engine after a withdrawal: a sentence that cited a withdrawn note goes, and with it the rule change;
-// with nothing left, the question abstains.
+// with nothing left, the question abstains, routed nowhere and naming no prompt (the answers trigger, 0006).
 function withoutWithdrawn(result: AnsweredResult): AskResult {
   const sentences = result.sentences.filter((sentence) =>
     sentence.citations.every(
@@ -888,12 +915,7 @@ function withoutWithdrawn(result: AnsweredResult): AskResult {
   );
   if (sentences.length === result.sentences.length) return result;
   if (sentences.length === 0) {
-    return {
-      status: "abstained",
-      questionId: result.questionId,
-      promptId: newId(),
-      routedTo: 0,
-    };
+    return { status: "abstained", questionId: result.questionId, routedTo: 0 };
   }
   return {
     status: "answered",
@@ -966,19 +988,11 @@ export function createMockApi(
       return withoutWithdrawn(known);
     }
     // Nobody knew. A holder's question becomes a demand prompt and reaches the seat's reachable holders other than
-    // the asker: a25, unless a25 asked, when the prompt reaches nobody. A question from someone who holds no seat at
-    // that seat creates no prompt and reaches nobody, so its result names none. The database's route_question() and
-    // /api/ask answer the same way.
-    if (seat !== SEAT || !holders[persona]) {
+    // the asker: a25. A question that would reach nobody, because a25 asked it or because its asker holds no seat at
+    // that seat, creates no prompt, so its result names none. The database's ask_question() and /api/ask answer the
+    // same way.
+    if (seat !== SEAT || !holders[persona] || persona === "a25") {
       return { status: "abstained", questionId, routedTo: 0 };
-    }
-    if (persona === "a25") {
-      return {
-        status: "abstained",
-        questionId,
-        promptId: newId(),
-        routedTo: 0,
-      };
     }
     let waiting = [...state.waiting.values()].find(
       (prompt) => keyOf(prompt.question) === key,
@@ -1063,9 +1077,12 @@ export function createMockApi(
     },
 
     async draft(request) {
-      const { answer } = DraftRequest.parse(request);
+      const { answer, followup } = DraftRequest.parse(request);
       if (answer.includes("予備")) return reply(mockDraft);
-      if (answer.includes("学祭の前")) return reply(mockDraftWithFollowup);
+      // One follow-up per answer: the reply round gets the dated card and no second question.
+      if (answer.includes("学祭の前")) {
+        return reply(followup ? mockDraftAfterFollowup : mockDraftWithFollowup);
+      }
       const card: CardDraft = {
         kind: "rule_of_thumb",
         title: answer.split(/[。.!?！？\n]/)[0].slice(0, 20),
@@ -1120,6 +1137,10 @@ export function createMockApi(
         });
       });
       const waiting = promptId ? state.waiting.get(promptId) : undefined;
+      // Like publish.ts: the cards name a handover prompt they answer, never a newcomer's question.
+      if (promptId && !waiting) {
+        for (const id of noteIds) state.answered.set(id, promptId);
+      }
       const reanswered: string[] = [];
       if (waiting) {
         state.waiting.delete(waiting.promptId);
@@ -1174,7 +1195,22 @@ export function createMockApi(
           askCount: 0,
         }),
       );
-      return reply({ prompts: [...demand, ...gaps, corePrompt].slice(0, 3) });
+      // Like GET /api/handover/prompts: a gap or core prompt the caller answered in a note they haven't withdrawn isn't
+      // asked again (a later holder still is).
+      const answered = new Set(
+        [...state.answered]
+          .filter(
+            ([noteId]) =>
+              !state.withdrawn.has(noteId) &&
+              state.sources.get(noteId)?.author === persona,
+          )
+          .map(([, promptId]) => promptId),
+      );
+      return reply({
+        prompts: [...demand, ...gaps, corePrompt]
+          .filter((prompt) => !answered.has(prompt.id))
+          .slice(0, 3),
+      });
     },
 
     // Like add_gap_prompt (0009) behind the route: a holder of the seat only, text the guard lets through, and the same

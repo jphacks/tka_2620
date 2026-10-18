@@ -47,6 +47,8 @@ import {
   mockAnswerGasshuku,
   mockAnswersRow,
   mockDraft,
+  mockDraftAfterFollowup,
+  mockDraftFollowupRequest,
   mockDraftRequest,
   mockDraftWithFollowup,
   mockEventsRow,
@@ -113,6 +115,8 @@ const fixtures: [string, z.ZodType, unknown][] = [
   ["DraftRequest", DraftRequest, mockDraftRequest],
   ["DraftResponse", DraftResponse, mockDraft],
   ["DraftResponse with a follow-up", DraftResponse, mockDraftWithFollowup],
+  ["DraftRequest in the reply round", DraftRequest, mockDraftFollowupRequest],
+  ["DraftResponse after a follow-up", DraftResponse, mockDraftAfterFollowup],
   ["PublishRequest", PublishRequest, mockPublishRequest],
   ["PublishResponse", PublishResponse, mockPublish],
   ["LiveAnswer", LiveAnswer, mockLiveAnswer],
@@ -369,6 +373,24 @@ describe("createMockApi", () => {
     stopAnswers();
   });
 
+  it("doesn't ask a holder again what they answered through the handover, until they withdraw it", async () => {
+    const senpai = createMockApi("a25", { latencyMs: 0 });
+    const newcomer = createMockApi("a26", { latencyMs: 0 });
+    const core = mockPrompts.prompts.find((prompt) => prompt.reason === "core");
+    if (!core) throw new Error("mockPrompts has no core prompt");
+    const asked = async (api: ReturnType<typeof createMockApi>) =>
+      (await api.prompts({ seat })).prompts.map((prompt) => prompt.id);
+
+    const { noteIds } = await senpai.publish({
+      ...mockPublishRequest,
+      promptId: core.id,
+    });
+    expect(await asked(senpai)).not.toContain(core.id);
+    expect(await asked(newcomer)).toContain(core.id); // a later holder still is
+    await senpai.withdraw(noteIds[0]);
+    expect(await asked(senpai)).toContain(core.id);
+  });
+
   it("drops a withdrawn note from every answer and pushes the change", async () => {
     const newcomer = createMockApi("a26", { latencyMs: 0 });
     const senpai = createMockApi("a25", { latencyMs: 0 });
@@ -413,13 +435,34 @@ describe("createMockApi", () => {
     expect((await outsider.myNotes()).notes).toEqual([]);
   });
 
-  it("names the prompt of a holder's question that reaches nobody, as route_question does", async () => {
+  it("creates no prompt for a holder's question that reaches nobody, as ask_question does", async () => {
     // a25 is the seat's only reachable holder, and an asker never reaches themselves.
     const senpai = createMockApi("a25", { latencyMs: 0 });
     const asked = await senpai.ask({ seat, question: mockQuestions.q04 });
     expect(asked).toMatchObject({ status: "abstained", routedTo: 0 });
-    expect(asked.status === "abstained" && asked.promptId).toBeTruthy();
+    expect(asked).not.toHaveProperty("promptId");
     expect((await senpai.inbox({ seat })).items).toEqual([]);
+    // Nothing waits for a25's question, so the newcomer's same question still starts the prompt a25 answers.
+    const newcomer = createMockApi("a26", { latencyMs: 0 });
+    expect(
+      await newcomer.ask({ seat, question: mockQuestions.q04 }),
+    ).toMatchObject({ promptId: mockIds.keyPrompt, routedTo: 1 });
+  });
+
+  it("abstains naming no prompt once every note an answer cited is withdrawn, as the answers trigger does", async () => {
+    const newcomer = createMockApi("a26", { latencyMs: 0 });
+    const answers: unknown[] = [];
+    const stop = newcomer.subscribe("answers", (row) => answers.push(row));
+    await newcomer.ask({ seat, question: mockQuestions.q01 });
+    await createMockApi("a25", { latencyMs: 0 }).withdraw("smash-2025-hokenjo");
+    await createMockApi("a24", { latencyMs: 0 }).withdraw("smash-2024-hokenjo");
+    await vi.waitFor(() => expect(answers).toHaveLength(2));
+    expect(AnswersRow.parse(answers[1]).payload).toEqual({
+      status: "abstained",
+      questionId: mockIds.q01,
+      routedTo: 0,
+    });
+    stop();
   });
 
   it("records when a25 first opens a slip, and lets nobody else", async () => {
@@ -435,6 +478,16 @@ describe("createMockApi", () => {
     await expect(
       newcomer.seen({ promptId: asked.promptId }),
     ).rejects.toMatchObject({ error: "not_found" });
+  });
+
+  it("asks one follow-up for an answer without a date, and none in the reply round", async () => {
+    const senpai = createMockApi("a25", { latencyMs: 0 });
+    expect(
+      await senpai.draft({ ...mockDraftFollowupRequest, followup: undefined }),
+    ).toEqual(mockDraftWithFollowup);
+    expect(await senpai.draft(mockDraftFollowupRequest)).toEqual(
+      mockDraftAfterFollowup,
+    );
   });
 
   it("opens a cited note only within the persona's scope, and not once it's withdrawn", async () => {

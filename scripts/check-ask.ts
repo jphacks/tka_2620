@@ -1,8 +1,10 @@
-// #7, #20, #21 and #23 acceptance checks (docs/SPEC.md → F3, F2) through POST /api/ask: q04, asked by the 2026
+// #7, #20, #21, #23 and #69 acceptance checks (docs/SPEC.md → F3, F2) through POST /api/ask: q04, asked by the 2026
 // treasurer, creates one route, for the 2025 treasurer and nobody else; asked again in other words, it joins that prompt
-// (ask_count 2, two linked questions); q01 is answered from the notes, every sentence citing the 2024 or 2025 note, with
-// the 2025 rule change flagged. Runs against the seeded database and a running dev server, with Ollama for the search
-// and the Claude key for q01's answer and the dedupe:
+// (ask_count 2, two linked questions); asked by the 2025 treasurer, whom nobody else could answer, it creates no
+// prompt; q01 is answered from the notes, every sentence citing the 2024 or 2025 note, with the 2025 rule change
+// flagged. And saving and routing are one call (ask_question(), 0012): one the database refuses saves nothing, and
+// asking again saves the question once. Runs against the seeded database and a running dev server, with Ollama for the
+// search and the Claude key for q01's answer and the dedupe:
 //   pnpm dev          (in another terminal)
 //   pnpm test:ask
 // The asks go over HTTP with a26's own token, as a phone would, so the route handler and RLS are exercised for
@@ -11,6 +13,7 @@
 // Don't run it during a rehearsal: it puts a slip in a25's inbox, and its cleanup removes a26's q01 and q04 questions
 // from the last minutes.
 // Counts, ids and personas only: never the question or answer text, never an email.
+import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { isDeepStrictEqual } from "node:util";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
@@ -46,6 +49,9 @@ const Q01_RULE_CHANGE = { termLabel: "2025", summary: "10/27 → 10/20" };
 // q04 in other words (F2.5): it asks the same thing, so it joins q04's prompt instead of starting one.
 const Q04_REWORDED =
   "決算が終わってから出てきたレシートは、どう処理すればいいですか？";
+// #69: a question a26 sends to ask_question() directly, first with a prompt text the database refuses, then again.
+const PROBE_QUESTION = "引き継ぎ確認用の質問です（#69）";
+const PROBE_PROMPT = "引き継ぎ確認用のプロンプトです（#69）";
 
 function email(persona: string): string {
   const key = EMAIL[persona];
@@ -142,6 +148,23 @@ async function openDemandPrompts(
   return count ?? 0;
 }
 
+// How many questions with this text the asker has saved at the seat.
+async function savedQuestions(
+  service: SupabaseClient,
+  askerId: string,
+  seatId: string,
+  text: string,
+): Promise<number> {
+  const { count, error } = await service
+    .from("questions")
+    .select("id", { count: "exact", head: true })
+    .eq("asker_user_id", askerId)
+    .eq("seat_id", seatId)
+    .eq("text", text);
+  if (error) throw new Error(`count questions: ${error.code}`);
+  return count ?? 0;
+}
+
 type Created = { questionIds: string[] };
 type Run = {
   askerIds: string[];
@@ -150,8 +173,8 @@ type Run = {
   since: string;
 };
 
-// Removes what this run created: every question it asked (q01, q04) that its askers saved at the seat since it
-// started, also one from a request that failed after the insert (routed or not), and the demand prompts those
+// Removes what this run created: every question it asked (q01, q04, the #69 probe) that its askers saved at the seat
+// since it started, also one from a request that failed after saving it (routed or not), and the demand prompts those
 // questions started (their routes go with them; an answer goes with its question). A prompt a question only joined is
 // left alone. Answers what went wrong, or undefined.
 async function cleanUp(
@@ -493,33 +516,139 @@ async function main(): Promise<void> {
       openAfter === openBefore,
       `${openAfter - openBefore} new`,
     );
-    // Its question waits unrouted, so open_demand_prompts() (0008) takes it, and gives nothing to someone without a seat.
-    if (strangerResult.status === "abstained") {
-      const offered = await stranger.db.rpc("open_demand_prompts", {
-        question: strangerResult.questionId,
-      });
+    // The seat's open prompts, read before a question is saved (open_demand_prompts_at(), 0012): a holder is offered
+    // q04's, id and text only; someone who holds no seat there, none.
+    const offered = await stranger.db.rpc("open_demand_prompts_at", {
+      seat: seatId,
+    });
+    check(
+      `${STRANGER} is offered no open prompts`,
+      !offered.error &&
+        Array.isArray(offered.data) &&
+        offered.data.length === 0,
+      offered.error
+        ? `refused ${offered.error.code}`
+        : `${Array.isArray(offered.data) ? offered.data.length : "?"} row(s)`,
+    );
+    const forHolder = await asker.db.rpc("open_demand_prompts_at", {
+      seat: seatId,
+    });
+    const holderRows = Array.isArray(forHolder.data)
+      ? (forHolder.data as Record<string, unknown>[])
+      : [];
+    check(
+      `${question.persona} is offered q04's open prompt, id and text only`,
+      !forHolder.error &&
+        holderRows.some((row) => row.id === promptId) &&
+        holderRows.every((row) => Object.keys(row).sort().join() === "id,text"),
+      forHolder.error
+        ? `refused ${forHolder.error.code}`
+        : `${holderRows.length} row(s)`,
+    );
+
+    // 7. The seat's only reachable holder asks q04 (#69): nobody else could receive it, so it is saved and routed
+    // nowhere, starting no prompt and joining none.
+    const askCountOf = async (id: string) =>
+      (await service.from("prompts").select("ask_count").eq("id", id).single())
+        .data?.ask_count;
+    const openBeforeSelf = await openDemandPrompts(service, seatId);
+    const askedBefore = await askCountOf(promptId);
+    const selfResponse = await ask(reachable.token, question);
+    check(
+      `asked by ${REACHABLE}, POST /api/ask answers 200`,
+      selfResponse.ok,
+      selfResponse.ok ? "" : `HTTP ${selfResponse.status}`,
+    );
+    if (selfResponse.ok) {
+      const self = AskResult.parse(await selfResponse.json());
+      if (self.status === "abstained")
+        created.questionIds.push(self.questionId);
       check(
-        `${STRANGER} is offered no open prompts`,
-        !offered.error &&
-          Array.isArray(offered.data) &&
-          offered.data.length === 0,
-        offered.error
-          ? `refused ${offered.error.code}`
-          : `${Array.isArray(offered.data) ? offered.data.length : "?"} row(s)`,
+        `${REACHABLE}'s question routes nowhere and names no prompt`,
+        self.status === "abstained" &&
+          self.routedTo === 0 &&
+          self.promptId === undefined,
+        self.status === "abstained"
+          ? `routedTo ${self.routedTo}, promptId ${self.promptId ? "set" : "none"}`
+          : self.status,
+      );
+      const openAfterSelf = await openDemandPrompts(service, seatId);
+      const askedAfter = await askCountOf(promptId);
+      check(
+        "no demand prompt was created for it, and q04's wasn't joined",
+        openAfterSelf === openBeforeSelf && askedAfter === askedBefore,
+        `${openAfterSelf - openBeforeSelf} new, ask_count ${askedBefore} → ${askedAfter}`,
       );
     }
-  } finally {
-    // 7. Leave the demo database as it was.
-    const problem = await cleanUp(service, created, {
-      askerIds: [...new Set([asker.userId, q01Asker.userId, stranger.userId])],
+
+    // 8. Saving and routing are one call (#69). a26 calls ask_question() itself: with a prompt text past the limit it
+    // is refused and saves nothing, so asking again saves the question once. The prompt to join doesn't exist, so the
+    // database starts one from the text instead, in the same call.
+    const probe = {
+      seat: seatId,
+      question: PROBE_QUESTION,
+      lang: "ja",
+      join_prompt: randomUUID(),
+    };
+    const refused = await asker.db.rpc("ask_question", {
+      ...probe,
+      prompt_text: "あ".repeat(501),
+    });
+    const afterRefusal = await savedQuestions(
+      service,
+      asker.userId,
       seatId,
-      texts: [question.question, Q04_REWORDED, q01.question],
+      PROBE_QUESTION,
+    );
+    check(
+      "a call the database refuses (22023) saves no question",
+      refused.error?.code === "22023" && afterRefusal === 0,
+      `${refused.error ? `refused ${refused.error.code}` : "accepted"}, ${afterRefusal} saved`,
+    );
+    const again = await asker.db.rpc("ask_question", {
+      ...probe,
+      prompt_text: PROBE_PROMPT,
+    });
+    const row = (Array.isArray(again.data) ? again.data[0] : again.data) as
+      | { question_id?: string; prompt_id?: string | null; routed_to?: number }
+      | undefined;
+    if (row?.question_id) created.questionIds.push(row.question_id);
+    const afterRetry = await savedQuestions(
+      service,
+      asker.userId,
+      seatId,
+      PROBE_QUESTION,
+    );
+    check(
+      "asked again, it is saved once and starts a prompt of its own for the one that doesn't exist",
+      !again.error &&
+        afterRetry === 1 &&
+        Boolean(row?.prompt_id) &&
+        row?.prompt_id !== probe.join_prompt &&
+        row?.routed_to === 1,
+      again.error
+        ? `refused ${again.error.code}`
+        : `${afterRetry} saved, prompt ${row?.prompt_id ? "started" : "none"}, routedTo ${row?.routed_to}`,
+    );
+  } finally {
+    // 9. Leave the demo database as it was.
+    const problem = await cleanUp(service, created, {
+      askerIds: [
+        ...new Set([
+          asker.userId,
+          q01Asker.userId,
+          stranger.userId,
+          reachable.userId,
+        ]),
+      ],
+      seatId,
+      texts: [question.question, Q04_REWORDED, q01.question, PROBE_QUESTION],
       since,
     });
     console.log(
       problem
-        ? `\n✗ /api/ask check (#7, #20, #21, #23): ${checks} checks, ${failed ? "failed" : "all passed"}, but the cleanup failed (${problem}): the demo data may not be as it was`
-        : `\n${failed ? "✗" : "✓"} /api/ask check (#7, #20, #21, #23): ${checks} checks, ${failed ? "failed" : "all passed"} (the demo data is back as it was)`,
+        ? `\n✗ /api/ask check (#7, #20, #21, #23, #69): ${checks} checks, ${failed ? "failed" : "all passed"}, but the cleanup failed (${problem}): the demo data may not be as it was`
+        : `\n${failed ? "✗" : "✓"} /api/ask check (#7, #20, #21, #23, #69): ${checks} checks, ${failed ? "failed" : "all passed"} (the demo data is back as it was)`,
     );
     process.exitCode = failed || problem ? 1 : 0;
   }

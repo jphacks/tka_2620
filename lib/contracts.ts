@@ -63,7 +63,7 @@ export const CardDraft = z.object({
   kind: NoteKind,
   title: z.string(),
   body: z.string(),
-  deadline_date: IsoDate.optional(), // a deadline card lacks it only while a follow-up asks for it
+  deadline_date: IsoDate.optional(), // always on a deadline card: one given without a date is drafted as another kind
   suggested_scope: Scope,
   critical: z.boolean(),
   valid_until: IsoDate.optional(), // seats with noteExpiry
@@ -143,8 +143,9 @@ export type AnsweredResult = z.infer<typeof AnsweredResult>;
 export const AbstainedResult = z.object({
   status: z.literal("abstained"),
   questionId: Uuid,
-  // The demand prompt it created or joined. Absent when the asker holds no seat at the seat they asked: their
-  // question routes nowhere and creates no prompt, so routedTo is 0 and there is no prompt to name.
+  // The demand prompt it created or joined. Absent when the question routes nowhere, because the asker holds no seat
+  // at the seat they asked or nobody but the asker could receive it: no prompt is created, so routedTo is 0 and there
+  // is no prompt to name.
   promptId: Uuid.optional(),
   routedTo: Count, // reachable predecessors whose inbox it reached
 });
@@ -195,6 +196,14 @@ export const DraftRequest = z.object({
   seat: SeatSlug,
   promptId: Uuid,
   answer: z.string().trim().min(1).max(4000), // spoken or typed
+  // The reply round (F6.3): the one follow-up the first draft asked, and the predecessor's reply to it. A draft with it
+  // never asks again, so an answer gets at most one follow-up.
+  followup: z
+    .object({
+      question: z.string().trim().min(1).max(200),
+      answer: z.string().trim().min(1).max(1000),
+    })
+    .optional(),
 });
 export type DraftRequest = z.infer<typeof DraftRequest>;
 
@@ -204,7 +213,7 @@ export type FollowupMissing = z.infer<typeof FollowupMissing>;
 export const Followup = z.object({
   missing: FollowupMissing,
   question: z.string(),
-}); // at most one per answer
+}); // at most one per answer: the reply round (DraftRequest.followup) gets none
 export type Followup = z.infer<typeof Followup>;
 
 export const DraftResponse = z.object({
@@ -230,7 +239,9 @@ export type PublishCard = z.infer<typeof PublishCard>;
 
 export const PublishRequest = z.object({
   seat: SeatSlug,
-  promptId: Uuid.optional(), // a routed demand prompt re-answers every question waiting on it
+  // The prompt the cards answer: a routed demand prompt re-answers every question waiting on it; a gap, required or core
+  // prompt isn't asked of its author again (notes.prompt_id, 0011). Send it for every handover prompt, not only demand.
+  promptId: Uuid.optional(),
   cards: z.array(PublishCard).min(1),
 });
 export type PublishRequest = z.infer<typeof PublishRequest>;
@@ -393,10 +404,26 @@ export const NoteView = z.object({
 });
 export type NoteView = z.infer<typeof NoteView>;
 
-// POST /api/console/session (the console only) --------------------------------------------
-// The console's three panes sign in as these demo personas, one session each (docs/SPEC.md → Console panes).
+// Demo sign-in (docs/SPEC.md → Auth) --------------------------------------------------------
+// The demo accounts that sign in, in the order a switcher lists them, each with the email scripts/seed.ts gives it
+// (tests/sign-in.test.ts checks that the two agree). lib/api.ts signs a device in with one of them and the demo
+// password, which the person types: it goes to Supabase Auth only, never into client code or a NEXT_PUBLIC_* variable.
 
-export const ConsolePersona = z.enum(["a26", "a25", "x"]);
+export const DemoAccount = z.enum(["a26", "a25", "a24", "b", "x"]);
+export type DemoAccount = z.infer<typeof DemoAccount>;
+
+export const DEMO_EMAIL: Record<DemoAccount, string> = {
+  a26: "smash-kaikei-2026@example.com",
+  a25: "smash-kaikei-2025@example.com",
+  a24: "smash-kaikei-2024@example.com",
+  b: "keion-member@example.com",
+  x: "yamate-outsider@example.com",
+};
+
+// POST /api/console/session (the console only) --------------------------------------------
+// The console's three panes sign in as these demo accounts, one session each (docs/SPEC.md → Console panes).
+
+export const ConsolePersona = DemoAccount.extract(["a26", "a25", "x"]);
 export type ConsolePersona = z.infer<typeof ConsolePersona>;
 
 export const ConsoleSessionRequest = z.object({ persona: ConsolePersona });
@@ -484,9 +511,10 @@ export const Metrics = z.object({
     .optional(),
   // seed/questions.csv: answer sentences, and those citing a retrieved note.
   citations: z.object({ sentences: Count, cited: Count }).optional(),
-  // pnpm test:redact: chats imported, items hidden, items that left the browser.
+  // pnpm test:redact: the seed's made-up chats and files added, items the browser hid in them, and canaries seen
+  // outside the browser (in a request, the model's payload, a drafted or stored note, or a log).
   redaction: z
-    .object({ chats: Count, hidden: Count, leftBrowser: Count })
+    .object({ chats: Count, files: Count, hidden: Count, leftBrowser: Count })
     .optional(),
   // pnpm test:loop: runs, failures and the median from 「誰も知りません」 to the signed answer.
   loop: z

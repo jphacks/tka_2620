@@ -207,6 +207,10 @@ export async function publishAsCaller(
         // Only on a 「更新する」 card, so publishing anything else never names the column. The trigger turns it into
         // the old note's superseded_by and stores nothing here (0010).
         ...(card.supersedes && { supersedes: card.supersedes }),
+        // The handover prompt (gap, required or core) the card answers, so its author isn't asked it again (0011,
+        // lib/engine/prompts.ts). Never for a newcomer's question, which deliver_answer() retires instead, so the live
+        // loop's publish never names the column.
+        ...(prompt && prompt.kind !== "demand" && { prompt_id: prompt.id }),
       })),
     )
     .select(
