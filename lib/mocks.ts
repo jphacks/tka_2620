@@ -92,7 +92,7 @@ export const mockQuestions = {
 
 // seed/live-answer.txt: what a25 says in the live loop.
 export const mockLiveAnswerText =
-  "少額ならば予備部分から出して、大きい場合は次年度の人に回してください。そういうことが今後はないように、周知を徹底した方が良いかもしれないです。";
+  "少額ならば予備部分から出して、大きい場合は次年度の人に回してください。";
 
 // Holders of smash-kaikei; bylines come from the club_role label pack (「{term}年度 {seat}」), as in scripts/seed.ts.
 const holders: Partial<Record<Persona, { term: string; byline: string }>> = {
@@ -388,10 +388,6 @@ export const mockLiveAnswer: LiveAnswer = {
   sentences: [
     {
       text: "少額ならば予備部分から出して、大きい場合は次年度の人に回してください。",
-      citations: [cite.live],
-    },
-    {
-      text: "そういうことが今後はないように、周知を徹底した方が良いかもしれないです。",
       citations: [cite.live],
     },
   ],
