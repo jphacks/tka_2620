@@ -63,4 +63,15 @@ describe("the METRICS line a check prints (scripts/metrics-line.ts)", () => {
       Sections.safeParse({ citations: { sentences: 4, cited: 4.5 } }).success,
     ).toBe(false);
   });
+
+  it("takes pnpm test:redact's chats and files apart", () => {
+    const redaction = { chats: 1, files: 3, hidden: 34, leftBrowser: 0 };
+    expect(Sections.parse({ redaction }).redaction).toEqual(redaction);
+    // Without files the README's privacy row can't be filled: the section is left out, never guessed.
+    expect(
+      Sections.safeParse({
+        redaction: { chats: 4, hidden: 34, leftBrowser: 0 },
+      }).success,
+    ).toBe(false);
+  });
 });

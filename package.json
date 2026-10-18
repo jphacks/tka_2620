@@ -18,6 +18,7 @@
     "test:loop": "node --env-file-if-exists=.env.local --import tsx scripts/check-loop.ts",
     "test:leak": "node --env-file-if-exists=.env.local --import tsx scripts/check-leak.ts",
     "test:import": "node --env-file-if-exists=.env.local --import tsx scripts/check-import.ts",
+    "test:redact": "node --env-file-if-exists=.env.local --import tsx scripts/check-redact.ts",
     "test:supersede": "node --env-file-if-exists=.env.local --import tsx scripts/check-supersede.ts",
     "smoke": "node --env-file-if-exists=.env.local scripts/smoke.ts",
     "seed": "node --env-file-if-exists=.env.local --import tsx scripts/seed.ts",

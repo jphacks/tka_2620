@@ -11,7 +11,7 @@ Paste these into the README from the JPHACKS template. `/hackday-log` fills the 
 | 部外者からの漏れ / Leaks to outsiders | 0 / {outsider_attempts} 回 | `pnpm test:leak` ({total_attempts} attempts across 5 personas) |
 | 撤回が回答から消えるまで / Withdrawal to gone | 中央値 {withdraw_median_s} 秒（最大 {withdraw_max_s} 秒、{withdraw_runs} 回） | `pnpm metrics` |
 | 出典つきの文 / Answer sentences with a source note | {citation_coverage}%（{cited_sentences} / {sentences}） | `seed/questions.csv` |
-| トークの匿名化 / Chat privacy | {chats} 件のトークで名前・連絡先・秘密 {hidden} 件を隠し、端末の外に出たものは 0 件 / {hidden} items hidden in {chats} chats, 0 left the browser | `pnpm test:redact` |
+| トークとファイルの匿名化 / Chat and file privacy | {chats} 件のトークと {files} 件のファイルで名前・連絡先・秘密 {hidden} 件を隠し、端末の外に出たものは {left_browser} 件 / {hidden} items hidden in {chats} chats and {files} files, {left_browser} left the browser | `pnpm test:redact` |
 | ライブループ / Live loop | {loop_runs} 回中 {loop_failures} 回失敗、中央値 {loop_median_s} 秒 | `pnpm test:loop` |
 
 ## ユーザーの声 / User evidence
