@@ -196,8 +196,14 @@ describe("publishHold and publishCards", () => {
       expect(PublishCard.safeParse(sent).error?.issues).toBeUndefined();
       expect(sent.provenance).toBe(CHIP);
       expect(sent.source).toBe("import");
-      expect(sent.scope).toBe("successor");
     }
+    // The suggestion, except the update, which takes the club-wide scope of the note it replaces (F5.6).
+    expect(cards.map((sent) => sent.scope)).toEqual([
+      "successor",
+      "group",
+      "successor",
+      "successor",
+    ]);
     expect(cards[0].title).toBe("部費の集金は4月と10月");
     expect(cards.map((sent) => sent.title)).not.toContain(
       response.cards[1].title,
@@ -216,21 +222,24 @@ describe("publishHold and publishCards", () => {
     ).toBe(false);
   });
 
-  it("publishes an update at the replaced note's scope when that is wider, once duplicates carry it (F5.6)", () => {
-    // The field F5.6 adds to each duplicate, not in the contract yet.
-    const duplicates = [
-      { ...response.duplicates[0], scope: "group" },
-    ] as unknown as ImportResponse["duplicates"];
+  it("publishes an update at the replaced note's scope when that is wider (F5.6)", () => {
+    // The mock's receipts card is suggested successor; the note it matches, smash-2025-ryoshusho, is the club's (group).
+    expect(response.duplicates[0].scope).toBe("group");
     const entries = entriesOf(response);
     entries[2] = { ...entries[2], choice: "update" };
-    expect(publishCards(entries, duplicates, CHIP)[2].scope).toBe("group");
+    expect(publishCards(entries, response.duplicates, CHIP)[2].scope).toBe(
+      "group",
+    );
     entries[2] = { ...entries[2], choice: "keep" };
-    expect(publishCards(entries, duplicates, CHIP)[2].scope).toBe("successor");
-    // Before F5.6 a duplicate carries no scope, and the suggestion stands.
-    entries[2] = { ...entries[2], choice: "update" };
     expect(publishCards(entries, response.duplicates, CHIP)[2].scope).toBe(
       "successor",
     );
+    // An old note no wider than the suggestion leaves the suggestion as it is.
+    const narrow: ImportResponse["duplicates"] = [
+      { ...response.duplicates[0], scope: "successor" },
+    ];
+    entries[2] = { ...entries[2], choice: "update" };
+    expect(publishCards(entries, narrow, CHIP)[2].scope).toBe("successor");
   });
 
   it("waits when two kept cards would update the same note", () => {
@@ -271,6 +280,7 @@ describe("duplicateOf", () => {
         title: "A",
         byline: "2024年度 会計",
         similarity: 0.89,
+        scope: "successor",
       },
       {
         card: 0,
@@ -278,6 +288,7 @@ describe("duplicateOf", () => {
         title: "B",
         byline: "2025年度 会計",
         similarity: 0.95,
+        scope: "successor",
       },
       {
         card: 1,
@@ -285,6 +296,7 @@ describe("duplicateOf", () => {
         title: "C",
         byline: "2025年度 会計",
         similarity: 0.9,
+        scope: "group",
       },
     ];
     expect(duplicateOf(duplicates, 0)?.noteId).toBe("b");

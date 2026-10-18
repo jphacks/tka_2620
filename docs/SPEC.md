@@ -182,8 +182,10 @@ through one path that keeps people out of the notes, at the start and at any tim
    with the reason. Remaining cards default to `successor`, carry `source` (`import`, `file` or `chat`) and a
    provenance chip without names.
 9. **Duplicates and updates**: each card is compared with the seat's live notes (same `kind` and embedding similarity
-   ≥ 0.88). A match shows 「似たメモがあります：…」 with 「更新する」 (the new note supersedes the old one) or
-   「別のメモとして残す」. A changed deadline then shows up as a rule change in answers.
+   ≥ 0.68, measured in `lib/engine/similar.ts`; the latest term's note when several match). A match shows
+   「似たメモがあります：…」 with 「更新する」 (the new note supersedes the old one, at the old note's scope or wider) or
+   「別のメモとして残す」. A changed deadline then shows up as a rule change in answers, against the superseded note's
+   date. Withdrawing the update brings the old note back.
 10. **Author review**: the person adding reads every card and publishes only what they choose, signed with their
    own byline. Nothing from the source is stored except those reviewed notes.
 

@@ -4,7 +4,8 @@
 // counts go to events.
 //
 // Everything runs as the caller (lib/engine/route.ts): only a holder of the seat adds to it, the seat's prompts are
-// the ones its policy lets the caller read, and the counts go through record_import() (0008).
+// the ones its policy lets the caller read, the similar notes are the ones search_notes (0004) lets them find
+// (lib/engine/similar.ts, F5.6), and the counts go through record_import() (0008).
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { LanguageModel } from "ai";
 import { z } from "zod";
@@ -16,6 +17,7 @@ import {
   SeatType,
   Uuid,
 } from "@/lib/contracts";
+import { embed } from "@/lib/embed";
 import { extractNotes } from "@/lib/engine/extract-notes";
 import {
   ApiFailure,
@@ -27,12 +29,15 @@ import {
   logFailure,
 } from "@/lib/engine/route";
 import { screenImport, seedCanaries } from "@/lib/engine/safety-net";
+import { similarNotes } from "@/lib/engine/similar";
 
 const ROUTE = "POST /api/import";
 
-// The model, passed in so a test can fake it, and the canaries the safety net looks for.
+// The models, passed in so a test can fake them (Sonnet for the cards, bge-m3 for the similar notes), and the canaries
+// the safety net looks for.
 export type ImportDeps = {
   model: () => LanguageModel;
+  embed: (texts: string[]) => Promise<number[][]>;
   canaries: readonly string[];
   today?: string; // YYYY-MM-DD; the day in Japan unless a test sets it
 };
@@ -51,6 +56,7 @@ export async function handleImport(request: Request): Promise<Response> {
     return Response.json(
       await importAsCaller(caller.db, caller.userId, parsed.data, {
         model: sonnet,
+        embed,
         canaries: seedCanaries(),
       }),
     );
@@ -79,14 +85,19 @@ export async function importAsCaller(
   const seat = SeatRow.parse(seatRow);
 
   // Only a holder of the seat adds to it, as only a holder publishes there, so no one else's text reaches the model.
+  // The latest term is the one a publish signs with, which decides the notes a card may update (lib/engine/similar.ts).
   const { data: terms, error: termError } = await client
     .from("seat_holders")
     .select("term_order")
     .eq("seat_id", seat.id)
     .eq("user_id", userId)
+    .order("term_order", { ascending: false })
     .limit(1);
   if (termError) throw dbFailure(termError);
-  if (!terms?.length) throw new ApiFailure("forbidden");
+  const term = z
+    .array(z.object({ term_order: z.number().int() }))
+    .parse(terms ?? [])[0];
+  if (!term) throw new ApiFailure("forbidden");
 
   const kind = {
     chat: Number(request.kind === "chat"),
@@ -140,11 +151,22 @@ export async function importAsCaller(
     dates_dropped: extracted.datesDropped,
     dates_fixed: extracted.datesFixed,
   });
+  // Only advice for the review: without it (Ollama stopped, a failed search) the cards still come back, each to be
+  // published as a note of its own.
+  const duplicates = await similarNotes(client, {
+    seat: { id: seat.id, slug: request.seat },
+    term: term.term_order,
+    cards: extracted.cards,
+    embed: deps.embed,
+  }).catch((error: unknown) => {
+    logFailure(`${ROUTE}: similar notes`, error);
+    return [];
+  });
   return ImportResponse.parse({
     cards: extracted.cards,
     missing: extracted.missing,
     blocked: extracted.blocked,
-    duplicates: [], // similar notes are F5.6 (#36)
+    duplicates,
   });
 }
 

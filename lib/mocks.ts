@@ -540,6 +540,7 @@ export const mockImport: ImportResponse = {
       title: "領収書は月末にまとめて精算",
       byline: "2025年度 会計",
       similarity: 0.91,
+      scope: "group", // seed/notes.csv: an update of it is for the whole club too
     },
   ],
 };
@@ -576,6 +577,7 @@ export const mockImportNotice: ImportResponse = {
       title: "保健所申請の締切が早くなった",
       byline: "2025年度 会計",
       similarity: 0.93,
+      scope: "successor",
     },
   ],
 };

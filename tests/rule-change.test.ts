@@ -1,7 +1,7 @@
 // The rule-change flag (F2.3, issue #21): computed from the cited deadline notes' dates, never by the model.
 import { describe, expect, it } from "vitest";
 import type { AnswerSentence } from "@/lib/contracts";
-import type { FoundNote } from "@/lib/engine/retrieve";
+import type { FoundNote, ReplacedNote } from "@/lib/engine/retrieve";
 import { ruleChange } from "@/lib/engine/rule-change";
 import { mockAnswer } from "@/lib/mocks";
 import { GAKUSAI_MOGITEN, q01Notes, SMASH_KAIKEI } from "./fakes";
@@ -123,6 +123,88 @@ describe("ruleChange", () => {
     expect(atSmash(twice, citing(...twice))).toEqual({
       termLabel: "2026",
       summary: "10/20 → 10/19",
+    });
+  });
+
+  describe("with the notes an update replaced (F5.6)", () => {
+    // After 「更新する」 on the 2026 notice: search_notes finds the 2024 note and the 2026 one, and
+    // superseded_deadlines() gives the 2025 note the 2026 one replaced.
+    const notice2026 = deadline("notice-2026", 2026, "2026-10-19");
+    const after = [hokenjo2024, gakusai2025, notice2026];
+    const replaced = (
+      note: FoundNote,
+      by: string,
+      seatId = SMASH_KAIKEI,
+    ): ReplacedNote => ({
+      id: note.id,
+      seat_id: seatId,
+      term_order: note.term_order,
+      term_label: note.term_label,
+      deadline_date: note.deadline_date ?? "",
+      superseded_by: by,
+    });
+    const history = [replaced(hokenjo2025, notice2026.id)];
+    const withHistory = (sentences: AnswerSentence[], old = history) =>
+      ruleChange(after, sentences, SMASH_KAIKEI, old);
+
+    it("flags q01's change in 2026, 10/20 → 10/19, whether or not the answer cites 2024", () => {
+      const change = { termLabel: "2026", summary: "10/20 → 10/19" };
+      expect(withHistory(citing(notice2026))).toEqual(change);
+      expect(withHistory(citing(hokenjo2024, notice2026))).toEqual(change);
+      // Without the history, only a cited 2024 note gives a flag, and it skips 2025.
+      expect(atSmash(after, citing(notice2026))).toBeUndefined();
+      expect(atSmash(after, citing(hokenjo2024, notice2026))).toEqual({
+        termLabel: "2026",
+        summary: "10/27 → 10/19",
+      });
+    });
+
+    it("names the replaced note's term when the change came in it", () => {
+      const sameAgain = deadline("notice-2026", 2026, "2026-10-20");
+      expect(
+        ruleChange(
+          [hokenjo2024, sameAgain],
+          citing(hokenjo2024, sameAgain),
+          SMASH_KAIKEI,
+          history,
+        ),
+      ).toEqual({ termLabel: "2025", summary: "10/27 → 10/20" });
+    });
+
+    it("counts only notes replaced by a cited deadline note of the asked seat", () => {
+      // Its update isn't cited, or it's another seat's.
+      expect(withHistory(citing(hokenjo2024))).toBeUndefined();
+      expect(
+        withHistory(citing(notice2026), [
+          replaced(hokenjo2025, notice2026.id, GAKUSAI_MOGITEN),
+        ]),
+      ).toBeUndefined();
+      expect(
+        withHistory(citing(notice2026), [
+          replaced(hokenjo2025, "smash-2026-something-else"),
+        ]),
+      ).toBeUndefined();
+    });
+
+    it("lets a cited note speak for its own term", () => {
+      // A note replaced within 2026 says nothing against the 2026 note that replaced it.
+      const earlier2026 = replaced(
+        deadline("notice-2026-draft", 2026, "2026-10-01"),
+        notice2026.id,
+      );
+      expect(
+        withHistory(citing(hokenjo2024, notice2026), [earlier2026]),
+      ).toEqual({ termLabel: "2026", summary: "10/27 → 10/19" });
+    });
+
+    it("leaves out a term whose replaced notes disagree, not the whole flag", () => {
+      const other2025 = replaced(
+        deadline("smash-2025-other", 2025, "2025-10-13"),
+        notice2026.id,
+      );
+      expect(
+        withHistory(citing(hokenjo2024, notice2026), [...history, other2025]),
+      ).toEqual({ termLabel: "2026", summary: "10/27 → 10/19" });
     });
   });
 });
