@@ -29,6 +29,13 @@ import type {
 import { createMockApi } from "@/lib/mocks";
 import { useRealtime } from "@/lib/realtime";
 
+// What went wrong, worded: drafting failed, every drafted card was held back, or publishing failed.
+const TROUBLE = {
+  draft: "handover.draftFailed",
+  empty: "handover.draftEmpty",
+  publish: "voice.failed",
+} as const;
+
 // The prompt being answered: first the answer, then its drafted cards.
 type Open = {
   prompt: HandoverPrompt;
@@ -62,7 +69,7 @@ export function HandoverPrompts({
   // The prompt being answered, for load() without reading the list again on every keystroke's render.
   const opened = useRef<string | undefined>(undefined);
   opened.current = open?.prompt.id;
-  const [trouble, setTrouble] = useState<"draft" | "publish">();
+  const [trouble, setTrouble] = useState<keyof typeof TROUBLE>();
   // The scopes each answered prompt's cards went out at, by prompt id.
   const [published, setPublished] = useState<ReadonlyMap<string, Scope[]>>(
     new Map(),
@@ -139,6 +146,12 @@ export function HandoverPrompts({
             followup: { question: open.draft.followup.question, answer: reply },
           }),
       });
+      // Every card was held back (a name, contact details or a PIN): nothing to review. The answer stays in its field,
+      // or the follow-up stays open, to say it again without them.
+      if (next.cards.length === 0) {
+        setTrouble("empty");
+        return;
+      }
       // The reply round never asks again (F6.3).
       setOpen({
         ...open,
@@ -295,11 +308,7 @@ export function HandoverPrompts({
                   )}
                   {trouble && (
                     <p className="dd-cap" style={{ margin: 0 }}>
-                      {t(
-                        trouble === "draft"
-                          ? "handover.draftFailed"
-                          : "voice.failed",
-                      )}
+                      {t(TROUBLE[trouble])}
                     </p>
                   )}
                   <button

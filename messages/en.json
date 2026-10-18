@@ -84,6 +84,7 @@
     "makeDraft": "Make a draft",
     "drafting": "Making a draft…",
     "draftFailed": "Couldn't make a draft. Check your connection and try again.",
+    "draftEmpty": "Couldn't make a note from this answer. Leave out people's names, contact details and PINs, and answer again.",
     "followupLabel": "Answer",
     "followupSend": "Answer and redraft",
     "followupSkip": "Skip",
