@@ -102,4 +102,9 @@
 ## 事前に用意したもの / Prepared before Hack Day (setup)
 | 内容 / What | コミット / Commits |
 |---|---|
-| スターターキット、Next.js と Supabase の骨組み、テーブル（ポリシーなし）、デモ用データ / Starter kit, Next.js and Supabase skeleton, tables without policies, synthetic seed data | … |
+| スターターキット（AGENTS.md・SPEC / DESIGN / WORKFLOW などのルール、AI ツールの設定、デザイントークン、日英の文言、サンプル資料）/ Starter kit (rules in AGENTS.md, SPEC / DESIGN / WORKFLOW, AI tool config, design tokens, ja / en copy, sample files) | [ba9b9a0](https://github.com/jphacks/tka_2620/commit/ba9b9a0) |
+| Next.js・TypeScript・Tailwind の骨組み（席ページ・コンソール・自分のメモの空の画面）/ Next.js, TypeScript and Tailwind skeleton (empty seat page, console and my-notes screens) | [214d33e](https://github.com/jphacks/tka_2620/commit/214d33e) |
+| Supabase のテーブル（ポリシーなし）と、Claude・Ollama の接続確認 / Supabase tables without policies, and a Claude / Ollama connection check | [862b135](https://github.com/jphacks/tka_2620/commit/862b135) |
+| デモ用データを入れるスクリプトと bge-m3 のベクトル化（`pnpm seed`）/ Seed script and bge-m3 embeddings (`pnpm seed`) | [277268e](https://github.com/jphacks/tka_2620/commit/277268e) |
+| 開発の足回り（Playwright MCP で画面を確認、トンネルでスマホから開く）/ Dev setup (screenshots through Playwright MCP, dev tunnel so a phone can open the app) | [277268e](https://github.com/jphacks/tka_2620/commit/277268e)・[5e7d783](https://github.com/jphacks/tka_2620/commit/5e7d783) |
+| README の骨子（スターターキットの説明は削除）/ README skeleton (the starter kit's own readme was deleted) | [109c388](https://github.com/jphacks/tka_2620/commit/109c388)・[a39a38e](https://github.com/jphacks/tka_2620/commit/a39a38e) |
