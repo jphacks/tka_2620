@@ -2,7 +2,8 @@
   "verbs": {
     "ask": "Ask",
     "handover": "Hand over",
-    "myNotes": "My notes"
+    "myNotes": "My notes",
+    "label": "At this seat"
   },
   "seatTypes": {
     "club_role": {
@@ -99,6 +100,64 @@
     "signInOff": "Console sign-in is off here. On the presenting laptop, set CONSOLE_SIGN_IN to a passphrase (16+ characters) and open /console#key=<passphrase>.",
     "signInFailed": "Couldn't sign the personas in. Check DEMO_PASSWORD and reopen this page.",
     "loadFailed": "Couldn't load the panes. Reopen this page."
+  },
+  "bar": {
+    "label": "Display and you",
+    "darkScreen": "Dark screen",
+    "you": "You",
+    "language": {
+      "ja": "日本語",
+      "en": "English"
+    }
+  },
+  "home": {
+    "title": "Daidai",
+    "open": "Open a seat's page from its link: the QR code or NFC sticker on the club-room key."
+  },
+  "profile": {
+    "title": "You",
+    "loading": "Loading",
+    "noSeat": "Open this page with “You” on a seat's page.",
+    "signedOut": "You're not signed in. Sign in on the seat's page, then open this again.",
+    "failed": "Couldn't load this. Check the connection and reopen the page.",
+    "toSeat": "To the seat's page",
+    "notHolder": "You have never held {seat}",
+    "place": "Holder no. <fig>{n}</fig> of this seat",
+    "noteCounts": "<fig>{live}</fig> live, <fig>{withdrawn}</fig> withdrawn",
+    "openNotes": "Open my notes"
+  },
+  "measured": {
+    "title": "What the checks measured",
+    "notRun": "Not measured yet (pnpm metrics)",
+    "notMeasured": "Not measured",
+    "at": "Measured {at} (pnpm metrics)",
+    "leaksLabel": "Leak test",
+    "leaks": "<safe>{found}</safe> leaks in <fig>{total}</fig> attempts, <fig>{outsider}</fig> of them by an outsider",
+    "withdrawLabel": "Withdrawal",
+    "withdraw": "Gone from every answer in a median <fig>{median}</fig> s, at most <fig>{max}</fig> s (<fig>{runs}</fig> runs)",
+    "citationsLabel": "Sources",
+    "citations": "<fig>{cited}</fig> of <fig>{sentences}</fig> answer sentences cite a note (<fig>{percent}</fig>%)",
+    "loopLabel": "Live loop",
+    "loop": "<fig>{failures}</fig> failures in <fig>{runs}</fig> runs, a median <fig>{median}</fig> s to the signed answer",
+    "redactionLabel": "Privacy",
+    "redaction": "<hid>{hidden}</hid> items hidden in <fig>{chats}</fig> chats and <fig>{files}</fig> files; <out>{left}</out> canaries left the browser",
+    "resetHint": "To reset the real data, run pnpm demo:reset in a terminal, then reload this page."
+  },
+  "filter": {
+    "title": "Filter and order",
+    "sort": "Order",
+    "shown": "Showing <fig>{n}</fig> notes",
+    "clear": "Clear the filter",
+    "noneMatch": "No notes match this filter.",
+    "status": "Status",
+    "allStatus": "All",
+    "live": "Live",
+    "scope": "Who can read",
+    "allScopes": "Every scope",
+    "seat": "Seat",
+    "allSeats": "Every seat",
+    "newest": "Newest first",
+    "oldest": "Oldest first"
   },
   "onkuri": {
     "credit": "{n} senpai answered {q} of your questions. Your turn!"

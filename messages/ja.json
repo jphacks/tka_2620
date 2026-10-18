@@ -2,7 +2,8 @@
   "verbs": {
     "ask": "聞く",
     "handover": "残す",
-    "myNotes": "自分のメモ"
+    "myNotes": "自分のメモ",
+    "label": "この席でできること"
   },
   "seatTypes": {
     "club_role": {
@@ -99,6 +100,64 @@
     "signInOff": "このサーバーではコンソールにログインできません。発表用のPCで CONSOLE_SIGN_IN に合言葉（16文字以上）を設定し、/console#key=合言葉 で開いてください。",
     "signInFailed": "ペルソナでログインできませんでした。DEMO_PASSWORD を確かめて、開き直してください。",
     "loadFailed": "ペインを読み込めませんでした。開き直してください。"
+  },
+  "bar": {
+    "label": "表示とあなた",
+    "darkScreen": "暗い画面",
+    "you": "あなた",
+    "language": {
+      "ja": "日本語",
+      "en": "English"
+    }
+  },
+  "home": {
+    "title": "代々",
+    "open": "席のページは、そのリンク（部室の鍵のQRコードやNFCのシール）から開いてください。"
+  },
+  "profile": {
+    "title": "あなた",
+    "loading": "読み込んでいます",
+    "noSeat": "席のページの「あなた」から開いてください。",
+    "signedOut": "ログインしていません。席のページでログインしてから、もう一度開いてください。",
+    "failed": "読み込めませんでした。通信を確かめて、このページを開き直してください。",
+    "toSeat": "席のページへ",
+    "notHolder": "{seat}を担当したことはありません",
+    "place": "この席の<fig>{n}</fig>代目です",
+    "noteCounts": "公開中 <fig>{live}</fig>件、撤回済み <fig>{withdrawn}</fig>件",
+    "openNotes": "自分のメモを開く"
+  },
+  "measured": {
+    "title": "測定の内訳",
+    "notRun": "まだ測定していません（pnpm metrics）",
+    "notMeasured": "未測定",
+    "at": "{at}に測定（pnpm metrics）",
+    "leaksLabel": "漏れテスト",
+    "leaks": "<fig>{total}</fig>回のうち部外者 <fig>{outsider}</fig>回、漏れ <safe>{found}</safe>件",
+    "withdrawLabel": "撤回",
+    "withdraw": "回答から消えるまで中央値 <fig>{median}</fig>秒、最大 <fig>{max}</fig>秒（<fig>{runs}</fig>回）",
+    "citationsLabel": "根拠",
+    "citations": "回答の <fig>{sentences}</fig>文のうち <fig>{cited}</fig>文に根拠のメモ（<fig>{percent}</fig>%）",
+    "loopLabel": "ライブループ",
+    "loop": "<fig>{runs}</fig>回のうち失敗 <fig>{failures}</fig>回、署名つきの答えまで中央値 <fig>{median}</fig>秒",
+    "redactionLabel": "個人情報",
+    "redaction": "トーク <fig>{chats}</fig>件とファイル <fig>{files}</fig>件から <hid>{hidden}</hid>件を隠し、端末の外に出たカナリアは <out>{left}</out>件",
+    "resetHint": "実データのリセットは、ターミナルで pnpm demo:reset を実行してから、このページを再読み込みします。"
+  },
+  "filter": {
+    "title": "絞り込みと並び順",
+    "sort": "並び順",
+    "shown": "<fig>{n}</fig>件のメモを表示しています",
+    "clear": "絞り込みを外す",
+    "noneMatch": "この条件のメモはありません。",
+    "status": "状態",
+    "allStatus": "すべて",
+    "live": "公開中",
+    "scope": "読める人",
+    "allScopes": "すべての範囲",
+    "seat": "席",
+    "allSeats": "すべての席",
+    "newest": "新しい順",
+    "oldest": "古い順"
   },
   "onkuri": {
     "credit": "{n}人の先輩が、あなたの質問{q}個に答えました。次はあなたの番です！"

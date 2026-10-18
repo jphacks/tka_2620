@@ -53,6 +53,18 @@
   color-scheme: dark;
 }
 
+/* Print: always the notebook, whatever the screen shows; the blackboard's pale ink would print light grey on white.
+   Later than the dark rules and as specific, so it wins. */
+@media print {
+  :root[data-theme], :root:not([data-theme]) {
+    --paper: #F9FAFB; --sheet: #FFFFFF; --rule: #D9E1EC;
+    --ink: #1D2433; --ink-2: #566074;
+    --blue: #2141B8; --blue-wash: #E8EDFB; --red: #C0262F;
+    --marker: #FFE35A; --green: #24704A;
+    color-scheme: light;
+  }
+}
+
 /* Base: Japanese typesetting */
 html { background: var(--paper); color: var(--ink); font-family: var(--font-ui); font-size: var(--text-s); line-height: 1.6; }
 body { background: var(--paper); letter-spacing: .02em; line-break: strict; }

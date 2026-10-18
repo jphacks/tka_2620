@@ -117,6 +117,15 @@ Use Japanese notebook marks, not coloured chips or emoji. Each mark is followed 
   labels 「24 会計」, 「25 会計」, then a dashed blank tag 「あなた」 for the viewer. Horizontal scroll on phones.
 - **`VerbTabs`**: 聞く · 残す · 自分のメモ as notebook index tabs: on phones they sit at the bottom edge; the active
   tab is `--sheet` with blue text and joins the page, inactive tabs are `--paper` with `--ink-2` text.
+- **`SeatBar`**: a quiet row above every seat page, right-aligned in the page's 640px column, never printed. Three
+  44px items: the language switch (the other language named in itself, 「English」 / 「日本語」, as a blue text button),
+  the theme switch (**`DisplayToggles`**: a 6px blue-outlined icon button, the moon on the notebook and the sun on the
+  blackboard, `aria-pressed` for 暗い画面) and 「あなた」, the lineage rail's dashed blue tag lying down, which opens
+  `/me`. Both choices are this device's own (cookies), rendered by the server, so there is no flash. It is not a
+  fourth verb.
+- **Profile** (`/me`): who you are at the seat, never by name. Your dashed tag 「26 会計」 beside your byline
+  (「2026年度 会計」, 20px bold), the group and institution, 「この席の3代目です」, and your notes here with the way to
+  自分のメモ. Identity only: nothing to set.
 - **`AskField`**: a single writing line in `--blue` with the placeholder in Klee One
   (「先輩たちに聞いてみましょう」) and a blue 「聞く」 button. Not a chat box.
 - **`AnswerEntry`**: the question repeated in blue UI text, then the answer in Klee One on the ruled grid. Each
@@ -149,8 +158,14 @@ Use Japanese notebook marks, not coloured chips or emoji. Each mark is followed 
 - **`WithdrawMeter`**: figures face, 39px on the console; counts in `--red` from the click, freezes in `--ink`
   when the last pane drops the note: 「0.8秒」.
 - **`LeakCounter`**: 「漏れ 0 / 50 回」, the 0 in `--green`.
-- **`PersonaPane`** (console): a plain 390×844 rounded rectangle in `--sheet` with a 1px `--rule` border and the
-  persona above it in UI text: 新しい会計 · 去年の会計 · 部外者. No device chrome.
+- **`PersonaPane`** (console): a plain rounded rectangle in `--sheet`, 390 wide and up to 844 tall (shorter on a laptop
+  whose window leaves less room, so the whole proof stays on one screen; the pane scrolls inside), with a 1px `--rule`
+  border and the persona above it in UI text: 新しい会計 · 去年の会計 · 部外者. No device chrome. Below about 1270px
+  the three panes scroll sideways instead of wrapping.
+- **`MeasuredNumbers`** (console): 「測定の内訳」, a collapsed `<details>` under the meter and the leak counter with
+  one line per check that `pnpm metrics` measured (leaks, withdrawal, citations, live loop, privacy), read from
+  `metrics/latest.json` only, with when it was measured. A check that didn't run says 「未測定」. Green only for 漏れ 0 and
+  the privacy counts. On real data it also says that a reset is `pnpm demo:reset` in a terminal.
 
 ## Motion
 One signature moment, everything else functional.
@@ -174,6 +189,11 @@ the 恩送り slide. English mirrors the Japanese. All strings live in `messages
 - Progressive disclosure: scope, expiry and "critical" controls appear only while writing, and only when the
   seat's settings enable them. Scope defaults to `successor`.
 - No feeds, badges, follower counts, folders or settings pages for newcomers.
+- Exception, by choice: the two display switches and 「あなた」 in `SeatBar` (language and theme are the viewer's
+  device settings, not the seat's; `/me` only shows who you are).
+- Anything that decides what a user sees is visible and usable on screen, never only in a terminal, a URL fragment
+  or a cookie: the language and theme switches, the measured numbers on the console. What stays a terminal command
+  (`pnpm demo:reset`, which needs the service-role key) is said on screen where it matters.
 
 ## Accessibility
 - Text at least 4.5:1 in both themes (see Color). Focus: a 2px `--blue` outline with 2px offset on every control.
@@ -181,6 +201,11 @@ the 恩送り slide. English mirrors the Japanese. All strings live in `messages
 - Highlighter and colour never carry meaning alone: deadlines also show 〆 and the date; the rule change also
   shows 「変更」.
 - Voice always has the text fallback in the same place.
+- Every seat page has two navs, each labelled: `SeatBar` (「表示とあなた」) and `VerbTabs` (「この席でできること」).
+- Print: paper only. `SeatBar`, `VerbTabs` and every `.dd-noprint` control are hidden, the light tokens are forced
+  (the blackboard's pale ink would print grey on white), and an entry isn't split across sheets.
+- `viewport-fit=cover`, so the bottom tabs keep `env(safe-area-inset-bottom)` above an iPhone's home indicator; the
+  browser bars take `--paper` of the theme shown.
 
 ## Don'ts (they make Daidai look generic or generated)
 - Chat bubbles, typing dots, robot or sparkle icons, "Ask AI" labels.
