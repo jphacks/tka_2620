@@ -3,6 +3,7 @@
 // (tests/redact.test.ts): no speaker's name, nobody named in a system line, no phone number, email, account or PIN is
 // left, and a second pass finds nothing. The names and numbers are made up and none is a canary (checked below).
 import { describe, expect, it } from "vitest";
+import { screenImport } from "@/lib/engine/safety-net";
 import {
   parseChat,
   parseLine,
@@ -443,7 +444,7 @@ describe("after the second audit", () => {
   const RLM = String.fromCharCode(0x200f);
 
   // A browser never sends the isolates (normalize drops them); a crafted request with thousands of names took 50 s.
-  it("redacts a crafted text with 5,000 different mentions within two seconds", () => {
+  it("screens a crafted request with 5,000 different mentions within two seconds", () => {
     const names = Array.from(
       { length: 5000 },
       (_, index) =>
@@ -452,8 +453,19 @@ describe("after the second audit", () => {
     );
     const text = names.map((name) => `@${FSI}${name}${PDI} `).join("");
     const started = performance.now();
-    redactText(text);
+    screenImport(text, []);
     expect(performance.now() - started).toBeLessThan(2000);
+  });
+
+  it("hides every mention of a big chat in the browser, past the first hundred", () => {
+    const names = Array.from(
+      { length: 150 },
+      (_, index) =>
+        String.fromCharCode(0x4e00 + index * 2, 0x4e01 + index * 2) +
+        ` ${String.fromCharCode(0x5100 + index * 2, 0x5101 + index * 2)}`,
+    );
+    const text = names.map((name) => `@${FSI}${name}${PDI}`).join(" ");
+    expect(redactText(text).text).toBe(names.map(() => "[人]").join(" "));
   });
 
   it("leaves a role word in a mention's name alone elsewhere", () => {
