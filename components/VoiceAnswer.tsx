@@ -7,7 +7,7 @@
 // On the handover prompts (F6) the panel only takes the answer: onDraft gets it, and the cards are reviewed before
 // anything is published (components/HandoverPrompts.tsx).
 import { Mic } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import {
   useCallback,
   useEffect,
@@ -53,8 +53,14 @@ export function VoiceAnswer({
   drafting = false,
   locked = false,
   headingLevel = 2,
+  initialText,
+  describedBy,
   api: given,
 }: {
+  /** What was said or typed before (a draft taken back with やめる), so it isn't lost. */
+  initialText?: string;
+  /** The id of the question this answers: a screen reader hears it with the field, not just 「答え」. */
+  describedBy?: string;
   /** The prompt being answered; a handover prompt has no language of its own. */
   item: Pick<InboxItem, "promptId"> & { lang?: InboxItem["lang"] };
   seat: string;
@@ -75,11 +81,13 @@ export function VoiceAnswer({
   api?: Api;
 }) {
   const t = useTranslations();
+  const locale = useLocale();
+  const speechLang = (item.lang ?? locale) === "en" ? "en-US" : "ja-JP";
   const Title = headingLevel === 3 ? "h3" : "h2";
   const api = useMemo(() => given ?? createMockApi("a25"), [given]);
   const fieldId = useId();
   const field = useRef<HTMLTextAreaElement>(null);
-  const [text, setText] = useState("");
+  const [text, setText] = useState(initialText ?? "");
   const [listening, setListening] = useState(false);
   const [error, setError] = useState<DictationError>();
   const [publishing, setPublishing] = useState(false);
@@ -87,7 +95,7 @@ export function VoiceAnswer({
   const [card, setCard] = useState<CardDraft>();
   const [failed, setFailed] = useState(false);
   // What the field held when listening began, so a restart after a pause keeps both sentences.
-  const base = useRef("");
+  const base = useRef(initialText ?? "");
   // 公開する as it appears with the first word, and the card once published, come into view: on a phone they can sit
   // under the verb tabs. Stable, so typing doesn't scroll anything once they are there.
   const intoView = useCallback((node: HTMLElement | null) => {
@@ -97,6 +105,8 @@ export function VoiceAnswer({
   const dictation = useMemo(
     () =>
       createDictation({
+        // English when the question (or, for a handover prompt, the page) is English; Japanese otherwise.
+        lang: speechLang,
         onText: setText,
         onStateChange: (state) => setListening(state === "listening"),
         onError: (next) => {
@@ -104,7 +114,7 @@ export function VoiceAnswer({
           setError(next);
         },
       }),
-    [],
+    [speechLang],
   );
 
   // Opened with mode voice, the microphone starts right away (the opening tap is the user gesture the browser asks for).
@@ -211,6 +221,7 @@ export function VoiceAnswer({
           rows={1}
           lang={item.lang}
           aria-label={t("voice.answerLabel")}
+          aria-describedby={describedBy}
           placeholder={t("voice.inlinePlaceholder")}
           value={text}
           onChange={(event) => change(event.target.value)}
@@ -257,7 +268,7 @@ export function VoiceAnswer({
         </button>
       )}
       {failed && (
-        <p className="dd-cap" style={{ margin: 0 }}>
+        <p role="alert" className="dd-cap" style={{ margin: 0 }}>
           {t("voice.failed")}
         </p>
       )}

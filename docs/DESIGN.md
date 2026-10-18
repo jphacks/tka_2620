@@ -156,6 +156,12 @@ Use Japanese notebook marks, not coloured chips or emoji. Each mark is followed 
 - **`InboxSlip`** (伝言メモ, on the predecessor's phone): a message slip like an office phone-message pad.
   Header 「後輩から質問が届きました」, a 「から」 field with 「2026年度 会計」, the question in Klee One 20px,
   「〇人が質問しました」, and the answer written on the slip itself (`VoiceAnswer`), so nothing has to open first.
+- **残す's page** (`HandoverColumn`): an h1 「残す」 with the seat it's for (「テニスサークル Smashの会計の席」), then the
+  inbox, the handover prompts and 「＋ 追加」. A newcomer's question shows once, on its slip (the prompts leave out what the
+  inbox holds); a new one is read out in one line (「後輩から質問が届きました（2026年度 会計）：…」), and the inbox reads
+  itself again when the phone wakes or comes back online. Each answer box is described by its question, keeps its draft
+  when its drafted cards are put away (やめる), and dictates in the question's (or the page's) language. 「＋ 追加」 shows
+  only to the seat's holders; others read why. 自分のメモ's heading is the page's h1.
 - **`VoiceAnswer`**: a textbox (1px `--ink-2`, `--blue` while focused) holding the answer in Klee One on ruled lines,
   growing with it and using its full width, with a round 40px microphone laid over it at the bottom right: `--blue` icon, filled `--blue` while
   listening with one ring pulsing outward in `--blue-wash`. Tap the box to type or the mic to speak; 「公開する」 appears
