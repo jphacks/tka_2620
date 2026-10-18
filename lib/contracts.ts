@@ -315,10 +315,16 @@ export const ImportedCard = CardDraft.extend({
 });
 export type ImportedCard = z.infer<typeof ImportedCard>;
 
+// Why the output guard blocked a drafted card: it held a placeholder from the redaction ([電話番号], [人], メンバーA), a
+// credential, contact details or a name. A code: the screen words it (messages → import.blocked).
+export const BlockReason = z.enum(["placeholder", "secret", "contact", "name"]);
+export type BlockReason = z.infer<typeof BlockReason>;
+
 export const ImportResponse = z.object({
   cards: z.array(ImportedCard),
   missing: z.array(MissingItem),
-  blocked: z.array(z.object({ title: z.string(), reason: z.string() })),
+  // title is empty when the title itself held what blocked the card.
+  blocked: z.array(z.object({ title: z.string(), reason: BlockReason })),
   // A live note of the same kind with embedding similarity ≥ 0.88; card is an index into cards.
   duplicates: z.array(
     z.object({

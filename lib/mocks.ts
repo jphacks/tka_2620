@@ -518,21 +518,13 @@ const oldHandoverMissing = [
   },
 ];
 
+// No provenance: the review screen words the chip (messages → import.provenance) and sends it when publishing.
 export const mockImport: ImportResponse = {
   cards: oldHandoverCards.map(
-    (card): ImportedCard => ({
-      ...card,
-      source: "import",
-      provenance: "貼り付け・2026年10月",
-    }),
+    (card): ImportedCard => ({ ...card, source: "import" }),
   ),
   missing: oldHandoverMissing,
-  blocked: [
-    {
-      title: "通帳と印鑑の保管場所",
-      reason: "隠した情報（[秘密]）が残っていたため、作りませんでした",
-    },
-  ],
+  blocked: [{ title: "通帳と印鑑の保管場所", reason: "placeholder" }], // the [秘密] line
   duplicates: [
     {
       card: 2,
@@ -565,7 +557,6 @@ export const mockImportNotice: ImportResponse = {
       lang: "ja",
       flags: noFlags,
       source: "file",
-      provenance: "PDF・2026年10月",
     },
   ],
   missing: [],

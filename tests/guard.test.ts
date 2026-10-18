@@ -62,6 +62,29 @@ describe("blockReason", () => {
     "タナカ先輩が詳しい",
     "Tanakaくんに頼む",
     "去年は田中先生に相談した",
+    // A surname that ends like a role (部): the redaction's list tells them apart
+    "阿部さんに聞く",
+    "加藤氏に連絡する",
+    // Surnames that end like a role in the redaction's list (神, 館, 奥, 家, 組): still names here
+    "大神さんに聞く",
+    "三神先輩が詳しい",
+    "小館さんに確認する",
+    "大館くんに頼む",
+    "奥さんに聞く",
+    "加藤家さんにお礼",
+    "テニス部加藤家さんにお礼",
+    "坂東組さんに頼む",
+    "瀬戸神さんに渡す",
+    // Names glued to a family word or a person's role: only the whole role word passes
+    "義親さんに聞く",
+    "加藤兄さんに頼む",
+    "大谷母さんに伝える",
+    "加藤学生さんに渡す",
+    "加藤担当者さんに確認する",
+    "大野本人さんに聞く",
+    "高橋妹さんに伝える",
+    "小林班さんに頼む",
+    "田所さんに聞く",
   ])("blocks names: %s", (text) => {
     expect(blockReason(text)).toBe("name");
   });
@@ -75,6 +98,10 @@ describe("blockReason", () => {
     "パスワードはGoogleドライブの共有メモにある。",
     "電話番号は学生便覧に載っている。2026年度から窓口が変わった。",
     "業者さん、施設係さん、皆さん、OBさん、保健所さんに伝える。",
+    // Roles the redaction keeps, so an imported card with them can be published (#35)
+    "保健所の担当者さんに確認する。先方のスタッフさんにも伝える。学生部さんに出す。",
+    "大家さんに鍵を返す。旅館さん、市立図書館さん、応援団さん、県立病院さん、高校さんに伝える。",
+    "税務署さんと学生課さんに出す。学生さん、新人さん、本人さんにも伝える。",
     // @ as "at" and as a unit price, times next to counts
     "18時@部室に集合",
     "集合 @ 正門",
@@ -89,5 +116,11 @@ describe("blockReason", () => {
     "10:00:00 開始、1:25000 の地図",
   ])("lets seat knowledge through: %s", (text) => {
     expect(blockReason(text)).toBeUndefined();
+  });
+
+  it("takes a long run of letters in one pass", () => {
+    const started = performance.now();
+    expect(blockReason("a".repeat(100_000))).toBeUndefined();
+    expect(performance.now() - started).toBeLessThan(1000);
   });
 });
