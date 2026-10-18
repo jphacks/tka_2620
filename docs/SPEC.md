@@ -130,14 +130,15 @@ They are the shared acceptance tests for F2–F4, and `lib/mocks.ts` is built fr
 - Newcomers' questions: the question text reaches only `reachable` holders of the same seat (via `prompt_routes`);
   the asker is shown by seat and term (「2026年度 会計」), never by name. `answers` rows are readable only by the asker.
 - A question from someone who holds no seat at that seat routes nowhere: no demand prompt is created, the abstain
-  carries no `promptId`, and `routedTo` is 0. The question remains readable only by the asker.
+  carries no `promptId`, and `routedTo` is 0. The question remains readable only by the asker. The same holds for a
+  holder's question that nobody but the asker could receive (a25 asking, as the only reachable holder).
 - Demand prompts (F2.5): a routed question's prompt is the question reworded by Haiku about the seat, without names or
   contact details (the asker's own `questions.text` stays as typed). So that a question can join an open prompt that
-  asks the same thing, a holder of the seat whose own question waits to be routed reads the seat's open, *listed*
-  demand prompts (id and text, never who asked) through `open_demand_prompts()`. Only the asker lists a prompt, only
-  the one their question started, and only when its text is Haiku's wording that passed the guard (`list_prompt()`); a
-  prompt as typed (Haiku down) is read only by its routed holders. A question with no prompt text free of contact
-  details, credentials and names routes nowhere.
+  asks the same thing, a holder of the seat, before asking there, reads the seat's open, *listed* demand prompts (id
+  and text, never who asked) through `open_demand_prompts_at()`. The question is then saved and routed in one
+  transaction (`ask_question()`), joining only such a prompt. Only the asker lists a prompt, only the one their question
+  started, and only when its text is Haiku's wording that passed the guard; a prompt as typed (Haiku down) is read only
+  by its routed holders. A question with no prompt text free of contact details, credentials and names routes nowhere.
 
 ## Adding knowledge: text, files and chats (F5)
 Club knowledge lives in old documents, forms, notices and, most of all, group chats. Daidai takes all of them

@@ -3,16 +3,18 @@
 // predecessors (docs/SPEC.md → F3). Either way the question is saved with its lang.
 //
 // Everything here runs as the caller (lib/engine/route.ts), so the database does the scope work: search_notes (0004)
-// finds only notes the asker may read, questions and answers are the asker's own rows, and route_question() (0003)
-// creates the prompt and the prompt_routes rows, refusing anyone who holds no seat at the seat they asked — their
-// question routes nowhere and no prompt is created. Before routing, open_demand_prompts() (0008) gives the asker's
-// waiting question the seat's open demand prompts, so Haiku can join one that asks the same thing (F2.5). For the
-// rule-change flag, superseded_deadlines() (0010) gives the deadline notes the found ones replaced, again as the asker.
+// finds only notes the asker may read, questions and answers are the asker's own rows, and ask_question() (0012) saves
+// an unanswered question and routes it in one transaction, so a routing that fails leaves no question behind. It
+// creates the prompt and the prompt_routes rows, and routes nowhere, creating no prompt, when the asker holds no seat
+// at the seat they asked or nobody but the asker could receive it. Before that, open_demand_prompts_at() (0012) gives
+// a holder the seat's open demand prompts, so Haiku can join one that asks the same thing (F2.5). For the rule-change
+// flag, superseded_deadlines() (0010) gives the deadline notes the found ones replaced, again as the asker.
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { LanguageModel } from "ai";
 import { z } from "zod";
 import { haiku, sonnet } from "@/lib/ai";
 import {
+  type AbstainedResult,
   type AnsweredResult,
   AskRequest,
   AskResult,
@@ -71,13 +73,14 @@ export async function handleAsk(request: Request): Promise<Response> {
   }
 }
 
-// route_question()'s OUT parameters: PostgREST answers with its one row, as an object or a one-item array.
-const Routed = z.object({
+// ask_question()'s OUT parameters (0012): PostgREST answers with its one row, as an object or a one-item array.
+const Asked = z.object({
+  question_id: Uuid,
   prompt_id: Uuid.nullable(),
   routed_to: z.number().int().nonnegative(),
 });
 
-// open_demand_prompts()'s rows (0008).
+// open_demand_prompts_at()'s rows (0012).
 const OpenPrompts = z.array(z.object({ id: Uuid, text: z.string() }));
 
 // The flow, as the asker. Split from the handler so a test can drive it with a client and models of its own.
@@ -122,20 +125,20 @@ export async function askAsCaller(
         })
       : undefined;
 
-  const { data: question, error: questionError } = await client
-    .from("questions")
-    .insert({
-      asker_user_id: askerUserId,
-      seat_id: seat.id,
-      text: request.question,
-      lang: questionLang(request.question),
-      status: answer ? "answered" : "waiting",
-    })
-    .select("id")
-    .single();
-  if (questionError || !question) throw dbFailure(questionError);
-
   if (answer) {
+    const { data: question, error: questionError } = await client
+      .from("questions")
+      .insert({
+        asker_user_id: askerUserId,
+        seat_id: seat.id,
+        text: request.question,
+        lang: questionLang(request.question),
+        status: "answered",
+      })
+      .select("id")
+      .single();
+    if (questionError || !question) throw dbFailure(questionError);
+
     const result: AnsweredResult = {
       status: "answered",
       questionId: question.id,
@@ -156,41 +159,30 @@ export async function askAsCaller(
   }
 
   // Nobody knew: the question goes to the seat's reachable predecessors as a demand prompt.
-  const { promptId, routedTo } = await routeQuestion(
-    client,
-    question.id,
-    { name: seat.name, question: request.question },
-    models,
-  );
-  return {
-    status: "abstained",
-    questionId: question.id,
-    // Absent when nothing was routed (the asker holds no seat at that seat), so no prompt exists to name.
-    ...(promptId && { promptId }),
-    routedTo,
-  };
+  return askPredecessors(client, seat, request.question, models);
 }
-
-type Routing = { promptId?: string; routedTo: number };
 
 // Dedupe (F2.5): Haiku joins the question to an open prompt of the seat that asks the same thing, or words it as a new
 // prompt about the seat. Both are best effort, so the live loop never waits on them: with no open prompts, or no
 // Haiku, the question starts a new prompt as typed. A prompt text the guard refuses (contact details, a credential, a
 // name) is never sent, so a question with none to send routes nowhere. Only a prompt in Haiku's words is offered to
-// the seat's later askers (list_prompt(), 0008): one as typed reaches the routed predecessors and nobody else.
-async function routeQuestion(
+// the seat's later askers (listed): one as typed reaches the routed predecessors and nobody else.
+// Then one call saves the question and routes it (ask_question(), 0012). It joins the prompt Haiku picked while that is
+// still open and otherwise starts one from the text, so a prompt retired in the meantime needs no second call, and a
+// call that fails saves nothing: asking again doesn't save the question twice.
+async function askPredecessors(
   client: SupabaseClient,
-  questionId: string,
-  asked: { name: string; question: string },
+  seat: { id: string; name: string },
+  question: string,
   models: AskModels,
-): Promise<Routing> {
-  const prompts = await openPrompts(client, questionId);
+): Promise<AbstainedResult> {
+  const prompts = await openPrompts(client, seat.id);
   let dedupe: Dedupe = { errors: [] };
   try {
     dedupe = await dedupeQuestion({
       model: models.dedupe(),
-      seatName: asked.name,
-      question: asked.question,
+      seatName: seat.name,
+      question,
       prompts,
     });
   } catch (error) {
@@ -200,71 +192,47 @@ async function routeQuestion(
     logFailure("POST /api/ask dedupe", error);
   }
 
-  if (dedupe.joinPrompt) {
-    const joined = await route(client, {
-      question: questionId,
-      join_prompt: dedupe.joinPrompt,
-    });
-    if (joined) return joined;
-  }
-  const text = dedupe.promptText ?? promptText(asked.question);
-  if (!text) {
-    console.error("POST /api/ask: no prompt text passed the guard, not routed");
-    return { routedTo: 0 };
-  }
-  const routed = await route(client, {
-    question: questionId,
-    prompt_text: text,
+  const text = dedupe.promptText ?? promptText(question);
+  const { data, error } = await client.rpc("ask_question", {
+    seat: seat.id,
+    question,
+    lang: questionLang(question),
+    ...(dedupe.joinPrompt && { join_prompt: dedupe.joinPrompt }),
+    ...(text && { prompt_text: text, listed: text === dedupe.promptText }),
   });
-  if (!routed) throw new ApiFailure("unavailable");
-  if (routed.promptId && text === dedupe.promptText) {
-    await listPrompt(client, questionId);
+  if (error) throw dbFailure(error);
+  const asked = Asked.safeParse(Array.isArray(data) ? data[0] : data);
+  if (!asked.success) throw new ApiFailure("unavailable");
+  const {
+    question_id: questionId,
+    prompt_id: promptId,
+    routed_to: routedTo,
+  } = asked.data;
+  if (!text && !promptId) {
+    console.error("POST /api/ask: no prompt text passed the guard, not routed");
   }
-  return routed;
+  return {
+    status: "abstained",
+    questionId,
+    // Absent when nothing was routed (the asker holds no seat at that seat, or nobody but the asker could receive it),
+    // so no prompt exists to name.
+    ...(promptId && { promptId }),
+    routedTo,
+  };
 }
 
-// Offers the prompt this question started to the seat's later askers, so theirs can join it. Unlisted when this
-// fails (0008 not applied yet, say): it only misses a merge.
-async function listPrompt(
-  client: SupabaseClient,
-  questionId: string,
-): Promise<void> {
-  const { error } = await client.rpc("list_prompt", { question: questionId });
-  if (error) logFailure("POST /api/ask list_prompt", dbFailure(error));
-}
-
-// The seat's open demand prompts, for the asker's waiting question; none when the function fails (0008 not applied
-// yet, say), so the question starts a prompt of its own.
+// The seat's open demand prompts, for a holder about to ask there; none when the function fails, so the question
+// starts a prompt of its own.
 async function openPrompts(
   client: SupabaseClient,
-  questionId: string,
+  seatId: string,
 ): Promise<OpenPrompt[]> {
-  const { data, error } = await client.rpc("open_demand_prompts", {
-    question: questionId,
+  const { data, error } = await client.rpc("open_demand_prompts_at", {
+    seat: seatId,
   });
   if (error) {
-    logFailure("POST /api/ask open_demand_prompts", dbFailure(error));
+    logFailure("POST /api/ask open_demand_prompts_at", dbFailure(error));
     return [];
   }
   return OpenPrompts.safeParse(data).data ?? [];
-}
-
-// route_question(), joining a prompt or starting one. Undefined when the prompt to join is no longer open (retired or
-// gone since it was read: 22023), so the caller can start one instead.
-async function route(
-  client: SupabaseClient,
-  args:
-    | { question: string; join_prompt: string }
-    | {
-        question: string;
-        prompt_text: string;
-      },
-): Promise<Routing | undefined> {
-  const { data, error } = await client.rpc("route_question", args);
-  if (error?.code === "22023" && "join_prompt" in args) return undefined;
-  if (error) throw dbFailure(error);
-  const routed = Routed.safeParse(Array.isArray(data) ? data[0] : data);
-  if (!routed.success) throw new ApiFailure("unavailable");
-  const { prompt_id: promptId, routed_to: routedTo } = routed.data;
-  return { ...(promptId && { promptId }), routedTo };
 }
