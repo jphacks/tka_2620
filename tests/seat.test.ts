@@ -281,6 +281,25 @@ describe("seatViewAsCaller", () => {
     );
   });
 
+  it("drops a deadline row that doesn't read, which then hides nothing", async () => {
+    // A later holder's note on the same deadline, inserted through PostgREST with a date IsoDate refuses.
+    const broken = { ...row(hokenjo2025), deadline_date: "10000-01-01" };
+    const { client } = stubClient(
+      {
+        seats: [seatRow()],
+        seat_holders: [holds(2026)],
+        notes: [{ data: [row(hokenjo2024), broken], error: null }],
+      },
+      { seat_lineage: lineage },
+    );
+    const view = SeatView.parse(
+      await seatViewAsCaller(client, "smash-kaikei", TODAY),
+    );
+    expect(view.upcoming.map((item) => item.noteId)).toEqual([
+      "smash-2024-hokenjo",
+    ]);
+  });
+
   it("answers unavailable when the notes query fails", async () => {
     const { client } = stubClient(
       {
@@ -509,7 +528,18 @@ describe.skipIf(missing.length > 0)("live, as the personas", () => {
     );
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("private, no-store");
-    const view = SeatView.parse(await response.json());
+    // As sent, before any parse could drop a field: no embedding, superseded_by or body on the way out.
+    const body = await response.json();
+    for (const item of body.upcoming) {
+      expect(Object.keys(item).sort()).toEqual([
+        "byline",
+        "date",
+        "lang",
+        "noteId",
+        "title",
+      ]);
+    }
+    const view = SeatView.parse(body);
     expect(view.upcoming.map((item) => item.noteId)).toContain(
       "smash-2025-hokenjo",
     );

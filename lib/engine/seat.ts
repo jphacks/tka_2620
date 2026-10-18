@@ -117,10 +117,16 @@ export async function seatViewAsCaller(
   if (deadlines.error) throw dbFailure(deadlines.error);
   const own = Terms.safeParse(held.data);
   const terms = Terms.safeParse(lineage.data);
-  const notes = z.array(DeadlineNote).safeParse(deadlines.data);
-  if (!own.success || !terms.success || !notes.success) {
+  const rows = z.array(z.unknown()).safeParse(deadlines.data);
+  if (!own.success || !terms.success || !rows.success) {
     throw new ApiFailure("unavailable");
   }
+  // A row that doesn't read (a holder can insert straight through PostgREST, e.g. a deadline in the year 10000) drops
+  // out on its own: it shows nothing and hides nothing, and the page still opens for everyone else.
+  const notes = rows.data.flatMap((row) => {
+    const note = DeadlineNote.safeParse(row);
+    return note.success ? [note.data] : [];
+  });
 
   const latest = own.data.reduce<(typeof own.data)[number] | undefined>(
     (best, term) => (!best || term.term_order > best.term_order ? term : best),
@@ -145,7 +151,7 @@ export async function seatViewAsCaller(
       termOrder: term.term_order,
       isViewer: viewerTerms.has(term.term_order),
     })),
-    upcoming: upcomingDeadlines(notes.data, today),
+    upcoming: upcomingDeadlines(notes, today),
   };
 }
 
