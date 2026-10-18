@@ -142,12 +142,14 @@ export function createApi(db: SupabaseClient, userId?: string): Api {
           },
         )
         .subscribe();
-      // Realtime follows the client's current session: once that isn't this Api's user, no row gets through.
+      // Realtime follows the client's current session: while that is someone else's, no row gets through. No session
+      // (signed out, or an expired token offline) changes nothing: Realtime then runs on the anon key, which RLS
+      // shows nothing, and this Api's user may come back once the token refreshes.
       const watch =
         userId === undefined
           ? undefined
           : db.auth.onAuthStateChange((_event, session) => {
-              if (someoneElse(session)) open = false;
+              if (session) open = session.user.id === userId;
             }).data.subscription;
       return () => {
         open = false;

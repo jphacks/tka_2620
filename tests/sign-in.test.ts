@@ -322,11 +322,16 @@ describe("signIn, signedIn and signOut (Auth stubbed)", () => {
       rows.push(row),
     );
     const row = { id: "smash-2025-hokenjo", status: "live" };
+    // Woken offline with an expired token: no session at first, then a25's token refreshes.
+    authChange?.("INITIAL_SESSION", null);
     authChange?.("TOKEN_REFRESHED", { user: { id: A25_ID } });
     push?.({ new: row });
+    // Another tab signs in as a26: nothing gets through, until a25 is back.
     authChange?.("SIGNED_IN", { user: { id: A26_ID } });
     push?.({ new: row });
-    expect(rows).toEqual([row]);
+    authChange?.("SIGNED_IN", { user: { id: A25_ID } });
+    push?.({ new: row });
+    expect(rows).toEqual([row, row]);
     stop();
     expect(authChange).toBeUndefined();
   });
