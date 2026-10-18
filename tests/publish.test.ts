@@ -306,6 +306,40 @@ describe("publishAsCaller", () => {
     });
   });
 
+  // F6.4 (#43): a setting that is off shows no control, and the live loop publishes drafts unreviewed, so an expiry or a
+  // critical flag in the request only counts where the seat turns it on.
+  const dated: PublishCard = {
+    ...card,
+    valid_until: "2026-10-20",
+    critical: true,
+  };
+  it("stores no expiry and never critical on a seat whose settings are off", async () => {
+    const { calls } = await run({
+      request: { seat: "smash-kaikei", cards: [dated] },
+    });
+    expect(insertedRows(calls.notes)?.[0]).toMatchObject({
+      valid_until: null,
+      critical: false,
+    });
+  });
+
+  it("stores the author's expiry and critical flag where the seat turns them on", async () => {
+    const lab = ok({
+      id: SEAT_ID,
+      name: "バイオプリンタ担当",
+      seat_type: "lab_duty",
+      settings: { noteExpiry: true, groupOwnsCriticalNotes: true },
+    });
+    const { calls } = await run({
+      tables: { seats: [lab] },
+      request: { seat: "lab-bioprinter", cards: [dated] },
+    });
+    expect(insertedRows(calls.notes)?.[0]).toMatchObject({
+      valid_until: "2026-10-20",
+      critical: true,
+    });
+  });
+
   describe("refuses before writing anything", () => {
     it.each<[string, Parameters<typeof run>[0], ApiErrorCode]>([
       ["an unknown seat", { tables: { seats: [ok(null)] } }, "not_found"],

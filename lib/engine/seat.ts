@@ -18,8 +18,9 @@ import { ApiFailure, dbFailure } from "@/lib/engine/route";
 import { SIMILAR } from "@/lib/engine/similar";
 
 // seats.settings holds only the flags a seat type turns on (scripts/seed.ts); the page gets every flag, off when unset.
+// Publishing reads them the same way (lib/engine/publish.ts).
 const Flag = z.boolean().catch(false);
-const Settings = z
+export const SeatSettings = z
   .object({
     noteExpiry: Flag,
     groupOwnsCriticalNotes: Flag,
@@ -36,7 +37,7 @@ const SeatRow = z.object({
   slug: z.string(),
   name: z.string(),
   seat_type: SeatType,
-  settings: Settings,
+  settings: SeatSettings,
   groups: z.object({
     name: z.string(),
     institutions: z.object({ name: z.string() }),
