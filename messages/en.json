@@ -143,6 +143,22 @@
     "redaction": "<hid>{hidden}</hid> items hidden in <fig>{chats}</fig> chats and <fig>{files}</fig> files; <out>{left}</out> canaries left the browser",
     "resetHint": "To reset the real data, run pnpm demo:reset in a terminal, then reload this page."
   },
+  "filter": {
+    "title": "Filter and order",
+    "sort": "Order",
+    "shown": "Showing <fig>{n}</fig> notes",
+    "clear": "Clear the filter",
+    "noneMatch": "No notes match this filter.",
+    "status": "Status",
+    "allStatus": "All",
+    "live": "Live",
+    "scope": "Who can read",
+    "allScopes": "Every scope",
+    "seat": "Seat",
+    "allSeats": "Every seat",
+    "newest": "Newest first",
+    "oldest": "Oldest first"
+  },
   "onkuri": {
     "credit": "{n} senpai answered {q} of your questions. Your turn!"
   },

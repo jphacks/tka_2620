@@ -143,6 +143,22 @@
     "redaction": "トーク <fig>{chats}</fig>件とファイル <fig>{files}</fig>件から <hid>{hidden}</hid>件を隠し、端末の外に出たカナリアは <out>{left}</out>件",
     "resetHint": "実データのリセットは、ターミナルで pnpm demo:reset を実行してから、このページを再読み込みします。"
   },
+  "filter": {
+    "title": "絞り込みと並び順",
+    "sort": "並び順",
+    "shown": "<fig>{n}</fig>件のメモを表示しています",
+    "clear": "絞り込みを外す",
+    "noneMatch": "この条件のメモはありません。",
+    "status": "状態",
+    "allStatus": "すべて",
+    "live": "公開中",
+    "scope": "読める人",
+    "allScopes": "すべての範囲",
+    "seat": "席",
+    "allSeats": "すべての席",
+    "newest": "新しい順",
+    "oldest": "古い順"
+  },
   "onkuri": {
     "credit": "{n}人の先輩が、あなたの質問{q}個に答えました。次はあなたの番です！"
   },

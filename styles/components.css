@@ -164,11 +164,30 @@ a.dd-tab { display: grid; place-items: center; text-decoration: none; }
 .dd-panes { flex-wrap: nowrap; overflow-x: auto; padding-bottom: var(--s-2); }
 .dd-panes .dd-pane { height: min(844px, max(480px, calc(100dvh - 212px))); }
 
+/* Filter and order (the handover guide, 自分のメモ): labelled 44px selects in a light frame, as many per line as fit
+   (one under another on a 320px phone), then the count of what shows and the way back to everything. Never printed. */
+.dd-filter { margin: 0; padding: var(--s-1) var(--s-3) var(--s-3); border: 1px solid var(--rule); border-radius: var(--r-slip); display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--s-2) var(--s-3); }
+.dd-filter legend { padding: 0 var(--s-1); font-size: 16px; }
+.dd-filter label { display: grid; gap: var(--s-1); }
+.dd-filter .dd-select { width: 100%; min-height: 44px; font-size: 16px; } /* 16px: iOS zooms into a smaller field */
+.dd-filter-count { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0 var(--s-4); min-height: 44px; }
+.dd-filter-reset { min-height: 44px; }
+/* A link that reads as a button (a calm state's way back), at its own width */
+.dd-btn-link { display: inline-grid; place-items: center; justify-self: start; text-decoration: none; }
+.dd-print-only { display: none; }
+
+/* A row's lone main action (VoiceAnswer's 公開する): the full width on a phone, in the thumb's reach; from 600px its own
+   width, since a 592px button reads as a banner. Overrides the inline flex: 1, which the two-button rows keep. */
+@media (min-width: 600px) {
+  .dd-row > .dd-btn-primary:only-child { flex: 0 1 auto !important; min-width: 240px; }
+}
+
 /* Print (the handover guide, or any page): paper only. The bars, the verb tabs and every .dd-noprint control stay on
    screen; the room kept under the content for the tabs goes; an entry isn't split across two sheets. The light tokens
    are forced in styles/tokens.css. */
 @media print {
-  .dd-bar, .dd-verbs, .dd-noprint { display: none !important; }
+  .dd-bar, .dd-verbs, .dd-noprint, .dd-filter { display: none !important; }
+  .dd-print-only { display: block; }
   .dd-with-verbs { padding-bottom: 0 !important; }
   .dd-slip { box-shadow: none; }
   .dd-slip, .dd-entry, article { break-inside: avoid; }
