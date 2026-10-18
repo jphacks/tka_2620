@@ -1,6 +1,13 @@
+import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 import { MyNotesPanel } from "@/components/MyNotesPanel";
 import { VerbTabs } from "@/components/VerbTabs";
 import { SeatSlug } from "@/lib/contracts";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("meta");
+  return { title: t("notes") };
+}
 
 export default async function MyNotesPage({
   searchParams,
