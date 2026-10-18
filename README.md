@@ -53,12 +53,6 @@
 | トークとファイルの匿名化 / Chat and file privacy | {chats} 件のトークと {files} 件のファイルで名前・連絡先・秘密 {hidden} 件を隠し、端末の外に出たものは {left_browser} 件 / {hidden} items hidden in {chats} chats and {files} files, {left_browser} left the browser | `pnpm test:redact` |
 | ライブループ / Live loop | {loop_runs} 回中 {loop_failures} 回失敗、中央値 {loop_median_s} 秒 | `pnpm test:loop` |
 
-## ユーザーの声 / User evidence
-- {n} 人のサークル・学祭の役員に話を聞きました。/ We talked to {n} club and festival officers.
-- 「{quote 1}」（{role}）
-- 「{quote 2}」（{role}）
-- {club} が11月の代替わりで試す予定です。/ {club} will try Daidai at its November handover.
-
 ## 開発技術
 ### 活用した技術
 #### API・データ
