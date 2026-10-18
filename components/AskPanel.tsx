@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AbstainEntry } from "@/components/AbstainEntry";
 import { AnswerEntry } from "@/components/AnswerEntry";
 import { AskField } from "@/components/AskField";
@@ -19,11 +19,14 @@ export function AskPanel({
   slug,
   mockShortcuts = true,
   api: given,
+  onSeat,
 }: {
   slug: string;
   mockShortcuts?: boolean;
   /** The signed-in newcomer's client (a console pane's); mocks as a26 when left out. */
   api?: Api;
+  /** The seat view once it loads, for a page that shows the seat too (SeatHome); the console needs none. */
+  onSeat?: (view: SeatView) => void;
 }) {
   const t = useTranslations();
   const api = useMemo(() => given ?? createMockApi("a26"), [given]);
@@ -36,8 +39,23 @@ export function AskPanel({
   const busy = asked.some((entry) => !entry.result);
 
   useEffect(() => {
-    api.seat(slug).then(setSeatView, () => setFailed("seat"));
-  }, [api, slug]);
+    api.seat(slug).then(
+      (view) => {
+        setSeatView(view);
+        onSeat?.(view);
+      },
+      () => setFailed("seat"),
+    );
+  }, [api, slug, onSeat]);
+
+  // The newest entry comes into view when its result lands or changes: on a phone, the seat's header above and the
+  // verb tabs below can leave 「誰も知りません」 or the live answer, stamp and all, landing out of sight. Nothing moves
+  // when it is in view already (the console's panes).
+  const newest = useRef<HTMLElement>(null);
+  const newestResult = asked[0]?.result;
+  useEffect(() => {
+    if (newestResult) newest.current?.scrollIntoView({ block: "nearest" });
+  }, [newestResult]);
 
   // The asker's latest answer replaces the entry: the live answer, then any re-answer after a withdrawal
   // (fewer sentences, or the blank line again).
@@ -93,6 +111,7 @@ export function AskPanel({
       {asked.map(({ question, result }, index) => (
         <article
           key={`${asked.length - index}`}
+          ref={index === 0 ? newest : undefined}
           className="dd-col"
           style={{ gap: 0 }}
         >
