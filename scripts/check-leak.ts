@@ -475,8 +475,9 @@ type Context = {
   runQuestions: Set<string>; // ids from the replies and inserts
   probeQuestions: Map<string, string[]>; // viewer key → its waiting, unrouted probe questions
   withdrawnByProbe: Set<string>; // seed notes a withdraw probe got through on (a leak)
-  // A demand prompt at SEAT that the run adds itself: unlisted and routed to nobody, so nobody may read or join it.
-  probePrompt?: string;
+  // The demand prompts the run adds itself, routed to nobody, which nobody may read or join: open and unlisted at SEAT,
+  // listed but retired at SEAT, open and listed at a seat no viewer holds and nobody can be reached at (the quiet one).
+  probePrompts: { unlisted?: string; retired?: string; quiet?: string };
 };
 
 async function questions(session: Session, context: Context): Promise<void> {
@@ -1001,11 +1002,16 @@ async function oracles(session: Session, context: Context): Promise<void> {
     );
   }
 
-  // ask_question joining a prompt this viewer may not join (the run's probe prompt: unlisted, routed to nobody) and a
-  // made-up one, with no prompt text, so nothing reaches a25 whatever happens (#69). Both must route nowhere and answer
-  // alike apart from the new question's id. The questions it saves go to the cleanup.
-  const probePrompt = context.probePrompt;
-  if (probePrompt && seatId) {
+  // ask_question joining prompts this viewer may not join (the run's probe prompts: unlisted at SEAT, retired at SEAT,
+  // and one at another seat) and a made-up one, with no prompt text, so nothing reaches a25 whatever happens (#69). Each
+  // must route nowhere and answer like the made-up one apart from the new question's id. The questions it saves go to
+  // the cleanup.
+  const targets = [
+    context.probePrompts.unlisted,
+    context.probePrompts.retired,
+    context.probePrompts.quiet,
+  ].filter((id): id is string => id !== undefined);
+  if (targets.length > 0 && seatId) {
     const othersReachable = [...world.reachable].some(
       (key) =>
         key.startsWith(`${seatId} `) && key !== `${seatId} ${session.userId}`,
@@ -1049,27 +1055,27 @@ async function oracles(session: Session, context: Context): Promise<void> {
         return [];
       },
     );
-    await attempt(
-      session,
-      "oracles",
-      `ask_question() joining prompt ${probePrompt}`,
-      async () => {
-        const reply = await askJoining(probePrompt);
-        if (reply.promptId === probePrompt)
-          return [
-            { reason: "joined a prompt it may not join", ref: probePrompt },
-          ];
-        return isDeepStrictEqual(reply, none)
-          ? []
-          : [
-              {
-                reason:
-                  "answers differently for a prompt it may not join than for none",
-                ref: probePrompt,
-              },
-            ];
-      },
-    );
+    for (const target of targets) {
+      await attempt(
+        session,
+        "oracles",
+        `ask_question() joining prompt ${target}`,
+        async () => {
+          const reply = await askJoining(target);
+          if (reply.promptId === target)
+            return [{ reason: "joined a prompt it may not join", ref: target }];
+          return isDeepStrictEqual(reply, none)
+            ? []
+            : [
+                {
+                  reason:
+                    "answers differently for a prompt it may not join than for none",
+                  ref: target,
+                },
+              ];
+        },
+      );
+    }
   }
 
   // The console's sign-in route hands out a25's and a26's sessions: never without the passphrase.
@@ -1417,6 +1423,7 @@ async function main(): Promise<void> {
     runQuestions: new Set(),
     probeQuestions: new Map(),
     withdrawnByProbe: new Set(),
+    probePrompts: {},
   };
   const run = {
     since: new Date(Date.now() - 60_000).toISOString(), // a minute of slack for the clocks
@@ -1482,14 +1489,21 @@ async function main(): Promise<void> {
     stopIfAsked();
     // The probe prompts, added after the questions so none of them could join one, with this run's own text so the
     // cleanup finds them even if an insert's reply was lost:
-    // - at SEAT, open and unlisted, routed to nobody: nobody may read or join it (Context.probePrompt);
+    // - at SEAT, open and unlisted: nobody may read or join it;
     // - at SEAT, listed but retired: no holder is offered it;
-    // - open and listed at a seat with no reachable holder, where nobody can join a prompt: no viewer holds that seat,
-    //   so nobody may be offered it, whether or not Haiku worded any of the run's own prompts.
+    // - open and listed at a seat that no viewer holds and nobody can be reached at, so nobody can join a prompt there:
+    //   no viewer may be offered it, whether or not Haiku worded any of the run's own prompts.
+    // Each is also a prompt the join probe (oracles) must not join.
     const smashId = context.seats.get(SEAT);
+    const heldByViewers = new Set(
+      [...context.personaIds.values()].flatMap((userId) => [
+        ...(world.seatsHeld.get(userId) ?? []),
+      ]),
+    );
     const quietSeat = [...context.seats.values()].find(
       (id) =>
         id !== smashId &&
+        !heldByViewers.has(id) &&
         ![...world.reachable].some((key) => key.startsWith(`${id} `)),
     );
     const probePrompts: {
@@ -1516,12 +1530,20 @@ async function main(): Promise<void> {
           ask_count: 1,
         })),
       )
-      .select("id, seat_id, listed");
+      .select("id, seat_id, listed, retired");
     if (added.error)
       throw new Error(`write the probe prompts: ${added.error.code}`);
-    context.probePrompt = (
-      added.data as { id: string; seat_id: string; listed: boolean }[]
-    ).find((row) => row.seat_id === smashId && !row.listed)?.id;
+    const rows = added.data as {
+      id: string;
+      seat_id: string;
+      listed: boolean;
+      retired: boolean;
+    }[];
+    context.probePrompts = {
+      unlisted: rows.find((row) => row.seat_id === smashId && !row.listed)?.id,
+      retired: rows.find((row) => row.seat_id === smashId && row.retired)?.id,
+      quiet: rows.find((row) => row.seat_id === quietSeat)?.id,
+    };
     await readRun(service, world);
     await Promise.all(
       sessions.map(async (session) => {
@@ -1589,7 +1611,10 @@ async function main(): Promise<void> {
 
   const enough = outsiderAttempts >= MIN_OUTSIDER_ATTEMPTS;
   const joinTested = joinReached.size > 0;
-  const conclusive = !stopped && inconclusive === 0 && enough && joinTested;
+  // Without the quiet seat's listed prompt, open_demand_prompts_at() may have had nothing to refuse anyone.
+  const quietTested = context.probePrompts.quiet !== undefined;
+  const conclusive =
+    !stopped && inconclusive === 0 && enough && joinTested && quietTested;
   console.log(
     `\n${found === 0 ? "✓" : "✗"} ${found} leak(s) in ${attempts.length} attempts, ${outsiderAttempts} by the outsider x${enough ? "" : ` (fewer than ${MIN_OUTSIDER_ATTEMPTS})`}${inconclusive > 0 ? `; ${inconclusive} inconclusive` : ""}`,
   );
@@ -1599,6 +1624,11 @@ async function main(): Promise<void> {
       ? `✓ ask_question()'s join was probed for ${[...joinReached].join(", ")}`
       : `✗ no viewer's ask_question() reached the join (a holder of ${SEAT} with someone else reachable there), so the join probe tested nothing`,
   );
+  if (!quietTested) {
+    console.log(
+      "✗ no seat that no viewer holds and nobody can be reached at, so open_demand_prompts_at() had no listed prompt to refuse there",
+    );
+  }
   console.log(
     recorded.error
       ? `✗ write the events row: ${recorded.error.code}`
