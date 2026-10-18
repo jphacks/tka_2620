@@ -16,6 +16,7 @@ import {
   useState,
 } from "react";
 import { CardReview } from "@/components/CardReview";
+import { mergePrompts } from "@/components/handover";
 import type { AnswerMode } from "@/components/InboxSlip";
 import { VoiceAnswer } from "@/components/VoiceAnswer";
 import type {
@@ -90,8 +91,8 @@ export function HandoverPrompts({
     };
   }, [api, slug]);
 
-  // A prompt already shown stays where it is while the server still lists it, or once it is published (the server stops
-  // listing a prompt the caller answered); new ones go below, so nothing slides in under the person's thumb.
+  // Prompts already shown keep their places, so nothing slides in under the person's thumb (components/handover.ts →
+  // mergePrompts).
   const load = useCallback(async () => {
     let next: HandoverPrompt[];
     try {
@@ -101,27 +102,9 @@ export function HandoverPrompts({
       return;
     }
     setFailed(false);
-    const listed = new Set(next.map((prompt) => prompt.id));
-    setPrompts((current = []) => {
-      // Until one is answered, nothing is under the person's thumb yet: the server's ranking as it is.
-      if (published.size === 0 && opened.current === undefined) return next;
-      // The prompt being answered stays too, even when a newcomer's question pushes it out of the server's three.
-      const kept = current.filter(
-        (prompt) =>
-          listed.has(prompt.id) ||
-          published.has(prompt.id) ||
-          prompt.id === opened.current,
-      );
-      const known = new Set(kept.map((prompt) => prompt.id));
-      // Only a newcomer's question joins below: each publish has the server list the next gap or core prompt, which
-      // waits for the next visit, so the three answered read as done.
-      return [
-        ...kept,
-        ...next.filter(
-          (prompt) => !known.has(prompt.id) && prompt.reason === "demand",
-        ),
-      ];
-    });
+    setPrompts((current = []) =>
+      mergePrompts(current, next, published, opened.current),
+    );
   }, [api, slug, published]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: refresh is the signal to read again

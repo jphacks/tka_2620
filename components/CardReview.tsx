@@ -6,6 +6,7 @@
 // hands the cards up as PublishCards.
 import { useLocale, useTranslations } from "next-intl";
 import { useCallback, useId, useState } from "react";
+import { type Choice, choiceOf, publishCardsOf } from "@/components/handover";
 import { kindMarks } from "@/components/marks";
 import { ScopeRings } from "@/components/ScopeRings";
 import {
@@ -14,18 +15,8 @@ import {
   type Followup,
   IsoDate,
   type PublishCard,
-  type Scope,
   type SeatView,
 } from "@/lib/contracts";
-
-// What the predecessor picks per card; the draft's own fields stay as drafted.
-type Choice = { scope: Scope; validUntil?: string; critical: boolean };
-
-const choiceOf = (card: CardDraft): Choice => ({
-  scope: "successor", // docs/DESIGN.md: scope defaults to successor, whatever the draft suggests
-  validUntil: card.valid_until,
-  critical: card.critical,
-});
 
 // A deadline as the page's language writes a full date: 2025年10月20日, October 20, 2025.
 function dateLabel(date: string, locale: string): string {
@@ -233,25 +224,7 @@ export function CardReview({
         className="dd-btn dd-btn-primary"
         style={{ minHeight: "52px" }}
         disabled={busy || cards.length === 0}
-        onClick={() =>
-          onPublish(
-            cards.map((card, index) => {
-              const choice = choices[index] ?? choiceOf(card);
-              // A setting that is off shows no control, so it publishes nothing either: no expiry the author never
-              // saw (a deadline note would leave answers right after its date), never critical.
-              return {
-                ...card,
-                scope: choice.scope,
-                critical: seat.settings.groupOwnsCriticalNotes
-                  ? choice.critical
-                  : false,
-                valid_until: seat.settings.noteExpiry
-                  ? choice.validUntil
-                  : undefined,
-              };
-            }),
-          )
-        }
+        onClick={() => onPublish(publishCardsOf(cards, choices, seat.settings))}
       >
         {busy ? t("voice.publishing") : t("handover.publish")}
       </button>
