@@ -154,9 +154,11 @@ Use Japanese notebook marks, not coloured chips or emoji. Each mark is followed 
   with 「いま、2025年度 会計が答えました」 under it.
 - **`InboxSlip`** (伝言メモ, on the predecessor's phone): a message slip like an office phone-message pad.
   Header 「後輩から質問が届きました」, a 「から」 field with 「2026年度 会計」, the question in Klee One 20px,
-  「〇人が質問しました」, and two large actions: 「声で答える」 (primary) and 「文字で答える」.
-- **`VoiceAnswer`**: a round 80px `--blue` button with a microphone; while listening, one ring pulses outward
-  in `--blue-wash`; the transcript appears in Klee One on ruled lines; 「公開する」 below.
+  「〇人が質問しました」, and the answer written on the slip itself (`VoiceAnswer`), so nothing has to open first.
+- **`VoiceAnswer`**: a textbox (1px `--ink-2`, `--blue` while focused) holding the answer in Klee One on ruled lines,
+  growing with it and using its full width, with a round 40px microphone laid over it at the bottom right: `--blue` icon, filled `--blue` while
+  listening with one ring pulsing outward in `--blue-wash`. Tap the box to type or the mic to speak; 「公開する」 appears
+  below with the first word. The same box sits on each handover prompt, where the button says 「下書きを作る」.
 - **`NoteEntry`**: a note as a notebook entry: kind mark and title (UI bold), body (Klee One), date stamp
   bottom-right, scope in small UI text (「次の会計だけ」). Deadline notes show the date in figures with the highlighter.
 - **`UpcomingList`**: a planner column: boxed date in figures (「10/20 火」), title, mini stamp. Dates within 7 days

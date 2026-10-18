@@ -306,7 +306,9 @@
     "publishing": "Publishing…",
     "published": "Published",
     "close": "Close",
-    "failed": "Couldn't publish. Check your connection and try again."
+    "failed": "Couldn't publish. Check your connection and try again.",
+    "answerLabel": "Answer",
+    "inlinePlaceholder": "Type, or tap the mic to speak"
   },
   "live": {
     "answered": "{byline} just answered",

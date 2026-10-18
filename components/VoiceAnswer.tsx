@@ -1,7 +1,7 @@
 "use client";
 // docs/DESIGN.md → VoiceAnswer: the predecessor speaks the answer, checks the text and publishes it.
-// A round 80px --blue button with a microphone; one ring pulses while listening; the transcript is an
-// editable field in Klee One on ruled lines, so the keyboard's dictation works in the same place.
+// A textbox in Klee One on ruled lines with a round microphone inside it at the right; one ring pulses while
+// listening, and the spoken words land in the same field, so typing, the mic and the keyboard's dictation mix.
 // Mocks only for now (NEXT_PUBLIC_USE_MOCKS=1), as last year's treasurer (a25): the real client replaces
 // createMockApi when /api/handover/draft and /api/handover/publish exist. The console hands in its a25 pane's client.
 // On the handover prompts (F6) the panel only takes the answer: onDraft gets it, and the cards are reviewed before
@@ -46,18 +46,20 @@ function DraftedCard({ card }: { card: CardDraft }) {
 export function VoiceAnswer({
   item,
   seat,
-  mode = "voice",
+  mode,
   onPublished,
   onClose,
   onDraft,
   drafting = false,
+  locked = false,
   headingLevel = 2,
   api: given,
 }: {
   /** The prompt being answered; a handover prompt has no language of its own. */
   item: Pick<InboxItem, "promptId"> & { lang?: InboxItem["lang"] };
   seat: string;
-  /** voice starts the microphone; text opens the field focused (both land in the same field). */
+  /** Opened by a tap: voice starts the microphone, text focuses the field. Left out, the field just waits, as it does
+   * inside an inbox slip or a handover prompt. */
   mode?: AnswerMode;
   onPublished?: () => void; // after publish: refresh the inbox (the waiting question is gone)
   onClose?: () => void; // dismiss the panel after reading the drafted card
@@ -65,6 +67,8 @@ export function VoiceAnswer({
   onDraft?: (answer: string) => void;
   /** onDraft's request is on its way. */
   drafting?: boolean;
+  /** Another answer is being drafted on this page: the field still takes text, the button waits. */
+  locked?: boolean;
   /** The title's level: 3 inside a handover prompt, under the prompts' h2. */
   headingLevel?: 2 | 3;
   /** The signed-in predecessor's client; mocks as a25 when left out. */
@@ -84,9 +88,8 @@ export function VoiceAnswer({
   const [failed, setFailed] = useState(false);
   // What the field held when listening began, so a restart after a pause keeps both sentences.
   const base = useRef("");
-  // Each section comes into view as it appears (the form after 声で答える, the card once published): on a phone,
-  // 公開する at the form's foot can sit under the verb tabs. Stable, so typing doesn't scroll anything; the two
-  // sections carry their own keys, so publishing mounts a new one and the ref runs again.
+  // 公開する as it appears with the first word, and the card once published, come into view: on a phone they can sit
+  // under the verb tabs. Stable, so typing doesn't scroll anything once they are there.
   const intoView = useCallback((node: HTMLElement | null) => {
     node?.scrollIntoView({ block: "nearest" });
   }, []);
@@ -104,16 +107,13 @@ export function VoiceAnswer({
     [],
   );
 
-  // 声で答える starts the microphone right away (the tap is the user gesture the browser asks for).
+  // Opened with mode voice, the microphone starts right away (the opening tap is the user gesture the browser asks for).
   // Opening once: the field is empty here, and typing goes through change(), not this effect.
   useEffect(() => {
-    if (mode === "voice") {
-      dictation.start(base.current);
-    } else {
-      field.current?.focus();
-    }
-    return () => dictation.stop();
+    if (mode === "voice") dictation.start(base.current);
+    if (mode === "text") field.current?.focus();
   }, [dictation, mode]);
+  useEffect(() => () => dictation.stop(), [dictation]);
 
   const listen = useCallback(() => {
     setError(undefined);
@@ -198,64 +198,53 @@ export function VoiceAnswer({
     );
   }
 
+  // The answer field is a textbox with the microphone inside it at the right: tap the box to type, or the mic to speak
+  // (and again to stop). The button appears with the first word, and comes into view then: on a phone it can sit under
+  // the verb tabs.
   return (
-    <section
-      key="form"
-      ref={intoView}
-      className="dd-col"
-      style={{ gap: "var(--s-4)" }}
-    >
-      <Title className="dd-h">{t("voice.title")}</Title>
-
-      <div
-        className="dd-col"
-        style={{ alignItems: "center", gap: "var(--s-2)" }}
-      >
+    <section key="form" className="dd-col" style={{ gap: "var(--s-3)" }}>
+      <div className="dd-answer">
+        <textarea
+          id={fieldId}
+          ref={field}
+          className="dd-voice-text"
+          rows={1}
+          lang={item.lang}
+          aria-label={t("voice.answerLabel")}
+          placeholder={t("voice.inlinePlaceholder")}
+          value={text}
+          onChange={(event) => change(event.target.value)}
+        />
         <button
           type="button"
-          className={`dd-voice${listening ? " is-listening" : ""}`}
+          className={`dd-mic${listening ? " is-listening" : ""}`}
           aria-pressed={listening}
+          aria-controls={fieldId}
           aria-label={
             listening ? t("voice.stopListening") : t("voice.startListening")
           }
           onClick={listen}
         >
-          <Mic size={32} aria-hidden="true" />
+          <Mic size={22} aria-hidden="true" />
         </button>
-        <output className="dd-cap" style={{ color: "var(--ink-2)" }}>
-          {listening ? t("inbox.listening") : t("voice.tapToSpeak")}
-        </output>
       </div>
-
-      <label className="dd-label" htmlFor={fieldId}>
-        {t("voice.transcriptLabel")}
-      </label>
-      <textarea
-        id={fieldId}
-        ref={field}
-        className="dd-voice-text"
-        rows={3}
-        lang={item.lang}
-        placeholder={t("voice.placeholder")}
-        value={text}
-        onChange={(event) => change(event.target.value)}
-      />
-      <p className="dd-cap" style={{ margin: 0 }}>
-        {t("voice.keyboardHint")}
-      </p>
-
+      {listening && (
+        <output className="dd-cap" style={{ color: "var(--ink-2)" }}>
+          {t("inbox.listening")}
+        </output>
+      )}
       {hint && (
         <p className="dd-cap" style={{ margin: 0 }}>
           {hint}
         </p>
       )}
-
-      <div className="dd-row">
+      {text.trim() && (
         <button
+          ref={intoView}
           type="button"
           className="dd-btn dd-btn-primary"
-          style={{ flex: 1, minHeight: "52px" }}
-          disabled={!text.trim() || publishing || drafting}
+          style={{ minHeight: "52px" }}
+          disabled={publishing || drafting || locked}
           onClick={publish}
         >
           {onDraft
@@ -266,7 +255,7 @@ export function VoiceAnswer({
               ? t("voice.publishing")
               : t("inbox.publish")}
         </button>
-      </div>
+      )}
       {failed && (
         <p className="dd-cap" style={{ margin: 0 }}>
           {t("voice.failed")}
