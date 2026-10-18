@@ -50,6 +50,7 @@ import {
   type WithdrawResponse,
 } from "@/lib/contracts";
 import { questionLang } from "@/lib/engine/lang";
+import { shownReason } from "@/lib/engine/shown";
 
 export const USE_MOCKS = process.env.NEXT_PUBLIC_USE_MOCKS === "1";
 
@@ -1083,6 +1084,16 @@ export function createMockApi(
       const { seat, promptId, cards } = PublishRequest.parse(request);
       const holder = holders[persona];
       if (seat !== SEAT || !holder) throw new MockApiError("forbidden");
+      // Like the route: an added card gets its import's guard again (an edit in the review may have typed one back in).
+      const refused = cards.some(
+        (card) =>
+          card.source &&
+          shownReason(
+            [card.title, card.body, card.provenance ?? ""].join("\n"),
+            card.flags.secret,
+          ),
+      );
+      if (refused) throw new MockApiError("unredacted");
       const noteIds = cards.map((_card, i) =>
         i === 0 && promptId === mockIds.keyPrompt ? mockIds.liveNote : newId(),
       );
@@ -1178,13 +1189,7 @@ export function createMockApi(
         );
       }
       if (!holders[persona]) throw new MockApiError("forbidden");
-      if (
-        /\d{2,4}-\d{2,4}-\d{3,4}|[\w.+-]+@[\w-]+\.[\w.]+|\[[^\]\n]+\]/.test(
-          text,
-        )
-      ) {
-        throw new MockApiError("unredacted");
-      }
+      if (shownReason(text)) throw new MockApiError("unredacted");
       const promptId = state.gaps.get(text) ?? newId();
       state.gaps.set(text, promptId);
       return reply({ promptId });

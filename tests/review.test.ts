@@ -131,6 +131,34 @@ describe("cardProblem", () => {
     ).toBe("guard");
     expect(cardProblem(card(), "PDF・03-9876-5432")).toBe("guard");
   });
+
+  it("refuses what publishing refuses on an added card: a URL, a LINE ID, a placeholder, a name", () => {
+    for (const body of [
+      "申請は https://forms.gle/AbCdEf から出す。",
+      "連絡は LINE: kato_kaikei へ。",
+      "メンバーA が鍵を持っている。",
+      "[人] に確認する。",
+      "加藤さんに聞く。",
+    ]) {
+      expect(cardProblem(card({ body }), CHIP)).toBe("guard");
+    }
+  });
+
+  it("never refuses a card for its provenance chip, in either language", () => {
+    for (const [messages, months] of [
+      [ja, ["2025年3月", "2026年10月"]],
+      [en, ["March 2025", "October 2026"]],
+    ] as const) {
+      for (const from of Object.values(messages.import.from)) {
+        for (const month of months) {
+          const chip = messages.import.provenance
+            .replace("{platform}", from)
+            .replace("{month}", month);
+          expect(cardProblem(card(), chip), chip).toBeUndefined();
+        }
+      }
+    }
+  });
 });
 
 describe("publishHold and publishCards", () => {

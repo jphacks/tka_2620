@@ -8,7 +8,7 @@ import {
   IsoDate,
   type PublishCard,
 } from "@/lib/contracts";
-import { blockReason } from "@/lib/engine/guard";
+import { shownReason } from "@/lib/engine/shown";
 import type { FileType } from "@/lib/ingest/types";
 
 // Where the text came from, worded on the screen (messages → import.from, import.provenance: 「LINEグループ・2025年3月」):
@@ -75,9 +75,9 @@ const BODY_MAX = 2000;
 
 export type Problem = "title" | "body" | "date" | "guard";
 
-// What keeps a card from being published, checked the way POST /api/handover/publish checks it: a title and a body
-// within the limits, a date on a deadline, and nothing the output guard refuses in what a reader will see (the title,
-// the body and the provenance chip, lib/engine/publish.ts). The server checks again.
+// What keeps a card from being published, checked the way POST /api/handover/publish checks an added card: a title and
+// a body within the limits, a date on a deadline, and nothing its import's guard refuses in what a reader will see (the
+// title, the body and the provenance chip; lib/engine/shown.ts). The server checks again, with the seed canaries too.
 export function cardProblem(
   card: ImportedCard,
   provenance: string,
@@ -93,7 +93,7 @@ export function cardProblem(
     return "date";
   }
   const shown = [title, body, card.provenance ?? provenance].join("\n");
-  if (card.flags.secret || blockReason(shown)) return "guard";
+  if (shownReason(shown, card.flags.secret)) return "guard";
   return undefined;
 }
 

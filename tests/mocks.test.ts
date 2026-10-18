@@ -495,8 +495,36 @@ describe("createMockApi", () => {
         createMockApi(persona, { latencyMs: 0 }).gap({ seat, text }),
       ).rejects.toMatchObject({ error: code });
     }
+    for (const refused of [
+      "[電話番号] に聞く",
+      "メンバーA に聞く",
+      "加藤さんに聞く",
+      "https://forms.gle/AbCdEf を見る",
+    ]) {
+      await expect(newcomer.gap({ seat, text: refused })).rejects.toMatchObject(
+        { error: "unredacted" },
+      );
+    }
+  });
+
+  it("refuses an added card that the review let someone type a URL back into, like the route", async () => {
+    const senpai = createMockApi("a25", { latencyMs: 0 });
+    const [drafted] = mockImport.cards;
+    const sent = {
+      ...drafted,
+      scope: "successor" as const,
+      provenance: "LINEグループ・2025年3月",
+    };
     await expect(
-      newcomer.gap({ seat, text: "[電話番号] に聞く" }),
+      senpai.publish({
+        seat,
+        cards: [
+          { ...sent, body: "申請は https://forms.gle/AbCdEf から出す。" },
+        ],
+      }),
     ).rejects.toMatchObject({ error: "unredacted" });
+    expect(
+      (await senpai.publish({ seat, cards: [sent] })).noteIds,
+    ).toHaveLength(1);
   });
 });

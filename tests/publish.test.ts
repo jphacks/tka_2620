@@ -1,5 +1,6 @@
 // Publishing (F3.8) through a stub client and fake models, offline. Who may read what is the database's job, checked
 // against the shared project by scripts/check-publish.ts.
+import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   ApiError,
@@ -14,6 +15,8 @@ import {
   type PublishModels,
   publishAsCaller,
 } from "@/lib/engine/publish";
+import { parseCanaries } from "@/lib/engine/safety-net";
+import { shownReason } from "@/lib/engine/shown";
 import { mockLiveCard, mockQuestions } from "@/lib/mocks";
 import {
   type Call,
@@ -361,6 +364,58 @@ describe("publishAsCaller", () => {
       const { error, calls } = await run({ models: used });
       expect(error).toBeInstanceOf(Error);
       expect(calls.notes).toBeUndefined();
+    });
+  });
+
+  // F5.7: an added card was edited in the review, so it is checked again as its import was. The canary case uses a seed
+  // canary that only the canary check finds, picked at run time and never printed.
+  describe("an added card", () => {
+    const added = (fields: Partial<PublishCard>): PublishRequest => ({
+      seat: "smash-kaikei",
+      cards: [
+        {
+          ...card,
+          source: "chat",
+          provenance: "LINEグループ・2025年3月",
+          ...fields,
+        },
+      ],
+    });
+    const canary = parseCanaries(
+      readFileSync(
+        new URL("../seed/chat-canaries.txt", import.meta.url),
+        "utf8",
+      ),
+    ).find((candidate) => !shownReason(`担当は${candidate}。`));
+
+    it("has a seed canary that no other guard refuses", () => {
+      expect(canary !== undefined).toBe(true);
+    });
+
+    it.each<[string, Partial<PublishCard>]>([
+      ["a URL", { body: "申請は https://forms.gle/AbCdEf から出す。" }],
+      ["a LINE ID", { body: "連絡は LINE: kato_kaikei へ。" }],
+      ["a role placeholder", { body: "メンバーA が鍵を持っている。" }],
+      ["a hidden person", { body: "[人] に確認する。" }],
+      ["a seed canary", { body: `担当は${canary ?? ""}。` }],
+    ])("is refused when it holds %s", async (_case, fields) => {
+      const { error, calls, embedded } = await run({ request: added(fields) });
+      expect(error).toMatchObject({ name: "ApiFailure", code: "unredacted" });
+      expect(calls.notes).toBeUndefined();
+      expect(embedded).toEqual([]);
+    });
+
+    it("is published when clean, and a live-loop card keeps the card guard", async () => {
+      expect((await run({ request: added({}) })).error).toBeUndefined();
+      const live = await run({
+        request: {
+          ...request,
+          cards: [
+            { ...card, body: "申請は https://forms.gle/AbCdEf から出す。" },
+          ],
+        },
+      });
+      expect(live.error).toBeUndefined();
     });
   });
 

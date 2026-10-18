@@ -53,7 +53,9 @@ export function DraftEntry({
   const t = useTranslations();
   const locale = useLocale();
   const ids = useId();
-  const [editing, setEditing] = useState(false);
+  const [opened, setOpened] = useState(false);
+  // A published entry is read-only, even if its fields were open when 公開する was tapped.
+  const editing = opened && !published;
   const toggle = useRef<HTMLButtonElement>(null);
   const restore = useRef<HTMLButtonElement>(null);
   const titleField = useRef<HTMLInputElement>(null);
@@ -234,7 +236,7 @@ export function DraftEntry({
             aria-describedby={editing ? undefined : titleId}
             onClick={() => {
               focusNext.current = editing ? "toggle" : "title";
-              setEditing(!editing);
+              setOpened(!editing);
             }}
           >
             {t(editing ? "import.editDone" : "import.edit")}
@@ -246,7 +248,7 @@ export function DraftEntry({
             aria-describedby={editing ? undefined : titleId}
             onClick={() => {
               focusNext.current = "restore";
-              setEditing(false);
+              setOpened(false);
               onChange({ ...entry, dropped: true });
             }}
           >

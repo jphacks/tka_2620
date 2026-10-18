@@ -10,7 +10,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { GapRequest, GapResponse, Uuid } from "@/lib/contracts";
-import { shownReason } from "@/lib/engine/extract-notes";
 import {
   ApiFailure,
   apiError,
@@ -20,6 +19,7 @@ import {
   failed,
 } from "@/lib/engine/route";
 import { canaryCount, seedCanaries } from "@/lib/engine/safety-net";
+import { shownReason } from "@/lib/engine/shown";
 
 const ROUTE = "POST /api/handover/prompts";
 

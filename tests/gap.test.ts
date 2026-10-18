@@ -10,9 +10,9 @@ import {
   GapRequest,
   GapResponse,
 } from "@/lib/contracts";
-import { shownReason } from "@/lib/engine/extract-notes";
 import { gapAsCaller, handleGap } from "@/lib/engine/gap";
 import { canaryCount, parseCanaries } from "@/lib/engine/safety-net";
+import { shownReason } from "@/lib/engine/shown";
 import { mockImport } from "@/lib/mocks";
 import { type Result, stubClient } from "./fakes";
 
