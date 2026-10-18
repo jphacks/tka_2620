@@ -159,6 +159,49 @@
     "newest": "Newest first",
     "oldest": "Oldest first"
   },
+  "guide": {
+    "titlePlain": "Handover guide",
+    "title": "Handover guide: {seat}",
+    "open": "Open the handover guide",
+    "where": "{group} ({institution})",
+    "asOf": "As of {date}",
+    "counts": "<fig>{notes}</fig> notes, <fig>{open}</fig> things not written yet",
+    "rules": "Only the notes you may read are here. Withdrawn notes and notes replaced by a newer one are left out. A saved copy keeps what it shows even if a note is withdrawn later.",
+    "toolsLabel": "Export",
+    "print": "Print or save as PDF",
+    "saveText": "Save as text (.md)",
+    "exportHint": "Exports what this page shows, filters included. The file is saved on this device and sent nowhere.",
+    "saved": "Saved {name}",
+    "kind": "Kind",
+    "byline": "Written by",
+    "allKinds": "All kinds",
+    "allBylines": "Every predecessor",
+    "sorts": {
+      "newest": "Newest term first",
+      "oldest": "Oldest term first",
+      "deadline": "Nearest deadline first"
+    },
+    "filteredNote": "Filtered: {kind}, {byline}",
+    "noNotes": "There are no notes here that you may read yet.",
+    "deadline": "Deadline {date}",
+    "openTitle": "Not written yet",
+    "openNone": "Nothing found that isn't written yet.",
+    "openHolders": "What isn't written yet is shown to the seat's holders.",
+    "openUnchecked": "Couldn't check what isn't written yet. Reopen this page in a moment.",
+    "openItem": "{text} ({reason})",
+    "reason": {
+      "gap": "missing from an added document",
+      "required": "required by {group}",
+      "core": "asked of every {seat}"
+    },
+    "yourQuestion": "your question, not answered yet",
+    "askedTitle": "Your questions and answers",
+    "upcomingItem": "{date} {title} ({byline})",
+    "sentenceBy": "{text} ({byline})",
+    "bylineSeparator": ", ",
+    "source": "Latest version: {url}",
+    "failed": "Couldn't load the handover guide. Check the connection and reopen this page."
+  },
   "onkuri": {
     "credit": "{n} senpai answered {q} of your questions. Your turn!"
   },

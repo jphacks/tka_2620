@@ -162,6 +162,17 @@ export function ProfilePanel({ seat: slug }: { seat?: string }) {
           >
             {t("profile.openNotes")}
           </Link>
+          <Link
+            className="dd-btn"
+            style={{
+              display: "inline-grid",
+              placeItems: "center",
+              textDecoration: "none",
+            }}
+            href={`/s/${encodeURIComponent(seat.slug)}/guide`}
+          >
+            {t("guide.open")}
+          </Link>
         </div>
       </section>
     </div>

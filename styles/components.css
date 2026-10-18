@@ -176,6 +176,22 @@ a.dd-tab { display: grid; place-items: center; text-decoration: none; }
 .dd-btn-link { display: inline-grid; place-items: center; justify-self: start; text-decoration: none; }
 .dd-print-only { display: none; }
 
+/* Handover guide (引き継ぎ書, /s/[seat]/guide): the header, the export buttons and the filter (never printed), the notes
+   as NoteEntry slips, and what isn't written yet as blank lines (空欄) with a dashed stamp outline at the end */
+.dd-guide-title { font-size: var(--text-l); line-height: 1.3; }
+.dd-guide-rules { margin: 0; }
+.dd-guide-link { justify-self: start; display: inline-flex; align-items: center; min-height: 44px; font-weight: 700; }
+.dd-guide-body { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.dd-gaps { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s-2); }
+.dd-gaps li { display: grid; grid-template-columns: 1fr auto; column-gap: var(--s-3); align-items: center; padding-block: var(--s-2); border-bottom: 1px solid var(--rule); }
+.dd-gaps li > .dd-cap { grid-column: 1; }
+.dd-gaps li > .dd-stamp-blank { grid-column: 2; grid-row: 1 / span 2; }
+.dd-gap-text { overflow-wrap: anywhere; font-weight: 700; }
+.dd-gap-text.is-yours { color: var(--blue); } /* the viewer's own question, blue as everywhere */
+@media print {
+  .dd-guide { gap: var(--s-5) !important; }
+}
+
 /* A row's lone main action (VoiceAnswer's 公開する): the full width on a phone, in the thumb's reach; from 600px its own
    width, since a 592px button reads as a banner. Overrides the inline flex: 1, which the two-button rows keep. */
 @media (min-width: 600px) {
