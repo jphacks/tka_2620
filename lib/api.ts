@@ -18,8 +18,6 @@ import {
   ApiError,
   type ApiErrorCode,
   AskResult,
-  type ConsolePersona,
-  ConsoleSession,
   DEMO_EMAIL,
   DemoAccount,
   DraftResponse,
@@ -320,36 +318,4 @@ export async function signOut(storageKey = DEVICE): Promise<void> {
     await sessionStore().removeItem(storageKey);
     await db.auth.signOut({ scope: "local" });
   }
-}
-
-// One console pane's own client (docs/SPEC.md → Console panes): the persona's session from POST /api/console/session,
-// kept in memory only (persistSession: false) under its own storage key, so three personas run side by side in one
-// tab and none of them is the page's signed-in user. key: the console passphrase (CONSOLE_SIGN_IN on the server).
-export async function signInConsolePane(
-  persona: ConsolePersona,
-  key: string,
-): Promise<Api> {
-  const response = await fetch("/api/console/session", {
-    method: "POST",
-    headers: { "content-type": "application/json", "x-console-key": key },
-    body: JSON.stringify({ persona }),
-  });
-  const session = await answer(response, ConsoleSession);
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !anonKey) throw new ApiClientError("unavailable");
-  const db = createClient(url, anonKey, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: true,
-      detectSessionInUrl: false,
-      storageKey: `daidai-console-${persona}`,
-    },
-  });
-  const { error } = await db.auth.setSession({
-    access_token: session.accessToken,
-    refresh_token: session.refreshToken,
-  });
-  if (error) throw new ApiClientError("unauthorized");
-  return createApi(db);
 }

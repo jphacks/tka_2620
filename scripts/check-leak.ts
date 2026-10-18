@@ -1105,36 +1105,6 @@ async function oracles(session: Session, context: Context): Promise<void> {
       );
     }
   }
-
-  // The console's sign-in route hands out a25's and a26's sessions: never without the passphrase.
-  if (session.key === OUTSIDER || !session.token) {
-    const wrongKey = randomBytes(16).toString("hex");
-    for (const [label, headers] of [
-      ["no key", {}],
-      ["a wrong key", { "x-console-key": wrongKey }],
-    ] as const) {
-      await attempt(
-        session,
-        "oracles",
-        `POST /api/console/session as a25, ${label}`,
-        async () => {
-          const reply = await http(
-            session,
-            "POST",
-            "/api/console/session",
-            { persona: "a25" },
-            headers,
-          );
-          if (reply.status === 200)
-            return [
-              { reason: "handed out a25's session", ref: "console/session" },
-            ];
-          expectReply(reply, [404]);
-          return [];
-        },
-      );
-    }
-  }
 }
 
 // Realtime: each re-saved seed note, the events probe, and everything else the viewer heard during the run.

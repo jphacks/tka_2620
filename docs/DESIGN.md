@@ -187,7 +187,10 @@ Use Japanese notebook marks, not coloured chips or emoji. Each mark is followed 
 - **`PersonaPane`** (console): a plain rounded rectangle in `--sheet`, 390 wide and up to 844 tall (shorter on a laptop
   whose window leaves less room, so the whole proof stays on one screen; the pane scrolls inside), with a 1px `--rule`
   border and the persona above it in UI text: 新しい会計 · 去年の会計 · 部外者. No device chrome. Below about 1270px
-  the three panes scroll sideways instead of wrapping.
+  the three panes scroll sideways instead of wrapping. Signed out (real data), the console keeps its title and, where
+  the panes go, a 390px column like `SignIn`: a one-sentence lead naming the three, one password field (the writing
+  line in the UI face) and a full-width primary 「3人でログインする」, with errors in calm `--ink-2`; no page scroll
+  at 1920. Signed in, 「ログアウト」 sits beside the meter and the leak counter.
 - **`MeasuredNumbers`** (console): 「測定の内訳」, a collapsed `<details>` under the meter and the leak counter with
   one line per check that `pnpm metrics` measured (leaks, withdrawal, citations, live loop, privacy), read from
   `metrics/latest.json` only, with when it was measured. A check that didn't run says 「未測定」. Green only for 漏れ 0 and
