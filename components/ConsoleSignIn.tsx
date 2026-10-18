@@ -203,13 +203,21 @@ function RealConsole({ metrics }: { metrics?: Metrics }) {
   }
 }
 
-// The console's title, centred as the proof is, with what stands in for the panes below it.
+// The console's title and, below it, what stands in for the panes: as wide as the three panes and their gaps, so the
+// title stays put on signing in and the form sits where the first pane (新しい会計) will be.
 function ConsoleFrame({ children }: { children: ReactNode }) {
   const t = useTranslations("console");
   return (
     <div
       className="dd-pad dd-col dd-console"
-      style={{ gap: "var(--s-5)", width: "fit-content", marginInline: "auto" }}
+      style={{
+        gap: "var(--s-5)",
+        // the content as wide as the panes row; dd-pad's gutter (16px, 24px from 600px) comes on top, as on the proof
+        boxSizing: "content-box",
+        width:
+          "min(calc(3 * 390px + 2 * var(--s-5)), calc(100% - 2 * var(--s-5)))",
+        marginInline: "auto",
+      }}
     >
       <h1 className="dd-h" style={{ fontSize: "var(--text-xxl)", margin: 0 }}>
         {t("title")}
