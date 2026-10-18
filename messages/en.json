@@ -123,6 +123,7 @@
     "label": "Display and you",
     "darkScreen": "Dark screen",
     "you": "You",
+    "home": "To the start page",
     "language": {
       "ja": "日本語",
       "en": "English"
@@ -130,7 +131,14 @@
   },
   "home": {
     "title": "Daidai",
-    "open": "Open a seat's page from its link: the QR code or NFC sticker on the club-room key."
+    "lead": "Knowledge passes down with the seat, not the person.",
+    "barLabel": "Display",
+    "seatTitle": "Open a seat",
+    "open": "A seat's page usually opens from its link: the QR code or NFC sticker on the club-room key.",
+    "demoSeat": "Open the demo seat",
+    "consoleTitle": "Trust proof",
+    "consoleText": "Three screens side by side show that an outsider sees nothing, how fast a withdrawn note leaves every answer, and the leak test's result. Open it on the presenting laptop.",
+    "openConsole": "Open the console"
   },
   "profile": {
     "title": "You",
