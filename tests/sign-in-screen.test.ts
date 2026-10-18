@@ -132,21 +132,37 @@ describe("the login screen's source", () => {
 
   it("keeps the password out of the markup: an uncontrolled field with no name", () => {
     // React copies a controlled input's value into its value attribute, and a name would let a native submit send it.
-    const text = source("SignIn.tsx");
-    const at = text.indexOf('type="password"');
-    expect(at).toBeGreaterThan(0);
-    const field = text.slice(
-      text.lastIndexOf("<input", at),
-      text.indexOf("/>", at),
-    );
-    expect(field).not.toMatch(/\b(value|defaultValue|name)=/);
+    // The seat pages' switcher and the console's form both.
+    for (const file of ["SignIn.tsx", "ConsoleSignIn.tsx"]) {
+      const text = source(file);
+      const at = text.indexOf('type="password"');
+      expect(at).toBeGreaterThan(0);
+      expect(text.indexOf('type="password"', at + 1)).toBe(-1);
+      const field = text.slice(
+        text.lastIndexOf("<input", at),
+        text.indexOf("/>", at),
+      );
+      expect(field).not.toMatch(/\b(value|defaultValue|name)=/);
+    }
   });
 
-  it("no longer signs the seat pages in with the passphrase link", () => {
-    for (const file of ["SeatSignIn.tsx", "SignInGate.tsx", "SignIn.tsx"]) {
+  it("signs in with the demo password only, never with a link: nothing reads the address bar or keeps a tab's persona", () => {
+    for (const file of [
+      "SeatSignIn.tsx",
+      "SignInGate.tsx",
+      "SignIn.tsx",
+      "ConsoleSignIn.tsx",
+    ]) {
       expect(source(file)).not.toMatch(
-        /sessionStorage|consoleKey|signInConsolePane|\.get\("(key|as)"\)/,
+        /sessionStorage|\.get\("(key|as)"\)|location\.hash\)\.get/,
       );
     }
+  });
+
+  it("wires the console so only its latest step acts, and a pane slot already empty counts as signed out", () => {
+    // components/console-sign-in.ts tests the steps; this pins how ConsoleSignIn calls them (no DOM harness here).
+    const text = source("ConsoleSignIn.tsx");
+    expect(text.match(/const mine = \+\+latest\.current/g)).toHaveLength(3);
+    expect(text).toContain("initialSignedOut: true");
   });
 });

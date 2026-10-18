@@ -21,6 +21,7 @@ import {
   guideMarkdown,
   KINDS,
   type KindFilter,
+  matches,
   SORTS,
   sortNotes,
 } from "@/components/guide";
@@ -31,7 +32,12 @@ import { UpcomingList } from "@/components/UpcomingList";
 import type { Api, GuideOpen, GuideView, SeatView } from "@/lib/contracts";
 import { createMockApi, USE_MOCKS } from "@/lib/mocks";
 
-const START: GuideFilter = { kind: ALL, byline: ALL, sort: "newest" };
+const START: GuideFilter = {
+  kind: ALL,
+  byline: ALL,
+  sort: "newest",
+  query: "",
+};
 
 // A YYYY-MM-DD date as a calendar day in Tokyo, whatever the device's clock says.
 const tokyoDay = (date: string) => new Date(`${date}T00:00:00+09:00`);
@@ -60,7 +66,17 @@ export function HandoverGuide({ slug }: { slug: string }) {
   );
 }
 
-function Guide({ slug, api }: { slug: string; api: Api }) {
+// The guide itself, for the signed-in client: its own page (/s/[seat]/guide) or, inline, under the deadlines on 聞く.
+export function Guide({
+  slug,
+  api,
+  inline = false,
+}: {
+  slug: string;
+  api: Api;
+  inline?: boolean;
+}) {
+  const Title = inline ? "h2" : "h1";
   const t = useTranslations();
   const locale = useLocale();
   const format = useFormatter();
@@ -90,7 +106,7 @@ function Guide({ slug, api }: { slug: string; api: Api }) {
   if (failed) {
     return (
       <section className="dd-col" style={{ gap: "var(--s-4)" }}>
-        <h1 className="dd-h dd-guide-title">{t("guide.titlePlain")}</h1>
+        <Title className="dd-h dd-guide-title">{t("guide.titlePlain")}</Title>
         <p style={{ margin: 0, color: "var(--ink-2)" }}>{t("guide.failed")}</p>
       </section>
     );
@@ -98,7 +114,7 @@ function Guide({ slug, api }: { slug: string; api: Api }) {
   if (!view || !guide) {
     return (
       <section className="dd-col" style={{ gap: "var(--s-4)" }}>
-        <h1 className="dd-h dd-guide-title">{t("guide.titlePlain")}</h1>
+        <Title className="dd-h dd-guide-title">{t("guide.titlePlain")}</Title>
         <output className="dd-cap">{t("profile.loading")}</output>
       </section>
     );
@@ -110,11 +126,13 @@ function Guide({ slug, api }: { slug: string; api: Api }) {
   const shown = sortNotes(filterNotes(guide.notes, filter), filter.sort, today);
   const sections = groupByKind(shown);
   const bylines = bylinesOf(guide.notes);
-  const filtered = filter.kind !== ALL || filter.byline !== ALL;
+  const query = (filter.query ?? "").trim();
+  const filtered = filter.kind !== ALL || filter.byline !== ALL || query !== "";
   const upcoming = view.upcoming.filter(
     (item) =>
       (filter.kind === ALL || filter.kind === "deadline") &&
-      (filter.byline === ALL || item.byline === filter.byline),
+      (filter.byline === ALL || item.byline === filter.byline) &&
+      matches(query, item.title, item.byline),
   );
   const answered = guide.asked.flatMap((asked) =>
     asked.answer ? [{ ...asked, answer: asked.answer }] : [],
@@ -133,10 +151,13 @@ function Guide({ slug, api }: { slug: string; api: Api }) {
     date: format.dateTime(new Date(), { dateStyle: "long" }),
   });
   const filterNote = filtered
-    ? t("guide.filteredNote", {
-        kind: kindWord(filter.kind),
-        byline: filter.byline === ALL ? t("guide.allBylines") : filter.byline,
-      })
+    ? [
+        t("guide.filteredNote", {
+          kind: kindWord(filter.kind),
+          byline: filter.byline === ALL ? t("guide.allBylines") : filter.byline,
+        }),
+        query ? t("filter.searched", { query }) : "",
+      ].join("")
     : undefined;
 
   function exportMarkdown() {
@@ -212,9 +233,9 @@ function Guide({ slug, api }: { slug: string; api: Api }) {
   return (
     <div className="dd-col dd-guide" style={{ gap: "var(--s-6)" }}>
       <header className="dd-col" style={{ gap: "var(--s-2)" }}>
-        <h1 className="dd-h dd-guide-title">
+        <Title className="dd-h dd-guide-title">
           {t("guide.title", { seat: seat.name })}
-        </h1>
+        </Title>
         <p style={{ margin: 0 }}>
           <span className="dd-seat-group">{seat.group}</span>
           <br />
@@ -241,7 +262,17 @@ function Guide({ slug, api }: { slug: string; api: Api }) {
           <button
             type="button"
             className="dd-btn dd-btn-primary"
-            onClick={() => window.print()}
+            onClick={() => {
+              // Inline on 聞く, the page around the guide stays off the paper (styles/components.css → print).
+              const root = document.documentElement;
+              root.classList.add("dd-printing-guide");
+              window.addEventListener(
+                "afterprint",
+                () => root.classList.remove("dd-printing-guide"),
+                { once: true },
+              );
+              window.print();
+            }}
           >
             {t("guide.print")}
           </button>
@@ -256,6 +287,21 @@ function Guide({ slug, api }: { slug: string; api: Api }) {
 
       <fieldset className="dd-filter">
         <legend className="dd-h">{t("filter.title")}</legend>
+        <div className="dd-filter-search">
+          <label className="dd-cap" htmlFor="guide-search">
+            {t("filter.search")}
+          </label>
+          <input
+            id="guide-search"
+            type="search"
+            className="dd-input"
+            value={filter.query ?? ""}
+            placeholder={t("filter.searchNotes")}
+            onChange={(event) =>
+              setFilter({ ...filter, query: event.target.value })
+            }
+          />
+        </div>
         <label>
           <span className="dd-cap">{t("guide.kind")}</span>
           <select

@@ -6,6 +6,7 @@
 // by status, scope ring and seat, and the order is newest or oldest first (GET /api/me/notes lists newest first).
 import { useTranslations } from "next-intl";
 import { useEffect, useMemo, useState } from "react";
+import { matches } from "@/components/guide";
 import { MyNotes, type NoteSeats, seatsOf } from "@/components/MyNotes";
 import {
   COLLAPSE_MS,
@@ -52,6 +53,7 @@ function MyNotesList({ api, seat }: { api: Api; seat?: string }) {
   // The seat the page came from (?seat=) first; every seat of the author's notes is one choice away.
   const [atSeat, setAtSeat] = useState<string>(seat ?? ALL);
   const [order, setOrder] = useState<Order>("newest");
+  const [query, setQuery] = useState("");
 
   useEffect(() => {
     let alive = true;
@@ -117,7 +119,8 @@ function MyNotesList({ api, seat }: { api: Api; seat?: string }) {
     (note) =>
       (status === ALL || note.status === status) &&
       (scope === ALL || note.scope === scope) &&
-      (seatFilter === ALL || note.seat === seatFilter),
+      (seatFilter === ALL || note.seat === seatFilter) &&
+      matches(query, note.title),
   );
   const ordered = order === "newest" ? shown : shown.toReversed();
   // The scope ring's words come from the label pack of the seat shown (or the first seat): 「次の会計だけ」.
@@ -125,11 +128,27 @@ function MyNotesList({ api, seat }: { api: Api; seat?: string }) {
     seats[seatFilter === ALL ? slugs[0] : seatFilter] ??
     Object.values(seats)[0];
   const filtered =
-    status !== ALL || scope !== ALL || (seatFilter !== ALL && slugs.length > 1);
+    status !== ALL ||
+    scope !== ALL ||
+    (seatFilter !== ALL && slugs.length > 1) ||
+    query.trim() !== "";
 
   const tools = notes.length > 0 && (
     <fieldset className="dd-filter">
       <legend className="dd-h">{t("filter.title")}</legend>
+      <div className="dd-filter-search">
+        <label className="dd-cap" htmlFor="notes-search">
+          {t("filter.search")}
+        </label>
+        <input
+          id="notes-search"
+          type="search"
+          className="dd-input"
+          value={query}
+          placeholder={t("filter.searchTitles")}
+          onChange={(event) => setQuery(event.target.value)}
+        />
+      </div>
       <label>
         <span className="dd-cap">{t("filter.status")}</span>
         <select
@@ -210,6 +229,7 @@ function MyNotesList({ api, seat }: { api: Api; seat?: string }) {
               setStatus(ALL);
               setScope(ALL);
               setAtSeat(ALL);
+              setQuery("");
             }}
           >
             {t("filter.clear")}

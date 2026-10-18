@@ -101,6 +101,7 @@ export function SignIn({
         <p
           ref={message}
           role="alert"
+          className="dd-phrase"
           style={{ margin: 0, color: "var(--ink-2)" }}
         >
           {t(`signIn.${failure}`)}

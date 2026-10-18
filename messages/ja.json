@@ -114,10 +114,12 @@
     "meter": "撤回にかかった秒数",
     "seconds": "{s}秒",
     "reset": "リセット",
-    "signingIn": "3人のペルソナでログインしています",
-    "signInOff": "このサーバーではコンソールにログインできません。発表用のPCで CONSOLE_SIGN_IN に合言葉（16文字以上）を設定し、/console#key=合言葉 で開いてください。",
-    "signInFailed": "ペルソナでログインできませんでした。DEMO_PASSWORD を確かめて、開き直してください。",
-    "loadFailed": "ペインを読み込めませんでした。開き直してください。"
+    "signInLead": "デモ用のパスワードを1回入れると、{newcomer}・{predecessor}・{outsider}の3人が、それぞれの画面でログインします。",
+    "signIn": "3人でログインする",
+    "signingIn": "3人でログインしています",
+    "signInFailed": "3人そろってはログインできなかったので、だれもログインしていません。通信を確かめて、もう一度押してください。",
+    "signOut": "ログアウト",
+    "loadFailed": "3人の画面を読み込めませんでした。開き直してください。"
   },
   "bar": {
     "label": "表示とあなた",
@@ -165,13 +167,17 @@
     "loop": "<fig>{runs}</fig>回のうち失敗 <fig>{failures}</fig>回、署名つきの答えまで中央値 <fig>{median}</fig>秒",
     "redactionLabel": "個人情報",
     "redaction": "トーク <fig>{chats}</fig>件とファイル <fig>{files}</fig>件から <hid>{hidden}</hid>件を隠し、端末の外に出たカナリアは <out>{left}</out>件",
-    "resetHint": "実データのリセットは、ターミナルで pnpm demo:reset を実行してから、このページを再読み込みします。"
+    "resetHint": "実データのリセットは、ターミナルで pnpm demo:reset を実行してから、このページを再読み込みして、もう一度ログインします。"
   },
   "filter": {
     "title": "絞り込みと並び順",
     "sort": "並び順",
     "shown": "<fig>{n}</fig>件のメモを表示しています",
     "clear": "絞り込みを外す",
+    "search": "検索",
+    "searchNotes": "タイトル・内容・書いた人で探す",
+    "searchTitles": "タイトルで探す",
+    "searched": "、「{query}」を含む",
     "noneMatch": "この条件のメモはありません。",
     "status": "状態",
     "allStatus": "すべて",
@@ -187,6 +193,7 @@
     "titlePlain": "引き継ぎ書",
     "title": "{seat}の引き継ぎ書",
     "open": "引き継ぎ書を開く",
+    "close": "引き継ぎ書を閉じる",
     "where": "{group}（{institution}）",
     "asOf": "{date}時点",
     "counts": "メモ <fig>{notes}</fig>件、まだ書かれていないこと <fig>{open}</fig>件",
@@ -236,6 +243,7 @@
   },
   "seat": {
     "upcoming": "これからの締切",
+    "tagKind": "{kind}：",
     "you": "あなた",
     "youAt": "あなた（{term}）",
     "upcomingDate": "{date} {weekday}"

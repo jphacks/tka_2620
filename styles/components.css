@@ -125,7 +125,8 @@ a.dd-tab { display: grid; place-items: center; text-decoration: none; }
 .dd-verbs .dd-tab:focus-visible { outline-offset: -4px; }
 /* A page with the tabs keeps room under its content for them (after .dd-pad, so it wins), and whatever the browser or
    the page scrolls to (a focused field, an answer that just arrived) stops above them */
-.dd-with-verbs { padding-bottom: calc(52px + var(--s-6) + env(safe-area-inset-bottom)); }
+/* only the tabs' own 52px and a 12px gap: scrolled to the end, the last element sits just above the tabs, no blank paper */
+.dd-with-verbs { padding-bottom: calc(52px + var(--s-3) + env(safe-area-inset-bottom)); }
 :root:has(.dd-verbs) { scroll-padding-bottom: calc(52px + var(--s-4) + env(safe-area-inset-bottom)); }
 
 /* SeatBar: a quiet row above every seat page, in the page's 640px column: the language and theme switches, then 「あなた」
@@ -209,6 +210,47 @@ a.dd-tab { display: grid; place-items: center; text-decoration: none; }
 @media print {
   .dd-guide { gap: var(--s-5) !important; }
 }
+
+/* The verb tabs let the page show through faintly as it scrolls under them: the paper at 72% (the chosen tab at 88%),
+   no blur (docs/DESIGN.md → Don'ts). Opaque for anyone who asks for less transparency, and where color-mix() is missing
+   (the declarations above stay). A pressed tab answers at once with the wash. */
+.dd-verbs { background: color-mix(in srgb, var(--paper) 72%, transparent); }
+.dd-verbs .dd-tab { background: transparent; }
+.dd-verbs .dd-tab[aria-current="page"] { background: color-mix(in srgb, var(--sheet) 88%, transparent); }
+.dd-verbs .dd-tab:active { background: var(--blue-wash); }
+@media (prefers-reduced-transparency: reduce) {
+  .dd-verbs { background: var(--paper); }
+  .dd-verbs .dd-tab { background: var(--paper); }
+  .dd-verbs .dd-tab[aria-current="page"] { background: var(--sheet); }
+}
+/* What an account may see arrives with a short fade after sign-in (SignInGate); opacity only, 160ms */
+.dd-fade-in { animation: dd-fade-in var(--t-quick, 160ms) ease-out both; }
+@keyframes dd-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .dd-fade-in { animation: none !important; } }
+/* The ask field as an outlined box with rounded corners (Nico's call; docs/DESIGN.md → AskField), as tall as 「聞く」
+   beside it, with the standard focus ring. On a 320px phone the padding narrows so the placeholder still fits whole;
+   an ellipsis is the safety net. */
+.dd-ask { align-items: stretch; }
+.dd-ask input { min-height: 44px; box-sizing: border-box; border: 1.5px solid var(--blue); border-radius: var(--r-button); padding: 0 var(--s-3); background: var(--sheet); text-overflow: ellipsis; }
+.dd-ask input:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; border-width: 1.5px; }
+@media (max-width: 340px) {
+  .dd-ask input { padding-inline: var(--s-1); }
+  .dd-ask .dd-btn { padding-inline: var(--s-3); }
+}
+/* The key tag, smaller and saying what it is (Nico's call): 「役職：」 in the UI face, then the seat's name in the marker */
+.dd-seat-head .dd-tag { min-height: 44px; padding: var(--s-1) var(--s-3) var(--s-1) var(--s-6); }
+.dd-seat-head .dd-tag-name { font-size: var(--text-m); line-height: 28px; }
+.dd-tag-kind { font-family: var(--font-ui); font-size: var(--text-s); font-weight: 700; color: var(--ink-2); letter-spacing: .04em; }
+/* The guide opened inline on 聞く sits under the deadlines, ruled off from them */
+.dd-guide-inline { margin-top: var(--s-3); padding-top: var(--s-5); border-top: 1px solid var(--rule); }
+@media print {
+  /* Printing the inline guide: only the guide goes on paper, not the seat page around it */
+  :root.dd-printing-guide .dd-seat-home > :not(:has(.dd-guide-inline)),
+  :root.dd-printing-guide .dd-guide-wrap > :not(.dd-guide-inline) { display: none !important; }
+  :root.dd-printing-guide .dd-guide-inline { margin: 0; padding: 0; border: 0; }
+}
+/* The search field heads a filter, across its whole width */
+.dd-filter-search { grid-column: 1 / -1; display: grid; gap: var(--s-1); }
 
 /* A row's lone main action (VoiceAnswer's 公開する): the full width on a phone, in the thumb's reach; from 600px its own
    width, since a 592px button reads as a banner. Overrides the inline flex: 1, which the two-button rows keep. */

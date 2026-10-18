@@ -10,7 +10,24 @@ export type KindFilter = NoteKind | "all";
 // newest: the latest term's notes first; oldest: the first predecessor's first; deadline: the nearest deadline first.
 export const SORTS = ["newest", "oldest", "deadline"] as const;
 export type GuideSort = (typeof SORTS)[number];
-export type GuideFilter = { kind: KindFilter; byline: string; sort: GuideSort };
+// query: free text matched against a note's title, body and byline (width and case don't matter: Ｈ = h).
+export type GuideFilter = {
+  kind: KindFilter;
+  byline: string;
+  sort: GuideSort;
+  query?: string;
+};
+
+// For matching only: full- and half-width forms alike (NFKC), case ignored.
+export const searchable = (text: string) =>
+  text.normalize("NFKC").toLowerCase();
+export const matches = (query: string | undefined, ...texts: string[]) => {
+  const words = searchable(query ?? "")
+    .split(/\s+/)
+    .filter(Boolean);
+  const haystack = searchable(texts.join("\n"));
+  return words.every((word) => haystack.includes(word));
+};
 export const ALL = "all";
 
 // Who wrote the notes, as the guide may say it: the byline (「2025年度 会計」), never a name. Newest term first.
@@ -34,7 +51,8 @@ export function filterNotes(
   return notes.filter(
     (note) =>
       (filter.kind === ALL || note.kind === filter.kind) &&
-      (filter.byline === ALL || note.byline === filter.byline),
+      (filter.byline === ALL || note.byline === filter.byline) &&
+      matches(filter.query, note.title, note.body, note.byline),
   );
 }
 

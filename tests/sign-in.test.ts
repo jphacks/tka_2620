@@ -71,22 +71,32 @@ describe("the demo accounts", () => {
     expect(Object.fromEntries(withPassword)).toEqual(DEMO_EMAIL);
   });
 
-  it("keep the demo password's variable out of client code and NEXT_PUBLIC_* names", () => {
+  it("keep the demo password's variable out of the app and NEXT_PUBLIC_* names", () => {
     const files = tracked();
     expect(
       holding(files, (text) => /NEXT_PUBLIC_\w*(PASS|PW|SECRET)/.test(text)),
     ).toEqual([]);
-    // Code that can reach a browser: screens, and lib/ outside the engine. (A UI string may name the variable for
-    // the presenter; code never reads it.)
-    const client = files.filter(
-      (file) =>
-        /^(app|components|lib|i18n)\/.*\.(ts|tsx|mts|js|mjs)$/.test(file) &&
-        !/^(app\/api|lib\/engine)\//.test(file),
+    // The whole app, the routes included: since #89 no route signs anyone in, so none needs the password. (A UI
+    // string may name the variable; code never reads it.)
+    const app = files.filter((file) =>
+      /^(app|components|lib|i18n)\/.*\.(ts|tsx|mts|js|mjs)$/.test(file),
     );
-    expect(client.length).toBeGreaterThan(0);
-    expect(holding(client, (text) => text.includes("DEMO_PASSWORD"))).toEqual(
-      [],
+    expect(app.length).toBeGreaterThan(0);
+    expect(holding(app, (text) => text.includes("DEMO_PASSWORD"))).toEqual([]);
+  });
+
+  it("mint sessions nowhere but on the device: no route signs anyone in or reaches for the service role", () => {
+    const app = tracked().filter((file) =>
+      /^(app|components|lib|i18n)\/.*\.(ts|tsx|mts|js|mjs)$/.test(file),
     );
+    expect(holding(app, (text) => text.includes("signInWithPassword"))).toEqual(
+      ["lib/api.ts"],
+    );
+    expect(
+      holding(app, (text) =>
+        /auth\.admin|SUPABASE_SERVICE_ROLE_KEY|auth\.setSession\(/.test(text),
+      ),
+    ).toEqual([]);
   });
 });
 
@@ -371,6 +381,41 @@ describe("signIn, signedIn and signOut (Auth stubbed)", () => {
     await new Promise((resolve) => setTimeout(resolve, 50));
     stop();
     expect(seen).toEqual([]);
+  });
+
+  it("reports an initial 'no session' too when a screen that has just signed in asks (the console)", async () => {
+    stubFetch({});
+    const seen: (string | undefined)[] = [];
+    const stop = onSessionChange(
+      (userId) => seen.push(userId),
+      "unit-none-asked",
+      { initialSignedOut: true },
+    );
+    await vi.waitFor(() => expect(seen).toEqual([undefined]));
+    stop();
+  });
+
+  it("signs one storage key out and leaves the others: the console's panes and the device's own session", async () => {
+    stubFetch({
+      "POST /auth/v1/token": async (request) =>
+        Response.json(
+          (await request.json()).email === DEMO_EMAIL.a26 ? a26 : a25,
+        ),
+      "POST /auth/v1/logout": () => new Response(null, { status: 204 }),
+      "GET /auth/v1/user": (request) =>
+        Response.json(
+          request.headers.get("authorization") === "Bearer access-a26"
+            ? a26.user
+            : a25.user,
+        ),
+    });
+    await signIn("a25", "typed-password", "unit-keys-device");
+    await signIn("a26", "typed-password", "unit-keys-console-a26");
+    await signIn("a25", "typed-password", "unit-keys-console-a25");
+    await signOut("unit-keys-console-a26");
+    expect(await signedIn("unit-keys-console-a26")).toBeUndefined();
+    expect((await signedIn("unit-keys-console-a25"))?.account).toBe("a25");
+    expect((await signedIn("unit-keys-device"))?.account).toBe("a25");
   });
 });
 

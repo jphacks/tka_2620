@@ -50,14 +50,17 @@ export type ConsoleApis = { newcomer: Api; senpai: Api; outsider: Api };
 // metrics: what the checks measured, from metrics/latest.json (app/console/page.tsx); undefined until they have run.
 // onReset: back to the seed state (resetMocks on mocks). Without it there is no リセット button: on the real
 // database that is `pnpm demo:reset` in a terminal, so the service-role key stays out of the app, then a reload.
+// onSignOut: 「ログアウト」, the three panes' sessions on this device only (real data; components/ConsoleSignIn.tsx).
 export function TrustConsole({
   apis,
   metrics,
   onReset,
+  onSignOut,
 }: {
   apis: ConsoleApis;
   metrics?: Metrics;
   onReset?: () => void;
+  onSignOut?: () => void;
 }) {
   const t = useTranslations();
   const { newcomer: newcomerApi, senpai: senpaiApi } = apis;
@@ -234,6 +237,11 @@ export function TrustConsole({
           {onReset && (
             <button type="button" className="dd-btn" onClick={reset}>
               {t("console.reset")}
+            </button>
+          )}
+          {onSignOut && (
+            <button type="button" className="dd-btn" onClick={onSignOut}>
+              {t("console.signOut")}
             </button>
           )}
         </div>

@@ -104,19 +104,22 @@ Use Japanese notebook marks, not coloured chips or emoji. Each mark is followed 
   holds. UI areas (headers, buttons, forms) have no lines.
 - **Shape follows the object, not one radius for everything:**
   page 0 · slip (inbox, import panel) 2px · key tag 10px with a 10px punched hole · button 6px ·
-  voice button round · ask field none (a writing line).
+  voice button round · ask field 6px (an outlined box).
 - **Elevation**: none, except slips, which sit on the page with a 1px `--rule` border and a 0 2px 0 offset
   in `--rule` (a paper edge, not a blur shadow).
 - Tap targets at least 44px; the voice button 80px.
 
 ## Components (golden path)
-- **`SeatHeader`**: the key tag on the left (seat name in Yusei Magic, a ring through the punched hole),
+- **`SeatHeader`**: the key tag on the left, 44px tall (Nico's call): the seat type's word in UI text, then the seat's
+  name in Yusei Magic 20px, 「役職：会計」 (a ring through the punched hole),
   group and institution in UI text beside it. One line icon per seat type (club = flag, exchange = route,
   lab = flask); seat types never get their own colour.
 - **`LineageRail`** (歴代の札): one small key tag per term, oldest left, newest right, vertical Yusei Magic
   labels 「24 会計」, 「25 会計」, then a dashed blank tag 「あなた」 for the viewer. Horizontal scroll on phones.
 - **`VerbTabs`**: 聞く · 残す · 自分のメモ as notebook index tabs: on phones they sit at the bottom edge; the active
-  tab is `--sheet` with blue text and joins the page, inactive tabs are `--paper` with `--ink-2` text.
+  tab is `--sheet` with blue text and joins the page, inactive tabs are `--paper` with `--ink-2` text. The bar is
+  translucent (the paper at 72%, the chosen tab at 88%, no blur), so the page shows faintly as it scrolls under it;
+  opaque under `prefers-reduced-transparency`. A pressed tab shows `--blue-wash` at once.
 - **`SeatBar`**: a quiet row above every seat page, right-aligned in the page's 640px column, never printed. Three
   44px items: the language switch (the other language named in itself, 「English」 / 「日本語」, as a blue text button),
   the theme switch (**`DisplayToggles`**: a 6px blue-outlined icon button, the moon on the notebook and the sun on the
@@ -137,8 +140,9 @@ Use Japanese notebook marks, not coloured chips or emoji. Each mark is followed 
   verb tabs. Checking the session and signing out show a calm caption (「ログインを確かめています」,
   「ログアウトしています」); no network shows a calm line with 「もう一度ためす」. Signed in, the page ends with
   「2025年度 会計でログインしています」 and 「切り替える」, which signs out this device only.
-- **`AskField`**: a single writing line in `--blue` with the placeholder in Klee One
-  (「先輩たちに聞いてみましょう」) and a blue 「聞く」 button. Not a chat box.
+- **`AskField`**: an outlined box, 1.5px `--blue` with 6px corners on `--sheet` (Nico's call; it was a writing line),
+  as tall as the blue 「聞く」 button beside it, with the placeholder in Klee One (「先輩たちに聞いてみましょう」). Not a chat
+  box: no bubble, no send arrow.
 - **`AnswerEntry`**: the question repeated in blue UI text, then the answer in Klee One on the ruled grid. Each
   sentence ends with a mini stamp (「25」). Tapping a stamp opens the source note. Deadline phrases carry the
   highlighter (`--marker` behind the text, slightly taller than the x-height, no rounded ends).
@@ -183,13 +187,21 @@ Use Japanese notebook marks, not coloured chips or emoji. Each mark is followed 
        questions in blue
     4. 「あなたの質問と答え」 as `AnswerEntry`s, whose stamps open their notes
   - **Who wrote it:** people appear only as bylines (「2025年度 会計」).
+  - **Inline on 聞く:** 「引き継ぎ書を開く」 opens the same guide in place under the deadlines (no screen change),
+    「引き継ぎ書を閉じる」 folds it; printing from there puts only the guide on paper. `/s/[seat]/guide` stays for /me.
 - **`WithdrawMeter`**: figures face, 39px on the console; counts in `--red` from the click, freezes in `--ink`
   when the last pane drops the note: 「0.8秒」.
 - **`LeakCounter`**: 「漏れ 0 / 50 回」, the 0 in `--green`.
 - **`PersonaPane`** (console): a plain rounded rectangle in `--sheet`, 390 wide and up to 844 tall (shorter on a laptop
   whose window leaves less room, so the whole proof stays on one screen; the pane scrolls inside), with a 1px `--rule`
   border and the persona above it in UI text: 新しい会計 · 去年の会計 · 部外者. No device chrome. Below about 1270px
-  the three panes scroll sideways instead of wrapping.
+  the three panes scroll sideways instead of wrapping. Signed out (real data), the console keeps its title where the
+  proof puts it and, where the first pane goes, a 390px column like `SignIn` (the full width on a phone): a
+  one-sentence lead naming the three, one password field (the writing line in the UI face) and a full-width primary
+  「3人でログインする」; no page scroll at 1920. It is all three or none: when one can't sign in, nobody is signed in,
+  and a calm `--ink-2` line says so and what to do. The checking and signing-out captions and the offline line with
+  「もう一度ためす」 are `SignIn`'s. Signed in, 「ログアウト」 sits beside the meter and the leak counter and ends this
+  device's three sessions only.
 - **`MeasuredNumbers`** (console): 「測定の内訳」, a collapsed `<details>` under the meter and the leak counter with
   one line per check that `pnpm metrics` measured (leaks, withdrawal, citations, live loop, privacy), read from
   `metrics/latest.json` only, with when it was measured. A check that didn't run says 「未測定」. Green only for 漏れ 0 and
@@ -202,7 +214,9 @@ One signature moment, everything else functional.
 - **Double line** (withdraw, update): two red lines draw left to right, 220ms, then the entry collapses (200ms).
 - **Listening**: one ring pulses from the voice button every 1.2s while recording.
 - **Inbox arrival**: the slip slides 8px down into place (160ms) and the phone vibrates where supported.
-- No fade-and-slide on page load, no hover lifts, no confetti, no bouncing.
+- **Page change** (a verb tab, 「あなた」, the guide link; Nico's call): the new page's content fades in, opacity only, 160ms
+  (`PageTurn`), never on the first load. After sign-in the account's page fades in the same way (`.dd-fade-in`).
+- No fade or slide on the first page load, no slides at all, no hover lifts, no confetti, no bouncing.
 - `prefers-reduced-motion`: every motion becomes an instant state change; the stamp simply appears.
 
 ## Copy voice

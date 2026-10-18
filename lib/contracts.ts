@@ -456,6 +456,7 @@ export type GuideView = z.infer<typeof GuideView>;
 // The demo accounts that sign in, in the order a switcher lists them, each with the email scripts/seed.ts gives it
 // (tests/sign-in.test.ts checks that the two agree). lib/api.ts signs a device in with one of them and the demo
 // password, which the person types: it goes to Supabase Auth only, never into client code or a NEXT_PUBLIC_* variable.
+// The console's three panes are three of them, each on its own session (components/console-sign-in.ts).
 
 export const DemoAccount = z.enum(["a26", "a25", "a24", "b", "x"]);
 export type DemoAccount = z.infer<typeof DemoAccount>;
@@ -467,22 +468,6 @@ export const DEMO_EMAIL: Record<DemoAccount, string> = {
   b: "keion-member@example.com",
   x: "yamate-outsider@example.com",
 };
-
-// POST /api/console/session (the console only) --------------------------------------------
-// The console's three panes sign in as these demo accounts, one session each (docs/SPEC.md → Console panes).
-
-export const ConsolePersona = DemoAccount.extract(["a26", "a25", "x"]);
-export type ConsolePersona = z.infer<typeof ConsolePersona>;
-
-export const ConsoleSessionRequest = z.object({ persona: ConsolePersona });
-export type ConsoleSessionRequest = z.infer<typeof ConsoleSessionRequest>;
-
-// The persona's own session, for one pane's Supabase client (persistSession: false). Never stored.
-export const ConsoleSession = z.object({
-  accessToken: z.string().min(1),
-  refreshToken: z.string().min(1),
-});
-export type ConsoleSession = z.infer<typeof ConsoleSession>;
 
 // Errors -------------------------------------------------------------------------------------
 
