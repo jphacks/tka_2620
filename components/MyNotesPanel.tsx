@@ -269,6 +269,7 @@ function MyNotesList({ api, seat }: { api: Api; seat?: string }) {
         withdrawFailed={withdrawFailed}
         onWithdraw={withdraw}
         tools={tools || undefined}
+        headingLevel={1}
         emptyText={notes.length > 0 ? t("filter.noneMatch") : undefined}
       />
     </>

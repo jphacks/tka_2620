@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import type { Api, ImportResponse } from "@/lib/contracts";
 
 // 「＋ 追加」 on 残す (docs/SPEC.md → adding knowledge: at the start and any time after). The slip, the parsers and the
@@ -29,13 +29,20 @@ export function AddPanel({
   slug,
   api,
   onImported,
+  canAdd = true,
 }: {
   slug: string;
   /** The signed-in client (SeatSignIn); mocks as a25 when left out. */
   api?: Api;
   onImported?: (response: ImportResponse) => void;
+  /** Whether the viewer holds this seat: only holders can add (the import route would refuse anyone else). Unknown
+   * while the seat loads: the button waits. */
+  canAdd?: boolean;
 }) {
   const t = useTranslations("import");
+  // The drop handler below is set up once; it reads the latest answer here.
+  const allowed = useRef(canAdd);
+  allowed.current = canAdd;
   const [open, setOpen] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [dropped, setDropped] = useState<Dropped>();
@@ -63,7 +70,7 @@ export function AddPanel({
       event.preventDefault();
       setDragging(false);
       const file = event.dataTransfer?.files[0];
-      if (!file) return;
+      if (!file || !allowed.current) return; // not a holder: the file is kept off the page, and nothing opens
       setOpen(true);
       setDropped((last) => ({ id: (last?.id ?? 0) + 1, file }));
     }
@@ -76,6 +83,14 @@ export function AddPanel({
       window.removeEventListener("drop", drop);
     };
   }, []);
+
+  if (!canAdd) {
+    return (
+      <p className="dd-cap" style={{ margin: 0 }}>
+        {t("holdersOnly")}
+      </p>
+    );
+  }
 
   return (
     <section className="dd-col" style={{ gap: "var(--s-3)" }}>

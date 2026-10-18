@@ -319,6 +319,12 @@ span.dd-mini::after { content: none; }
 @keyframes dd-arrive { from { transform: translateY(-8px); } to { transform: none; } }
 
 
+/* A verb page's heading with the seat it's for (残す): the h1, then one caption line kept even while it loads */
+.dd-page-head { display: grid; gap: var(--s-1); }
+.dd-page-head .dd-cap { margin: 0; min-height: 20px; }
+/* The answer box shows focus with DESIGN.md's ring (2px blue, 2px off), not only a border change */
+.dd-answer:focus-within { outline: 2px solid var(--blue); outline-offset: 2px; }
+
 /* Voice */
 .dd-voice { position: relative; width: 80px; height: 80px; border-radius: var(--r-round); border: 0; background: var(--blue); color: var(--sheet); display: grid; place-items: center; cursor: pointer; flex: none; }
 .dd-voice.is-listening::after { content: ""; position: absolute; inset: 0; border-radius: var(--r-round); border: 6px solid var(--blue-wash); animation: dd-pulse 1.2s ease-out infinite; }
