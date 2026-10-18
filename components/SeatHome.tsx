@@ -29,13 +29,16 @@ export function SeatHome({
         <>
           <SeatHeader seat={view.seat} />
           <LineageRail view={view} />
-          <UpcomingList items={view.upcoming} />
-          <Link
-            className="dd-link dd-guide-link"
-            href={`/s/${encodeURIComponent(slug)}/guide`}
-          >
-            {t("open")}
-          </Link>
+          {/* The way to the whole guide belongs to the deadlines above it, not to the ask field below */}
+          <div className="dd-col" style={{ gap: "var(--s-2)" }}>
+            <UpcomingList items={view.upcoming} />
+            <Link
+              className="dd-link dd-guide-link"
+              href={`/s/${encodeURIComponent(slug)}/guide`}
+            >
+              {t("open")}
+            </Link>
+          </div>
         </>
       )}
       <AskPanel
