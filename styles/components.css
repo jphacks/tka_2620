@@ -151,7 +151,12 @@ span.dd-mini::after { content: none; }
 .dd-voice-text::placeholder { color: var(--ink-2); }
 
 /* Scope rings */
-.dd-scope { display: flex; gap: var(--s-5); align-items: center; flex-wrap: wrap; }
+/* ReaderCount beside the rings, the scope list below (DESIGN → ScopeRings); the 72px rings hold the first row, so the
+   count arriving moves nothing below it */
+.dd-scope { display: grid; grid-template-columns: 72px 1fr; grid-template-areas: "rings count" "list list"; column-gap: var(--s-4); row-gap: var(--s-2); align-items: center; }
+.dd-scope svg { grid-area: rings; }
+.dd-scope fieldset { grid-area: list; }
+.dd-scope output { grid-area: count; }
 .dd-scope svg circle { fill: none; stroke: var(--blue); stroke-width: 1.5; }
 .dd-scope svg circle.is-on { fill: var(--blue-wash); }
 /* each scope's whole row is its 44px tap target (DESIGN → Space), rows touching */
