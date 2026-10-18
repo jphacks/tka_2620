@@ -16,6 +16,7 @@ import {
   useState,
 } from "react";
 import { CardReview } from "@/components/CardReview";
+import { DateStamp } from "@/components/DateStamp";
 import { mergePrompts } from "@/components/handover";
 import type { AnswerMode } from "@/components/InboxSlip";
 import { VoiceAnswer } from "@/components/VoiceAnswer";
@@ -65,6 +66,8 @@ export function HandoverPrompts({
   const api = useMemo(() => given ?? createMockApi("a25"), [given]);
   const [view, setView] = useState<SeatView>();
   const [prompts, setPrompts] = useState<HandoverPrompt[]>();
+  // The seat view and the prompts fail apart: either one says the questions couldn't be read.
+  const [seatFailed, setSeatFailed] = useState(false);
   const [failed, setFailed] = useState(false);
   const [open, setOpen] = useState<Open>();
   const [busy, setBusy] = useState(false);
@@ -84,7 +87,7 @@ export function HandoverPrompts({
         if (alive) setView(seat);
       },
       () => {
-        if (alive) setFailed(true);
+        if (alive) setSeatFailed(true);
       },
     );
     return () => {
@@ -175,8 +178,9 @@ export function HandoverPrompts({
     }
   }
 
-  if (!view && !failed) return null; // the inbox above is what the leaver came for; this follows when ready
+  if (!view && !seatFailed) return null; // the inbox above is what the leaver came for; this follows when ready
   const seat = view?.seat;
+  const termLabel = view?.viewer.termLabel; // what publishing signs with
   const scopeLabel = (scope: Scope) =>
     seat
       ? t(`seatTypes.${seat.seatType}.scope.${scope}`, {
@@ -208,7 +212,7 @@ export function HandoverPrompts({
       <h2 id={titleId} className="dd-h">
         {t("handover.promptsTitle")}
       </h2>
-      {failed && (
+      {(failed || seatFailed) && (
         <p style={{ margin: 0, color: "var(--ink-2)" }}>
           {t("handover.promptsFailed")}
         </p>
@@ -243,13 +247,23 @@ export function HandoverPrompts({
                 {prompt.text}
               </p>
               {scopes ? (
-                <output ref={focusHere} tabIndex={-1} className="dd-live-note">
-                  {t("handover.publishedAs", {
-                    scopes: [...new Set(scopes)]
-                      .map(scopeLabel)
-                      .join(t("import.listSeparator")),
-                  })}
-                </output>
+                // The signature moment (DESIGN → Motion): the predecessor's date stamp lands on what they published.
+                <div className="dd-entry-foot">
+                  <output
+                    ref={focusHere}
+                    tabIndex={-1}
+                    className="dd-live-note"
+                  >
+                    {t("handover.publishedAs", {
+                      scopes: [...new Set(scopes)]
+                        .map(scopeLabel)
+                        .join(t("import.listSeparator")),
+                    })}
+                  </output>
+                  {termLabel && (
+                    <DateStamp seat={seat} termLabel={termLabel} land />
+                  )}
+                </div>
               ) : answering ? null : (
                 // One prompt at a time: the others wait until this one is published or closed with やめる, so a tap
                 // never throws away an answer or its drafted cards.
