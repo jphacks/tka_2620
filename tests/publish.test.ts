@@ -438,7 +438,7 @@ describe("publishAsCaller", () => {
 
     it("turns the database's refusal of the update into forbidden, and answers nobody", async () => {
       // A note of another seat or kind, one already replaced or withdrawn, one the publisher can't read, a later
-      // term's: 0009 refuses them all alike, and the insert saves nothing.
+      // term's: 0010 refuses them all alike, and the insert saves nothing.
       const { error, rpcCalls } = await run({
         request: { ...added, promptId: PROMPT_ID },
         tables: {

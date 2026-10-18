@@ -756,8 +756,9 @@ describe("importAsCaller", () => {
       lang: "ja",
       similarity: 0.802,
     };
-    const { result, embedded, rpcCalls } = await run({
+    const { result, embedded, rpcCalls, calls } = await run({
       functions: { search_notes: ok([ryoshusho]) },
+      tables: { notes: [ok([{ id: "smash-2025-ryoshusho", scope: "group" }])] },
     });
     const response = ImportResponse.parse(result);
     expect(embedded).toHaveLength(1);
@@ -776,12 +777,19 @@ describe("importAsCaller", () => {
                 title: "領収書は月末にまとめて精算",
                 byline: "2025年度 会計",
                 similarity: 0.802,
+                scope: "group",
               },
             ]
           : [],
       ),
     );
     expect(response.duplicates.length).toBeGreaterThan(0);
+    // The term a publish signs with, so only notes the importer may update are offered.
+    expect(calls.seat_holders?.[0]).toContainEqual([
+      "order",
+      "term_order",
+      { ascending: false },
+    ]);
   });
 
   it("still answers when the similar notes can't be found, and logs a code only", async () => {

@@ -288,7 +288,7 @@ describe("askAsCaller", () => {
       const stub: Stub = {
         seat: { id: SMASH_KAIKEI },
         found,
-        replacedError: { code: "PGRST202" }, // 0009 not applied yet
+        replacedError: { code: "PGRST202" }, // 0010 not applied yet
       };
       const result = await askAsCaller(
         stubClient(stub),

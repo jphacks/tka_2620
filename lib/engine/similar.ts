@@ -1,10 +1,10 @@
 // Similar notes (F5.6, docs/SPEC.md → F5 step 9) for POST /api/import: each drafted card is compared with the seat's
 // live notes, and a close one of the same kind is offered with 「更新する」 (publishing the card with supersedes replaces
-// it, 0009) or 「別のメモとして残す」. search_notes (0004) runs as the importer, so the notes policy decides which notes
+// it, 0010) or 「別のメモとして残す」. search_notes (0004) runs as the importer, so the notes policy decides which notes
 // can match at all; this file only decides which one a card would update. Errors carry a code only, never a card.
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
-import type { ImportedCard, ImportResponse } from "@/lib/contracts";
+import { type ImportedCard, type ImportResponse, Scope } from "@/lib/contracts";
 import { noteText } from "@/lib/embed";
 import { FoundNote } from "@/lib/engine/retrieve";
 import { ApiFailure, dbFailure } from "@/lib/engine/route";
@@ -24,12 +24,14 @@ export type Duplicate = ImportResponse["duplicates"][number];
 
 export type SimilarInput = {
   seat: { id: string; slug: string };
+  term: number; // the importer's latest term at the seat, which a publish signs with
   cards: ImportedCard[];
   embed: (texts: string[]) => Promise<number[][]>;
 };
 
-// The note each card would update, at most one per card. `client` must act as the importer (a route's caller client),
-// never as the service role.
+// The note each card would update, at most one per card, with its scope: 「更新する」 publishes at that scope or wider
+// (0010). `client` must act as the importer (a route's caller client), never as the service role; the notes policy
+// lets them read the scope of a note they can find.
 export async function similarNotes(
   client: SupabaseClient,
   input: SimilarInput,
@@ -50,36 +52,56 @@ export async function similarNotes(
       return z.array(FoundNote).parse(data ?? []);
     }),
   );
-  return input.cards.flatMap((card, i): Duplicate[] => {
-    const note = noteToUpdate(card, found[i], input.seat.id);
-    return note
-      ? [
-          {
-            card: i,
-            noteId: note.id,
-            title: note.title,
-            byline: note.byline,
-            similarity: Math.min(note.similarity, 1),
-          },
-        ]
-      : [];
+  const matches = input.cards.flatMap((card, i) => {
+    const note = noteToUpdate(card, found[i], input.seat.id, input.term);
+    return note ? [{ card: i, note }] : [];
+  });
+  if (matches.length === 0) return [];
+
+  const { data, error } = await client
+    .from("notes")
+    .select("id, scope")
+    .in("id", [...new Set(matches.map(({ note }) => note.id))]);
+  if (error) throw dbFailure(error);
+  const scopes = new Map(
+    z
+      .array(z.object({ id: z.string(), scope: Scope }))
+      .parse(data ?? [])
+      .map((row) => [row.id, row.scope]),
+  );
+  return matches.flatMap(({ card, note }): Duplicate[] => {
+    const scope = scopes.get(note.id);
+    // Gone between the search and this read (withdrawn just now): nothing to update.
+    if (!scope) return [];
+    return [
+      {
+        card,
+        noteId: note.id,
+        title: note.title,
+        byline: note.byline,
+        similarity: Math.min(note.similarity, 1),
+        scope,
+      },
+    ];
   });
 }
 
 // Of the seat's own notes of the card's kind that reach SIMILAR, the latest term's, then the closest. An update replaces
 // the seat's current version of a rule; the earlier years stay live as its history (the rule-change flag reads them),
-// so the 2026 notice updates the 2025 note even though the 2024 one scores higher. Another seat's note (an
-// institution-wide one search_notes also finds) is never offered: 「更新する」 stays within the seat (0009).
+// so the 2026 notice updates the 2025 note even though the 2024 one scores higher. Only notes 0010 lets the importer
+// update: never another seat's (an institution-wide one search_notes also finds), never a later term's than theirs.
 export function noteToUpdate(
   card: Pick<ImportedCard, "kind">,
   notes: FoundNote[],
   seatId: string,
+  term: number,
 ): FoundNote | undefined {
   return notes
     .filter(
       (note) =>
         note.seat_id === seatId &&
         note.kind === card.kind &&
+        note.term_order <= term &&
         note.similarity >= SIMILAR,
     )
     .sort(

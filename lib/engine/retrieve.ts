@@ -64,7 +64,7 @@ export function closeEnough(notes: FoundNote[]): FoundNote[] {
     .sort((a, b) => b.similarity - a.similarity);
 }
 
-// A deadline note that a found note replaced (「更新する」, F5.6): superseded_deadlines()'s row (0009). Never an answer's
+// A deadline note that a found note replaced (「更新する」, F5.6): superseded_deadlines()'s row (0010). Never an answer's
 // source, only the rule-change flag's history; ids, terms and the date, no title or body.
 export const ReplacedNote = z.object({
   id: z.string(),

@@ -4,7 +4,7 @@
 //
 // Everything runs as the caller (lib/engine/route.ts), so the database decides: the notes policy (0003) lets a holder
 // publish only into a term they held, signed with that term; a 「更新する」 card replaces only a live note of the same
-// seat and kind that the publisher may read, from their term or an earlier one, within the same insert (0009); a
+// seat and kind that the publisher may read, from their term or an earlier one, within the same insert (0010); a
 // demand prompt is readable only by the predecessors it was routed to; waiting_questions() gives each waiting question
 // the new notes its asker may read (the asker's rings, never the publisher's); deliver_answer() checks every citation
 // again, writes the asker's answers row (Realtime brings it to them alone), marks the question answered and retires
@@ -193,7 +193,7 @@ export async function publishAsCaller(
         provenance: card.provenance ?? null,
         embedding: JSON.stringify(vectors[i]),
         // Only on a 「更新する」 card, so publishing anything else never names the column. The trigger turns it into
-        // the old note's superseded_by and stores nothing here (0009).
+        // the old note's superseded_by and stores nothing here (0010).
         ...(card.supersedes && { supersedes: card.supersedes }),
       })),
     )

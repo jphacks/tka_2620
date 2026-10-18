@@ -2,8 +2,8 @@
 // a26 adds seed/notice-2026.sample.pdf the way the browser sends it (lib/ingest, lib/redact) to POST /api/import, which
 // marks its deadline card similar to smash-2025-hokenjo; a26 publishes it with 「更新する」 (supersedes), and q01 then
 // cites the 2026 note with the rule change flagged against the 2025 note it replaced, which stays readable as history.
-// Also the database's refusals of an update it must not make (0009), each saving nothing.
-// Runs against the seeded database (0009 applied) and a running dev server, with Ollama (the cards' and the note's
+// Also the database's refusals of an update it must not make (0010), each saving nothing.
+// Runs against the seeded database (0010 applied) and a running dev server, with Ollama (the cards' and the note's
 // embeddings, the search) and the Claude key (the cards and q01's answer: two Sonnet calls, a few cents):
 //   pnpm dev            (in another terminal)
 //   pnpm test:supersede
@@ -27,7 +27,7 @@ const BASE_URL = process.env.CHECK_BASE_URL ?? "http://localhost:3000";
 const SEAT = "smash-kaikei";
 const OLD = "smash-2025-hokenjo"; // the 2025 deadline the notice moves (seed/notes.csv)
 const OTHER_SEAT_NOTE = "gakusai-2025-hokenjo"; // 学祭実行委員会's, readable by a26 (institution scope)
-const OTHER_KIND_NOTE = "smash-2025-ryoshusho"; // the seat's own, but a rule_of_thumb
+const OTHER_KIND_NOTE = "smash-2025-ryoshusho"; // the seat's own, but a rule_of_thumb, for the whole club (group)
 const Q01 = "模擬店の保健所申請、いつまで？"; // seed/questions.csv q01, asked by a26
 const PERSONA = "smash-kaikei-2026"; // a26, the 2026 treasurer (scripts/seed.ts)
 
@@ -202,13 +202,15 @@ async function main(): Promise<void> {
       `the notice's deadline card is marked similar to ${OLD}`,
       imported.status === 200 &&
         card?.kind === "deadline" &&
-        card.deadline_date === "2026-10-19",
+        card.deadline_date === "2026-10-19" &&
+        duplicate?.scope === "successor",
       response.success
         ? `HTTP ${imported.status}, ${response.data.cards.length} card(s), duplicates ${JSON.stringify(
             response.data.duplicates.map((found) => [
               found.card,
               found.noteId,
               Number(found.similarity.toFixed(3)),
+              found.scope,
             ]),
           )}`
         : `HTTP ${imported.status}`,
@@ -222,7 +224,8 @@ async function main(): Promise<void> {
     const publish = (cards: PublishCard[]) =>
       call("/api/handover/publish", { token, body: { seat: SEAT, cards } });
 
-    // 2. Updates the database refuses (0009), each saving nothing: another seat's note, another kind, two at once.
+    // 2. Updates the database refuses (0010), each saving nothing: another seat's note, another kind, a narrower scope
+    //    (a treasurers-only note over the club's group note), two at once.
     const refusals: [string, Awaited<ReturnType<typeof publish>>, number][] = [
       [
         "an update of another seat's note",
@@ -232,6 +235,18 @@ async function main(): Promise<void> {
       [
         "an update of a note of another kind",
         await publish([{ ...update, supersedes: OTHER_KIND_NOTE }]),
+        403,
+      ],
+      [
+        "a narrower update of a group note",
+        await publish([
+          {
+            ...update,
+            kind: "rule_of_thumb",
+            scope: "successor",
+            supersedes: OTHER_KIND_NOTE,
+          },
+        ]),
         403,
       ],
       ["two cards updating one note", await publish([update, update]), 400],

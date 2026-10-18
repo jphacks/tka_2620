@@ -7,7 +7,7 @@
 // creates the prompt and the prompt_routes rows, refusing anyone who holds no seat at the seat they asked — their
 // question routes nowhere and no prompt is created. Before routing, open_demand_prompts() (0008) gives the asker's
 // waiting question the seat's open demand prompts, so Haiku can join one that asks the same thing (F2.5). For the
-// rule-change flag, superseded_deadlines() (0009) gives the deadline notes the found ones replaced, again as the asker.
+// rule-change flag, superseded_deadlines() (0010) gives the deadline notes the found ones replaced, again as the asker.
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { LanguageModel } from "ai";
 import { z } from "zod";
@@ -103,7 +103,7 @@ export async function askAsCaller(
     request.question,
     models.embed,
   );
-  // The deadlines the found notes replaced (superseded_deadlines(), 0009) are only the rule-change flag's history: if
+  // The deadlines the found notes replaced (superseded_deadlines(), 0010) are only the rule-change flag's history: if
   // they can't be read, the answer goes on without them.
   const replaced = await replacedDeadlines(client, notes, seat.id).catch(
     (error: unknown) => {
