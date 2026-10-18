@@ -2,26 +2,51 @@
 // /me (docs/DESIGN.md → Profile): who you are at this seat, in the seat's words and never by name: your term as the
 // dashed 「あなた」 tag of the lineage rail, your byline (「2026年度 会計」), the group and institution, which holder of
 // the seat you are, and your notes here with the way to them. Identity only: the display switches are in SeatBar, and
-// there is nothing to set. On mocks the page plays the newcomer (a26).
+// there is nothing to set. On mocks the page plays the newcomer (a26); on real data it is the account signed in on this
+// device, or the login screen in place (components/SignInGate.tsx, whose foot says which account and 「切り替える」).
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { stampRole } from "@/components/review";
+import { SignInGate } from "@/components/SignInGate";
 import { tagLabel } from "@/components/seat-page";
-import { useSeatApi } from "@/components/useSeatApi";
-import type { MyNote, SeatView } from "@/lib/contracts";
+import { accountLabel } from "@/components/sign-in";
+import type { Api, DemoAccount, MyNote, SeatView } from "@/lib/contracts";
+import { createMockApi, USE_MOCKS } from "@/lib/mocks";
 
-export function ProfilePanel({ seat: slug }: { seat?: string }) {
+export function ProfilePanel({ seat }: { seat?: string }) {
+  const mock = useMemo(
+    () => (USE_MOCKS ? createMockApi("a26") : undefined),
+    [],
+  );
+  if (mock) return <Profile slug={seat} api={mock} account="a26" />;
+  return (
+    <SignInGate>
+      {({ api, account }) => (
+        <Profile slug={seat} api={api} account={account} />
+      )}
+    </SignInGate>
+  );
+}
+
+function Profile({
+  slug,
+  api,
+  account,
+}: {
+  slug?: string;
+  api: Api;
+  account: DemoAccount;
+}) {
   const t = useTranslations();
-  const signed = useSeatApi("a26");
   const [view, setView] = useState<SeatView>();
   const [notes, setNotes] = useState<MyNote[]>();
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
-    if (signed.state !== "ready" || !slug) return;
+    if (!slug) return;
     let alive = true;
-    Promise.all([signed.api.seat(slug), signed.api.myNotes()]).then(
+    Promise.all([api.seat(slug), api.myNotes()]).then(
       ([seatView, mine]) => {
         if (!alive) return;
         setView(seatView);
@@ -34,37 +59,22 @@ export function ProfilePanel({ seat: slug }: { seat?: string }) {
     return () => {
       alive = false;
     };
-  }, [signed, slug]);
+  }, [api, slug]);
 
   const title = (
     <h1 className="dd-h" style={{ fontSize: "var(--text-l)", lineHeight: 1.3 }}>
       {t("profile.title")}
     </h1>
   );
-  const calm = (message: string, link?: boolean) => (
+  const calm = (message: string) => (
     <section className="dd-col" style={{ gap: "var(--s-4)" }}>
       {title}
       <p style={{ margin: 0, color: "var(--ink-2)" }}>{message}</p>
-      {link && slug && (
-        <Link
-          className="dd-btn"
-          style={{
-            justifySelf: "start",
-            display: "inline-grid",
-            placeItems: "center",
-            textDecoration: "none",
-          }}
-          href={`/s/${encodeURIComponent(slug)}`}
-        >
-          {t("profile.toSeat")}
-        </Link>
-      )}
     </section>
   );
 
   if (!slug) return calm(t("profile.noSeat"));
-  if (signed.state === "signedOut") return calm(t("profile.signedOut"), true);
-  if (signed.state === "failed" || failed) return calm(t("profile.failed"));
+  if (failed) return calm(t("profile.failed"));
   if (!view || !notes) {
     return (
       <section className="dd-col" style={{ gap: "var(--s-4)" }}>
@@ -82,6 +92,9 @@ export function ProfilePanel({ seat: slug }: { seat?: string }) {
           seat: seat.name,
         })
       : undefined;
+  // Someone who never held the seat is named as the login screen names them (「やまて大学の学生」).
+  const label = accountLabel(account);
+  const who = t(label.key, label.values);
   // Which holder of the seat you are: your latest term's place in the lineage, oldest first.
   const place = lineage.findLastIndex((term) => term.isViewer) + 1;
   const live = notes.filter((note) => note.status === "live").length;
@@ -113,9 +126,12 @@ export function ProfilePanel({ seat: slug }: { seat?: string }) {
             </span>
           </span>
           <div className="dd-col" style={{ gap: "var(--s-1)" }}>
-            <p className="dd-me-byline">
-              {byline ?? t("profile.notHolder", { seat: seat.name })}
-            </p>
+            <p className="dd-me-byline">{byline ?? who}</p>
+            {!byline && (
+              <p className="dd-cap" style={{ margin: 0 }}>
+                {t("profile.notHolder", { seat: seat.name })}
+              </p>
+            )}
             <p style={{ margin: 0 }}>
               <span className="dd-seat-group">{seat.group}</span>
               <br />

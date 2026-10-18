@@ -2,8 +2,8 @@ import { HandoverGuide } from "@/components/HandoverGuide";
 import { VerbTabs } from "@/components/VerbTabs";
 
 // /s/[seat]/guide: the handover guide 引き継ぎ書, opened from 聞く and from /me. Not a fourth verb: the verb tabs stay,
-// none of them current. On mocks it reads as a26; on real data as this tab's or this device's user
-// (components/useSeatApi.ts).
+// none of them current. On mocks it reads as a26; on real data as the account signed in on this device, or the
+// login screen in place (components/SignInGate.tsx).
 export default async function GuidePage({
   params,
 }: PageProps<"/s/[seat]/guide">) {

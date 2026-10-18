@@ -125,6 +125,7 @@
     "label": "表示とあなた",
     "darkScreen": "暗い画面",
     "you": "あなた",
+    "home": "はじめのページへ",
     "language": {
       "ja": "日本語",
       "en": "English"
@@ -132,15 +133,20 @@
   },
   "home": {
     "title": "代々",
-    "open": "席のページは、そのリンク（部室の鍵のQRコードやNFCのシール）から開いてください。"
+    "lead": "知識は人ではなく、席に受け継がれる。",
+    "barLabel": "表示",
+    "seatTitle": "席を開く",
+    "open": "席のページは、ふだんはそのリンク（部室の鍵のQRコードやNFCのシール）から開きます。",
+    "demoSeat": "デモの席を開く",
+    "consoleTitle": "信頼の証明",
+    "consoleText": "3人の画面を並べて、部外者に何も見えないこと、撤回したメモが回答から消える速さ、漏れテストの結果を確かめます。発表用のPCで開きます。",
+    "openConsole": "コンソールを開く"
   },
   "profile": {
     "title": "あなた",
     "loading": "読み込んでいます",
     "noSeat": "席のページの「あなた」から開いてください。",
-    "signedOut": "ログインしていません。席のページでログインしてから、もう一度開いてください。",
     "failed": "読み込めませんでした。通信を確かめて、このページを開き直してください。",
-    "toSeat": "席のページへ",
     "notHolder": "{seat}を担当したことはありません",
     "place": "この席の<fig>{n}</fig>代目です",
     "noteCounts": "公開中 <fig>{live}</fig>件、撤回済み <fig>{withdrawn}</fig>件",
@@ -168,6 +174,10 @@
     "sort": "並び順",
     "shown": "<fig>{n}</fig>件のメモを表示しています",
     "clear": "絞り込みを外す",
+    "search": "検索",
+    "searchNotes": "タイトル・内容・書いた人で探す",
+    "searchTitles": "タイトルで探す",
+    "searched": "、「{query}」を含む",
     "noneMatch": "この条件のメモはありません。",
     "status": "状態",
     "allStatus": "すべて",
@@ -183,6 +193,7 @@
     "titlePlain": "引き継ぎ書",
     "title": "{seat}の引き継ぎ書",
     "open": "引き継ぎ書を開く",
+    "close": "引き継ぎ書を閉じる",
     "where": "{group}（{institution}）",
     "asOf": "{date}時点",
     "counts": "メモ <fig>{notes}</fig>件、まだ書かれていないこと <fig>{open}</fig>件",
@@ -232,6 +243,7 @@
   },
   "seat": {
     "upcoming": "これからの締切",
+    "tagKind": "{kind}：",
     "you": "あなた",
     "youAt": "あなた（{term}）",
     "upcomingDate": "{date} {weekday}"

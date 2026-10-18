@@ -4,9 +4,10 @@
 // (blank lines, never hidden), and the viewer's own questions with their answers, each stamp still opening its note.
 // The filters (kind, who wrote it, order) shape the page and the export alike: print / PDF through the browser, or a
 // Markdown file built here. Nothing is sent or stored by exporting; RLS already decided what the page received
-// (GET /api/seats/[slug]/guide). People appear only as bylines (「2025年度 会計」), never by name.
+// (GET /api/seats/[slug]/guide). People appear only as bylines (「2025年度 会計」), never by name. On mocks as a26; on real
+// data as the account signed in on this device, or the login screen in place (components/SignInGate.tsx).
 import { useFormatter, useLocale, useTranslations } from "next-intl";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AnswerEntry } from "@/components/AnswerEntry";
 import { DateStamp } from "@/components/DateStamp";
 import {
@@ -20,16 +21,23 @@ import {
   guideMarkdown,
   KINDS,
   type KindFilter,
+  matches,
   SORTS,
   sortNotes,
 } from "@/components/guide";
 import { kindMarks } from "@/components/marks";
+import { SignInGate } from "@/components/SignInGate";
 import { plannerDate, tokyoToday } from "@/components/seat-page";
 import { UpcomingList } from "@/components/UpcomingList";
-import { useSeatApi } from "@/components/useSeatApi";
-import type { GuideOpen, GuideView, SeatView } from "@/lib/contracts";
+import type { Api, GuideOpen, GuideView, SeatView } from "@/lib/contracts";
+import { createMockApi, USE_MOCKS } from "@/lib/mocks";
 
-const START: GuideFilter = { kind: ALL, byline: ALL, sort: "newest" };
+const START: GuideFilter = {
+  kind: ALL,
+  byline: ALL,
+  sort: "newest",
+  query: "",
+};
 
 // A YYYY-MM-DD date as a calendar day in Tokyo, whatever the device's clock says.
 const tokyoDay = (date: string) => new Date(`${date}T00:00:00+09:00`);
@@ -48,10 +56,30 @@ function saveFile(text: string, name: string) {
 }
 
 export function HandoverGuide({ slug }: { slug: string }) {
+  const mock = useMemo(
+    () => (USE_MOCKS ? createMockApi("a26") : undefined),
+    [],
+  );
+  if (mock) return <Guide slug={slug} api={mock} />;
+  return (
+    <SignInGate>{({ api }) => <Guide slug={slug} api={api} />}</SignInGate>
+  );
+}
+
+// The guide itself, for the signed-in client: its own page (/s/[seat]/guide) or, inline, under the deadlines on 聞く.
+export function Guide({
+  slug,
+  api,
+  inline = false,
+}: {
+  slug: string;
+  api: Api;
+  inline?: boolean;
+}) {
+  const Title = inline ? "h2" : "h1";
   const t = useTranslations();
   const locale = useLocale();
   const format = useFormatter();
-  const signed = useSeatApi("a26");
   const [view, setView] = useState<SeatView>();
   const [guide, setGuide] = useState<GuideView>();
   const [failed, setFailed] = useState(false);
@@ -59,9 +87,8 @@ export function HandoverGuide({ slug }: { slug: string }) {
   const [saved, setSaved] = useState<string>();
 
   useEffect(() => {
-    if (signed.state !== "ready") return;
     let alive = true;
-    Promise.all([signed.api.seat(slug), signed.api.guide(slug)]).then(
+    Promise.all([api.seat(slug), api.guide(slug)]).then(
       ([seatView, guideView]) => {
         if (!alive) return;
         setView(seatView);
@@ -74,28 +101,20 @@ export function HandoverGuide({ slug }: { slug: string }) {
     return () => {
       alive = false;
     };
-  }, [signed, slug]);
+  }, [api, slug]);
 
-  const calm = (message: string, toSeat = false) => (
-    <section className="dd-col" style={{ gap: "var(--s-4)" }}>
-      <h1 className="dd-h dd-guide-title">{t("guide.titlePlain")}</h1>
-      <p style={{ margin: 0, color: "var(--ink-2)" }}>{message}</p>
-      {toSeat && (
-        <a
-          className="dd-btn dd-btn-link"
-          href={`/s/${encodeURIComponent(slug)}`}
-        >
-          {t("profile.toSeat")}
-        </a>
-      )}
-    </section>
-  );
-  if (signed.state === "signedOut") return calm(t("profile.signedOut"), true);
-  if (signed.state === "failed" || failed) return calm(t("guide.failed"));
+  if (failed) {
+    return (
+      <section className="dd-col" style={{ gap: "var(--s-4)" }}>
+        <Title className="dd-h dd-guide-title">{t("guide.titlePlain")}</Title>
+        <p style={{ margin: 0, color: "var(--ink-2)" }}>{t("guide.failed")}</p>
+      </section>
+    );
+  }
   if (!view || !guide) {
     return (
       <section className="dd-col" style={{ gap: "var(--s-4)" }}>
-        <h1 className="dd-h dd-guide-title">{t("guide.titlePlain")}</h1>
+        <Title className="dd-h dd-guide-title">{t("guide.titlePlain")}</Title>
         <output className="dd-cap">{t("profile.loading")}</output>
       </section>
     );
@@ -103,16 +122,17 @@ export function HandoverGuide({ slug }: { slug: string }) {
 
   const { seat } = view;
   const { open: openItems, openChecked } = guide; // the export below runs later, outside this check
-  const api = signed.state === "ready" ? signed.api : undefined;
   const today = tokyoToday();
   const shown = sortNotes(filterNotes(guide.notes, filter), filter.sort, today);
   const sections = groupByKind(shown);
   const bylines = bylinesOf(guide.notes);
-  const filtered = filter.kind !== ALL || filter.byline !== ALL;
+  const query = (filter.query ?? "").trim();
+  const filtered = filter.kind !== ALL || filter.byline !== ALL || query !== "";
   const upcoming = view.upcoming.filter(
     (item) =>
       (filter.kind === ALL || filter.kind === "deadline") &&
-      (filter.byline === ALL || item.byline === filter.byline),
+      (filter.byline === ALL || item.byline === filter.byline) &&
+      matches(query, item.title, item.byline),
   );
   const answered = guide.asked.flatMap((asked) =>
     asked.answer ? [{ ...asked, answer: asked.answer }] : [],
@@ -131,10 +151,13 @@ export function HandoverGuide({ slug }: { slug: string }) {
     date: format.dateTime(new Date(), { dateStyle: "long" }),
   });
   const filterNote = filtered
-    ? t("guide.filteredNote", {
-        kind: kindWord(filter.kind),
-        byline: filter.byline === ALL ? t("guide.allBylines") : filter.byline,
-      })
+    ? [
+        t("guide.filteredNote", {
+          kind: kindWord(filter.kind),
+          byline: filter.byline === ALL ? t("guide.allBylines") : filter.byline,
+        }),
+        query ? t("filter.searched", { query }) : "",
+      ].join("")
     : undefined;
 
   function exportMarkdown() {
@@ -210,9 +233,9 @@ export function HandoverGuide({ slug }: { slug: string }) {
   return (
     <div className="dd-col dd-guide" style={{ gap: "var(--s-6)" }}>
       <header className="dd-col" style={{ gap: "var(--s-2)" }}>
-        <h1 className="dd-h dd-guide-title">
+        <Title className="dd-h dd-guide-title">
           {t("guide.title", { seat: seat.name })}
-        </h1>
+        </Title>
         <p style={{ margin: 0 }}>
           <span className="dd-seat-group">{seat.group}</span>
           <br />
@@ -239,7 +262,17 @@ export function HandoverGuide({ slug }: { slug: string }) {
           <button
             type="button"
             className="dd-btn dd-btn-primary"
-            onClick={() => window.print()}
+            onClick={() => {
+              // Inline on 聞く, the page around the guide stays off the paper (styles/components.css → print).
+              const root = document.documentElement;
+              root.classList.add("dd-printing-guide");
+              window.addEventListener(
+                "afterprint",
+                () => root.classList.remove("dd-printing-guide"),
+                { once: true },
+              );
+              window.print();
+            }}
           >
             {t("guide.print")}
           </button>
@@ -254,6 +287,21 @@ export function HandoverGuide({ slug }: { slug: string }) {
 
       <fieldset className="dd-filter">
         <legend className="dd-h">{t("filter.title")}</legend>
+        <div className="dd-filter-search">
+          <label className="dd-cap" htmlFor="guide-search">
+            {t("filter.search")}
+          </label>
+          <input
+            id="guide-search"
+            type="search"
+            className="dd-input"
+            value={filter.query ?? ""}
+            placeholder={t("filter.searchNotes")}
+            onChange={(event) =>
+              setFilter({ ...filter, query: event.target.value })
+            }
+          />
+        </div>
         <label>
           <span className="dd-cap">{t("guide.kind")}</span>
           <select
@@ -334,10 +382,11 @@ export function HandoverGuide({ slug }: { slug: string }) {
         </p>
       )}
       {sections.map(({ kind, notes }) => (
+        // 12px from each heading to its notes, as in every section; 16px between the notes
         <section
           key={kind}
           className="dd-col"
-          style={{ gap: "var(--s-4)" }}
+          style={{ gap: "var(--s-3)" }}
           aria-labelledby={`guide-${kind}`}
         >
           <h2 id={`guide-${kind}`} className="dd-h">
@@ -346,38 +395,42 @@ export function HandoverGuide({ slug }: { slug: string }) {
             </span>{" "}
             {t(`kinds.${kind}`)}
           </h2>
-          {notes.map((note) => {
-            const termLabel = termLabelOf(note.termOrder);
-            return (
-              <article key={note.id} className="dd-slip dd-entry">
-                <h3
-                  className="dd-source-title"
-                  lang={note.lang}
-                  style={{ margin: 0 }}
-                >
-                  {note.title}
-                </h3>
-                {note.deadlineDate && (
-                  <p style={{ margin: 0 }}>
-                    <span className="dd-marker dd-fig">
-                      {t("guide.deadline", {
-                        date: format.dateTime(tokyoDay(note.deadlineDate), {
-                          dateStyle: "long",
-                        }),
-                      })}
-                    </span>
+          <div className="dd-col" style={{ gap: "var(--s-4)" }}>
+            {notes.map((note) => {
+              const termLabel = termLabelOf(note.termOrder);
+              return (
+                <article key={note.id} className="dd-slip dd-entry">
+                  <h3
+                    className="dd-source-title"
+                    lang={note.lang}
+                    style={{ margin: 0 }}
+                  >
+                    {note.title}
+                  </h3>
+                  {note.deadlineDate && (
+                    <p style={{ margin: 0 }}>
+                      <span className="dd-marker dd-fig">
+                        {t("guide.deadline", {
+                          date: format.dateTime(tokyoDay(note.deadlineDate), {
+                            dateStyle: "long",
+                          }),
+                        })}
+                      </span>
+                    </p>
+                  )}
+                  <p className="dd-ruled dd-guide-body" lang={note.lang}>
+                    {note.body}
                   </p>
-                )}
-                <p className="dd-ruled dd-guide-body" lang={note.lang}>
-                  {note.body}
-                </p>
-                <div className="dd-entry-foot">
-                  <span className="dd-cap">{note.byline}</span>
-                  {termLabel && <DateStamp seat={seat} termLabel={termLabel} />}
-                </div>
-              </article>
-            );
-          })}
+                  <div className="dd-entry-foot">
+                    <span className="dd-cap">{note.byline}</span>
+                    {termLabel && (
+                      <DateStamp seat={seat} termLabel={termLabel} />
+                    )}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
         </section>
       ))}
 
@@ -423,7 +476,7 @@ export function HandoverGuide({ slug }: { slug: string }) {
         )}
       </section>
 
-      {answered.length > 0 && api && (
+      {answered.length > 0 && (
         <section
           className="dd-col"
           style={{ gap: "var(--s-5)" }}

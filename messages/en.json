@@ -125,6 +125,7 @@
     "label": "Display and you",
     "darkScreen": "Dark screen",
     "you": "You",
+    "home": "To the start page",
     "language": {
       "ja": "日本語",
       "en": "English"
@@ -132,15 +133,20 @@
   },
   "home": {
     "title": "Daidai",
-    "open": "Open a seat's page from its link: the QR code or NFC sticker on the club-room key."
+    "lead": "Knowledge passes down with the seat, not the person.",
+    "barLabel": "Display",
+    "seatTitle": "Open a seat",
+    "open": "A seat's page usually opens from its link: the QR code or NFC sticker on the club-room key.",
+    "demoSeat": "Open the demo seat",
+    "consoleTitle": "Trust proof",
+    "consoleText": "Three screens side by side show that an outsider sees nothing, how fast a withdrawn note leaves every answer, and the leak test's result. Open it on the presenting laptop.",
+    "openConsole": "Open the console"
   },
   "profile": {
     "title": "You",
     "loading": "Loading",
     "noSeat": "Open this page with “You” on a seat's page.",
-    "signedOut": "You're not signed in. Sign in on the seat's page, then open this again.",
     "failed": "Couldn't load this. Check the connection and reopen the page.",
-    "toSeat": "To the seat's page",
     "notHolder": "You have never held {seat}",
     "place": "Holder no. <fig>{n}</fig> of this seat",
     "noteCounts": "<fig>{live}</fig> live, <fig>{withdrawn}</fig> withdrawn",
@@ -168,6 +174,10 @@
     "sort": "Order",
     "shown": "Showing <fig>{n}</fig> notes",
     "clear": "Clear the filter",
+    "search": "Search",
+    "searchNotes": "Search titles, text and who wrote it",
+    "searchTitles": "Search titles",
+    "searched": ", containing “{query}”",
     "noneMatch": "No notes match this filter.",
     "status": "Status",
     "allStatus": "All",
@@ -183,6 +193,7 @@
     "titlePlain": "Handover guide",
     "title": "Handover guide: {seat}",
     "open": "Open the handover guide",
+    "close": "Close the handover guide",
     "where": "{group} ({institution})",
     "asOf": "As of {date}",
     "counts": "<fig>{notes}</fig> notes, <fig>{open}</fig> things not written yet",
@@ -232,6 +243,7 @@
   },
   "seat": {
     "upcoming": "Coming up",
+    "tagKind": "{kind}: ",
     "you": "You",
     "youAt": "You ({term})",
     "upcomingDate": "{weekday} {date}"
