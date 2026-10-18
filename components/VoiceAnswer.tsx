@@ -51,6 +51,7 @@ export function VoiceAnswer({
   onClose,
   onDraft,
   drafting = false,
+  headingLevel = 2,
   api: given,
 }: {
   /** The prompt being answered; a handover prompt has no language of its own. */
@@ -64,10 +65,13 @@ export function VoiceAnswer({
   onDraft?: (answer: string) => void;
   /** onDraft's request is on its way. */
   drafting?: boolean;
+  /** The title's level: 3 inside a handover prompt, under the prompts' h2. */
+  headingLevel?: 2 | 3;
   /** The signed-in predecessor's client; mocks as a25 when left out. */
   api?: Api;
 }) {
   const t = useTranslations();
+  const Title = headingLevel === 3 ? "h3" : "h2";
   const api = useMemo(() => given ?? createMockApi("a25"), [given]);
   const fieldId = useId();
   const field = useRef<HTMLTextAreaElement>(null);
@@ -179,7 +183,7 @@ export function VoiceAnswer({
         className="dd-col"
         style={{ gap: "var(--s-4)" }}
       >
-        <h2 className="dd-h">{t("voice.title")}</h2>
+        <Title className="dd-h">{t("voice.title")}</Title>
         {card && <DraftedCard card={card} />}
         <output className="dd-live-note">{t("voice.published")}</output>
         <button
@@ -201,7 +205,7 @@ export function VoiceAnswer({
       className="dd-col"
       style={{ gap: "var(--s-4)" }}
     >
-      <h2 className="dd-h">{t("voice.title")}</h2>
+      <Title className="dd-h">{t("voice.title")}</Title>
 
       <div
         className="dd-col"

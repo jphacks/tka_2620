@@ -135,9 +135,13 @@ export function CardReview({
   const t = useTranslations();
   const ids = useId();
   // Each section comes into view as it appears (the follow-up, then the cards), as VoiceAnswer's do, so 公開する
-  // isn't left under the verb tabs on a phone. The two sections carry their own keys, so the ref runs for each.
+  // isn't left under the verb tabs on a phone, and focus moves with it (the reply field, the review's heading), so a
+  // keyboard or a screen reader lands there too. The two sections carry their own keys, so the ref runs for each.
   const intoView = useCallback((node: HTMLElement | null) => {
     node?.scrollIntoView({ block: "nearest" });
+    node
+      ?.querySelector<HTMLElement>("[data-focus-here]")
+      ?.focus({ preventScroll: true });
   }, []);
   const [choices, setChoices] = useState<Choice[]>(() => cards.map(choiceOf));
   const [reply, setReply] = useState("");
@@ -150,12 +154,17 @@ export function CardReview({
   }
 
   if (followup && !skipped) {
+    // A form, so Enter in the reply field sends it like 答えて下書きし直す.
     return (
-      <section
+      <form
         key="followup"
         ref={intoView}
         className="dd-slip dd-entry"
         aria-labelledby={`${ids}-q`}
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (reply.trim() && !busy) onReply(reply.trim());
+        }}
       >
         <p id={`${ids}-q`} className="dd-inbox-q" style={{ marginTop: 0 }}>
           {followup.question}
@@ -169,15 +178,15 @@ export function CardReview({
           value={reply}
           disabled={busy}
           autoComplete="off"
+          data-focus-here
           onChange={(event) => setReply(event.target.value)}
         />
         <div className="dd-row" style={{ gap: "var(--s-3)" }}>
           <button
-            type="button"
+            type="submit"
             className="dd-btn dd-btn-primary"
             style={{ flex: 1, minHeight: "52px" }}
             disabled={!reply.trim() || busy}
-            onClick={() => onReply(reply.trim())}
           >
             {busy ? t("handover.drafting") : t("handover.followupSend")}
           </button>
@@ -191,7 +200,7 @@ export function CardReview({
             {t("handover.followupSkip")}
           </button>
         </div>
-      </section>
+      </form>
     );
   }
 
@@ -202,7 +211,9 @@ export function CardReview({
       className="dd-col"
       style={{ gap: "var(--s-4)" }}
     >
-      <h3 className="dd-h">{t("handover.reviewTitle")}</h3>
+      <h3 className="dd-h" tabIndex={-1} data-focus-here>
+        {t("handover.reviewTitle")}
+      </h3>
       {cards.map((card, index) => (
         <ReviewedCard
           // biome-ignore lint/suspicious/noArrayIndexKey: drafted cards have no id and keep their order

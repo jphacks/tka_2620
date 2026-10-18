@@ -114,6 +114,11 @@ export function HandoverPrompts({
   useRealtime(api, "prompt_routes", () => {
     load();
   });
+  // After 公開する the review is gone: focus moves to 「公開しました」 in its place, for a keyboard or a screen reader. Stable,
+  // so a later render never pulls it back.
+  const focusHere = useCallback((node: HTMLElement | null) => {
+    node?.focus({ preventScroll: true });
+  }, []);
 
   async function draft(answer: string, reply?: string) {
     if (!open) return;
@@ -220,16 +225,20 @@ export function HandoverPrompts({
             <article
               key={prompt.id}
               className="dd-slip dd-entry"
-              aria-label={prompt.text}
+              aria-labelledby={`${titleId}-${prompt.id}`}
             >
               <p className="dd-cap" style={{ margin: 0 }}>
                 {reason(prompt)}
               </p>
-              <p className="dd-inbox-q" style={{ margin: 0 }}>
+              <p
+                id={`${titleId}-${prompt.id}`}
+                className="dd-inbox-q"
+                style={{ margin: 0 }}
+              >
                 {prompt.text}
               </p>
               {scopes ? (
-                <output className="dd-live-note">
+                <output ref={focusHere} tabIndex={-1} className="dd-live-note">
                   {t("handover.publishedAs", {
                     scopes: [...new Set(scopes)]
                       .map(scopeLabel)
@@ -287,6 +296,7 @@ export function HandoverPrompts({
                       api={api}
                       drafting={busy}
                       onDraft={(answer) => draft(answer)}
+                      headingLevel={3}
                     />
                   )}
                   {trouble && (
