@@ -464,7 +464,7 @@ async function seed() {
     }),
   );
 
-  // Every seat gets its type's core prompts, in Japanese like the seed notes (the English line is for the README).
+  // Every seat gets its type's core prompts, in Japanese like the seed notes (text_en is for readers of the CSV).
   await insert(
     db,
     "prompts",

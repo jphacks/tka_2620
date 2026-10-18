@@ -41,7 +41,8 @@ The core prompts per seat type: asked of leavers as `core` handover prompts (F6)
 | `text_en` | 同じ内容の英語 | "Where and how is the group's money kept?" |
 
 `club_role` は10個（締切・お金・領収書・鍵・窓口・書類・口座・最初の1か月・落とし穴・暗黙のルール）、`exchange_route` と `lab_duty` は5個ずつ。
-The 締切 prompt names 保健所 on purpose, so F5's missing list can say 「保健所申請の締切が書かれていません」.
+質問は一般的な言い方のままにします（「保健所」など特定の手続きは書かない）。取り込みは、チェックリストにあって資料にないことを「その質問の言葉で」書くので、例を入れると「保健所申請の締切が書かれていません」が別の言い方になります。この行は、資料が保健所の書類にふれて日付を書いていないことから出ます。`pnpm test:import` はこのファイルの `club_role` をチェックリストにして確かめます。
+Keep the prompts generic (no 保健所 or other named procedure): the import words a missing checklist item after the prompt, so an example in it rewords 「保健所申請の締切が書かれていません」, which comes from the doc mentioning the 保健所 form without a date. `pnpm test:import` checks the samples with this file's `club_role` prompts as the checklist.
 
 ## ほかのファイル / Other files
 - `old-handover.sample.md`：コールドスタートのデモで貼り付ける、架空の「去年の引き継ぎ資料」。わざと雑に書いてあり、保健所申請の締切がありません。

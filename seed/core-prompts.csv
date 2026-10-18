@@ -1,5 +1,5 @@
 seat_type,topic,text_ja,text_en
-club_role,deadlines,学内外への申請や提出で、毎年締切があるものは何ですか？（学祭の出店、保健所への届出など）いつまでに、どこへ出しますか？,"Which applications have a yearly deadline (a festival stall, the health-department notice)? When are they due, and where do they go?"
+club_role,deadlines,毎年締切がある申請や提出は何ですか？いつまでに、どこへ出しますか？,"Which applications or submissions have a yearly deadline? When are they due, and where do they go?"
 club_role,money,団体のお金は、どこで、どうやって管理していますか？,Where and how is the group's money kept?
 club_role,receipts,立て替えや領収書は、いつ、どうやって精算しますか？期限を過ぎたものはどうしますか？,"When and how are advances and receipts settled, and what happens to late ones?"
 club_role,keys,部室や備品の鍵は、どこにあって、無くしたときはどこに連絡しますか？,"Where are the keys to the room and the equipment, and whom do you contact if one is lost?"
