@@ -250,7 +250,9 @@ export function AddSlip({
   function startOver() {
     begin();
     setDraft("");
-    tabs.current[TABS.findIndex((item) => item.tab === tab)]?.focus();
+    // After the render: from the review, the tabs come back only then.
+    const at = TABS.findIndex((item) => item.tab === tab);
+    requestAnimationFrame(() => tabs.current[at]?.focus());
   }
 
   function onTabKey(event: KeyboardEvent<HTMLDivElement>) {
@@ -335,35 +337,40 @@ export function AddSlip({
           {t("import.close")}
         </button>
       </div>
+      {/* No tabs during the review: a tab would start over and drop drafts not yet published. */}
+      {!result && (
+        <div
+          role="tablist"
+          aria-label={t("import.title")}
+          className="dd-itabs"
+          onKeyDown={onTabKey}
+        >
+          {TABS.map((item, index) => (
+            <button
+              key={item.tab}
+              ref={(button) => {
+                tabs.current[index] = button;
+              }}
+              id={`${ids}-${item.tab}`}
+              type="button"
+              role="tab"
+              aria-selected={item.tab === tab}
+              aria-controls={panelId}
+              tabIndex={item.tab === tab ? 0 : -1}
+              className="dd-itab"
+              onClick={() => choose(item.tab)}
+            >
+              {t(`import.${item.label}`)}
+            </button>
+          ))}
+        </div>
+      )}
       <div
-        role="tablist"
-        aria-label={t("import.title")}
-        className="dd-itabs"
-        onKeyDown={onTabKey}
-      >
-        {TABS.map((item, index) => (
-          <button
-            key={item.tab}
-            ref={(button) => {
-              tabs.current[index] = button;
-            }}
-            id={`${ids}-${item.tab}`}
-            type="button"
-            role="tab"
-            aria-selected={item.tab === tab}
-            aria-controls={panelId}
-            tabIndex={item.tab === tab ? 0 : -1}
-            className="dd-itab"
-            onClick={() => choose(item.tab)}
-          >
-            {t(`import.${item.label}`)}
-          </button>
-        ))}
-      </div>
-      <div
-        role="tabpanel"
+        // The tab's panel, or during the review (no tabs) a region named like the slip.
+        {...(result
+          ? { role: "region", "aria-label": t("import.title") }
+          : { role: "tabpanel", "aria-labelledby": `${ids}-${tab}` })}
         id={panelId}
-        aria-labelledby={`${ids}-${tab}`}
         className="dd-col dd-pad"
         style={{ gap: "var(--s-4)" }}
       >

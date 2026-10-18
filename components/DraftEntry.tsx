@@ -93,7 +93,12 @@ export function DraftEntry({
           ref={restore}
           type="button"
           className="dd-link"
-          style={{ justifySelf: "start", minHeight: "44px" }}
+          style={{
+            justifySelf: "start",
+            minHeight: "44px",
+            minWidth: "44px",
+            padding: "0 var(--s-2)",
+          }}
           onClick={() => {
             focusNext.current = "toggle";
             onChange({ ...entry, dropped: false });
@@ -182,12 +187,18 @@ export function DraftEntry({
             aria-describedby={problem ? problemId : undefined}
             onChange={(event) => update({ body: event.target.value })}
           />
+          {/* Right under the fields it is about, in view while the keyboard is open. */}
+          {problem && (
+            <p id={problemId} className="dd-phrase" style={{ margin: 0 }}>
+              {t(`import.problem.${problem}`)}
+            </p>
+          )}
         </div>
       ) : (
         <>
-          <h3 id={titleId} className="dd-h dd-phrase" lang={card.lang}>
+          <h4 id={titleId} className="dd-h dd-phrase" lang={card.lang}>
             {card.title}
-          </h3>
+          </h4>
           {date && (
             <p className="dd-fig" style={{ margin: 0 }}>
               <mark className="dd-marker">{dateLabel(date, locale)}</mark>
@@ -223,7 +234,7 @@ export function DraftEntry({
           onChoose={(choice) => onChange({ ...entry, choice })}
         />
       )}
-      {problem && !published && (
+      {problem && !published && !editing && (
         <p id={problemId} className="dd-phrase" style={{ margin: 0 }}>
           {t(`import.problem.${problem}`)}
         </p>
@@ -247,7 +258,11 @@ export function DraftEntry({
           <button
             type="button"
             className="dd-link"
-            style={{ minHeight: "44px" }}
+            style={{
+              minHeight: "44px",
+              minWidth: "44px",
+              padding: "0 var(--s-2)",
+            }}
             aria-describedby={editing ? undefined : titleId}
             onClick={() => {
               focusNext.current = "restore";

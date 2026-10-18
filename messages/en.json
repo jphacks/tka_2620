@@ -169,7 +169,7 @@
     "notStored": "The original document or file is not stored",
     "missingTitle": "What's missing",
     "missingItem": "No {topic} in the doc",
-    "askLeaver": "Ask the leaver",
+    "askLeaver": "Ask your predecessors",
     "tabDoc": "Paste",
     "tabChat": "Chat history",
     "dropChat": "Drop a LINE chat export (.txt) here",

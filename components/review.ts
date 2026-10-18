@@ -184,6 +184,14 @@ export function stampGroup(group: string): string {
   return [...group.replace(/\s+/g, "")].slice(0, 3).join("");
 }
 
+// The role on the stamp's top tier, held to the same size: the seat's name up to a space, an arrow or a slash
+// (「TUM → 東大IST / 秋学期」 → TUM), then at most five Latin letters or three characters (「模擬店担当」 → 模擬店).
+export function stampRole(name: string): string {
+  const first = name.trim().split(/\s|→|\//)[0] ?? "";
+  if (/^[A-Za-z]{1,5}$/.test(first)) return first;
+  return [...first].slice(0, 3).join("");
+}
+
 // The year the stamp's middle band shows: the term's four digits (「2025秋」 → 2025), or the term itself.
 export const stampYear = (termLabel: string): string =>
   termLabel.match(/\d{4}/)?.[0] ?? termLabel;

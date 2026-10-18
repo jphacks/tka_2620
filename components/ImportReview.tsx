@@ -84,6 +84,7 @@ export function ImportReview({
   }
 
   const draftsId = `${ids}-drafts`;
+  const holdId = `${ids}-hold`;
   return (
     <div className="dd-col" style={{ gap: "var(--s-5)" }}>
       {response.missing.length > 0 && (
@@ -147,7 +148,9 @@ export function ImportReview({
                 type="button"
                 className="dd-btn dd-btn-primary"
                 style={{ justifySelf: "start", minHeight: "52px" }}
-                disabled={hold !== undefined || publishing}
+                // aria-disabled, not disabled: the button stays reachable by keyboard, with what holds it back.
+                aria-disabled={hold !== undefined || publishing}
+                aria-describedby={hold ? holdId : undefined}
                 onClick={publish}
               >
                 {publishing
@@ -155,7 +158,7 @@ export function ImportReview({
                   : t("import.publishCount", { count: kept })}
               </button>
               {hold && (
-                <p className="dd-cap dd-phrase" style={{ margin: 0 }}>
+                <p id={holdId} className="dd-phrase" style={{ margin: 0 }}>
                   {t(`import.hold.${hold}`)}
                 </p>
               )}

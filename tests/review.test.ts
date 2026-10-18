@@ -15,6 +15,7 @@ import {
   publishCards,
   publishHold,
   stampGroup,
+  stampRole,
   stampYear,
   todayInJapan,
 } from "@/components/review";
@@ -297,6 +298,10 @@ describe("the date stamp", () => {
     expect(stampGroup("テニスサークル Smash")).toBe("Smash");
     expect(stampGroup("学祭実行委員会")).toBe("学祭実");
     expect(stampGroup("TUM交換留学")).toBe("TUM");
+    expect(stampRole("会計")).toBe("会計");
+    expect(stampRole("模擬店担当")).toBe("模擬店");
+    expect(stampRole("バイオプリンタ担当")).toBe("バイオ");
+    expect(stampRole("TUM → 東大IST / 秋学期")).toBe("TUM");
     expect(stampYear("2025")).toBe("2025");
     expect(stampYear("2025秋")).toBe("2025");
   });

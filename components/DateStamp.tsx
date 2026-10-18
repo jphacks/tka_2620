@@ -3,7 +3,7 @@
 // middle band (figures) and the group at the bottom (Smash). Authorship only. land: the stamp lands, as on publish
 // (instantly under prefers-reduced-motion, styles/components.css).
 import { useTranslations } from "next-intl";
-import { stampGroup, stampYear } from "@/components/review";
+import { stampGroup, stampRole, stampYear } from "@/components/review";
 import type { SeatView } from "@/lib/contracts";
 
 export function DateStamp({
@@ -26,7 +26,7 @@ export function DateStamp({
       aria-label={t("live.stamp", { byline })}
       className={`dd-stamp${land ? " is-landing" : ""}`}
     >
-      <span aria-hidden="true">{seat.name}</span>
+      <span aria-hidden="true">{stampRole(seat.name)}</span>
       <span aria-hidden="true" className="dd-stamp-year">
         {stampYear(termLabel)}
       </span>

@@ -4,6 +4,7 @@
 // supersedes the old one, which leaves answers and stays as history), 「別のメモとして残す」 keeps both. Choosing update
 // draws the correction mark: the old title crossed with the red double line and 「2026年度に更新」.
 import { useTranslations } from "next-intl";
+import { useId } from "react";
 import type { ImportResponse } from "@/lib/contracts";
 
 export function DuplicateHint({
@@ -24,9 +25,10 @@ export function DuplicateHint({
   disabled?: boolean;
 }) {
   const t = useTranslations();
+  const noteId = useId();
   return (
     <div className="dd-margin dd-col" style={{ gap: "var(--s-2)" }}>
-      <p className="dd-hint dd-phrase">
+      <p id={noteId} className="dd-hint dd-phrase">
         {t("import.duplicate", {
           title: similar.title,
           byline: similar.byline,
@@ -54,7 +56,17 @@ export function DuplicateHint({
         </p>
       )}
       {!disabled && (
-        <div className="dd-row" style={{ gap: "var(--s-2)" }}>
+        <fieldset
+          aria-labelledby={noteId}
+          className="dd-row"
+          style={{
+            gap: "var(--s-2)",
+            border: 0,
+            margin: 0,
+            padding: 0,
+            minWidth: 0,
+          }}
+        >
           <button
             type="button"
             className="dd-btn"
@@ -71,7 +83,7 @@ export function DuplicateHint({
           >
             {t("import.keepBoth")}
           </button>
-        </div>
+        </fieldset>
       )}
     </div>
   );
