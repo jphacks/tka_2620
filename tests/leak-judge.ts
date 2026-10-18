@@ -128,6 +128,12 @@ const PUBLIC_TABLES = new Set(["institutions", "groups", "seats"]);
 
 export type Row = { table: string; row: Record<string, unknown> };
 
+// One of the viewer's questions as the guide and GET /api/seats/[slug]/asked list it, as far as the judge reads it.
+type AskedItem = {
+  questionId?: string;
+  answer?: { sentences?: { citations?: { noteId?: string }[] }[] };
+};
+
 // The rows of a PostgREST answer, embedded resources included: `institutions?select=id,groups(seats(notes(*)))`
 // gives one row per institution, group, seat and note, each without its embeds.
 export function collectRows(
@@ -354,6 +360,22 @@ export function judgeFor(world: World, viewer: Viewpoint) {
     }
   }
 
+  // The viewer's questions with their answers (the guide's asked, GET /api/seats/[slug]/asked): every question is the
+  // viewer's own, and every note an answer cites is a note the viewer reads.
+  function ownAsked(items: AskedItem[]): Finding[] {
+    const findings: Finding[] = [];
+    for (const item of items) {
+      findings.push(
+        ...row({ table: "questions", row: { id: item.questionId } }),
+      );
+      for (const sentence of item.answer?.sentences ?? []) {
+        for (const citation of sentence.citations ?? [])
+          findings.push(...note(citation.noteId));
+      }
+    }
+    return findings;
+  }
+
   return {
     text,
 
@@ -476,25 +498,22 @@ export function judgeFor(world: World, viewer: Viewpoint) {
       const guide = view as {
         notes?: { id?: string }[];
         open?: { id?: string }[];
-        asked?: {
-          questionId?: string;
-          answer?: { sentences?: { citations?: { noteId?: string }[] }[] };
-        }[];
+        asked?: AskedItem[];
       };
       for (const item of guide.notes ?? []) findings.push(...note(item.id));
       for (const item of guide.open ?? []) {
         findings.push(...row({ table: "prompts", row: { id: item.id } }));
       }
-      for (const item of guide.asked ?? []) {
-        findings.push(
-          ...row({ table: "questions", row: { id: item.questionId } }),
-        );
-        for (const sentence of item.answer?.sentences ?? []) {
-          for (const citation of sentence.citations ?? [])
-            findings.push(...note(citation.noteId));
-        }
-      }
+      findings.push(...ownAsked(guide.asked ?? []));
       return unique(findings);
+    },
+
+    // GET /api/seats/[slug]/asked (AskedView): the guide's asked alone, judged as the guide's is.
+    asked(view: unknown): Finding[] {
+      return unique([
+        ...text(view),
+        ...ownAsked((view as { asked?: AskedItem[] }).asked ?? []),
+      ]);
     },
 
     // GET /api/me/notes: only notes the viewer wrote.

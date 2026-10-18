@@ -452,6 +452,12 @@ export const GuideView = z.object({
 });
 export type GuideView = z.infer<typeof GuideView>;
 
+// GET /api/seats/[slug]/asked: the guide's asked alone, read and checked again the same way but without the guide's
+// embedding check, so 聞く lists the caller's own questions and their answers after a reload or a closed tab ("your
+// question was answered", docs/SPEC.md → One interface). Newest first, at most 20.
+export const AskedView = z.object({ asked: z.array(GuideAsked) });
+export type AskedView = z.infer<typeof AskedView>;
+
 // Demo sign-in (docs/SPEC.md → Auth) --------------------------------------------------------
 // The demo accounts that sign in, in the order a switcher lists them, each with the email scripts/seed.ts gives it
 // (tests/sign-in.test.ts checks that the two agree). lib/api.ts signs a device in with one of them and the demo
@@ -632,6 +638,7 @@ export type Api = {
   myNotes(): Promise<MyNotesResponse>; // GET /api/me/notes
   note(noteId: string): Promise<NoteView>; // GET /api/notes/[id]
   guide(slug: string): Promise<GuideView>; // GET /api/seats/[slug]/guide
+  asked(slug: string): Promise<AskedView>; // GET /api/seats/[slug]/asked
   // Realtime: calls onRow for each row this session may see; returns the unsubscribe function.
   subscribe<C extends keyof RealtimeRows>(
     channel: C,
