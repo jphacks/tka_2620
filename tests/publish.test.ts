@@ -269,6 +269,28 @@ describe("publishAsCaller", () => {
     expect(delivered(core.rpcCalls)).toEqual([]);
   });
 
+  it("names the handover prompt a card answers, so its author isn't asked it again (0011)", async () => {
+    for (const kind of ["gap", "required", "core"]) {
+      const { calls } = await run({
+        tables: { prompts: [prompt(kind)] },
+        functions: { waiting_questions: ok([]) },
+      });
+      expect(insertedRows(calls.notes)?.[0], kind).toMatchObject({
+        prompt_id: PROMPT_ID,
+      });
+    }
+    // The live loop's publish (a newcomer's question, retired by deliver_answer) and a publish without a prompt never
+    // name the column.
+    const live = await run();
+    expect(insertedRows(live.calls.notes)?.[0]).not.toHaveProperty("prompt_id");
+    const plain = await run({
+      request: { seat: "smash-kaikei", cards: [card] },
+    });
+    expect(insertedRows(plain.calls.notes)?.[0]).not.toHaveProperty(
+      "prompt_id",
+    );
+  });
+
   it("keeps an added card's source and provenance", async () => {
     const { calls } = await run({
       request: {

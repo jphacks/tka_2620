@@ -21,6 +21,7 @@ function query(result: Result, calls: Call[]) {
     insert: record("insert"),
     update: record("update"),
     eq: record("eq"),
+    gte: record("gte"),
     is: record("is"),
     in: record("in"),
     or: record("or"),
