@@ -436,3 +436,52 @@ describe("names as WhatsApp writes them", () => {
     ).toBe("2025-10-16T17:03");
   });
 });
+
+describe("after the second audit", () => {
+  const FSI = String.fromCharCode(0x2068);
+  const PDI = String.fromCharCode(0x2069);
+  const RLM = String.fromCharCode(0x200f);
+
+  // A browser never sends the isolates (normalize drops them); a crafted request with thousands of names took 50 s.
+  it("redacts a crafted text with 5,000 different mentions within two seconds", () => {
+    const names = Array.from(
+      { length: 5000 },
+      (_, index) =>
+        String.fromCharCode(0x4e00 + (index % 500)) +
+        String.fromCharCode(0x4ff4 + Math.floor(index / 500)),
+    );
+    const text = names.map((name) => `@${FSI}${name}${PDI} `).join("");
+    const started = performance.now();
+    redactText(text);
+    expect(performance.now() - started).toBeLessThan(2000);
+  });
+
+  it("leaves a role word in a mention's name alone elsewhere", () => {
+    expect(redactText(`@${FSI}会計 小林${PDI} 会計の引き継ぎです`).text).toBe(
+      "[人] 会計の引き継ぎです",
+    );
+  });
+
+  it("keeps schedule lines in WhatsApp's shape in a LINE chat with no WhatsApp messages, but not a system line", () => {
+    const raw = [
+      "2025/10/16(木)",
+      '21:03\t加藤 健\t"合宿の予定',
+      "2025/10/20 9:00 - 正門集合",
+      "2025/10/20 12:00 - 昼食",
+      "16/10/2025, 17:06 - 加藤 健 added 小林 陽菜",
+      '詳細は後で"',
+    ].join("\n");
+    expect(parseLine(raw).map(({ text }) => text)).toEqual([
+      "合宿の予定\n2025/10/20 9:00 - 正門集合\n2025/10/20 12:00 - 昼食\n詳細は後で",
+    ]);
+  });
+
+  it("counts only system lines and media toward trusting the marks, not a member's message that starts with one", () => {
+    const raw = [
+      `[16/10/2025, 17:01:00] 中村: ${RLM}مرحبا بالجميع`,
+      `[16/10/2025, 17:02:00] 中村: ${RLM}شكرا جزيلا`,
+      "[16/10/2025, 17:03:00] テニス部 会計: 加藤 健 added 小林 陽菜",
+    ].join("\n");
+    expect(parseWhatsApp(raw)).toEqual([]);
+  });
+});

@@ -237,11 +237,14 @@ class Run {
     );
   }
 
-  // A mention's name becomes [人] wherever it's written, unless it's a speaker's or a word to hide.
+  // A mention's name becomes [人] wherever it's written, unless it's a speaker's or a word to hide; a role word in
+  // it stays (@\u2068会計 小林\u2069 leaves 会計の引き継ぎ alone).
   private mention(name: string): void {
     for (const variant of variants(name)) {
       const key = variant.toLowerCase();
-      if (!this.owners.has(key)) this.owners.set(key, PLACEHOLDER.person);
+      if (!isRole(variant) && !this.owners.has(key)) {
+        this.owners.set(key, PLACEHOLDER.person);
+      }
     }
   }
 
@@ -550,10 +553,15 @@ const HANDLE =
 // they never wrote, so it goes from every message. normalize() drops the isolates, so they're read before it.
 const MENTION = /@\u2068([^\u2069\n]{1,64})\u2069/g;
 
+// At most 100 names: a browser never sends the isolates, so more can only come from a crafted request to
+// /api/import, where each name grows the one pattern that runs over the whole text.
 function mentions(texts: string[]): string[] {
-  return texts.flatMap((text) =>
-    [...text.matchAll(MENTION)].map((match) => match[1]),
+  const names = new Set(
+    texts.flatMap((text) =>
+      [...text.matchAll(MENTION)].map((match) => match[1]),
+    ),
   );
+  return [...names].slice(0, 100);
 }
 
 // After a known name, any honorific goes with it; on its own, only the ones that mark a person.

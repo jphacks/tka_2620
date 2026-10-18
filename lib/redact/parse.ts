@@ -60,12 +60,20 @@ export function parseLine(raw: string): ChatMessage[] {
   let day: string | null = null;
   let current: Draft | null = null; // the message that unquoted continuation lines join
   let open = false; // inside a quoted multi-line message
+  const rows = lines(raw);
+  // WhatsApp messages here mean a WhatsApp export read as LINE: their lines are no part of a LINE message, as their
+  // names would go out as text.
+  const whatsapp = rows.some((line) => whatsAppHead(line)?.speaker);
 
-  for (const line of lines(raw)) {
-    // A WhatsApp line is no part of a LINE message: its name would go out as text. It goes, with the lines after it.
-    if (whatsAppHead(line)) {
-      current = null;
-      open = false;
+  for (const line of rows) {
+    // A WhatsApp message line goes with the lines under it, a system line alone. Without WhatsApp messages around, a
+    // line in that shape with no name is a schedule (2025/10/20 9:00 - 正門集合) and stays.
+    const head = whatsAppHead(line);
+    if (head && (whatsapp || WA_SYSTEM.test(head.text))) {
+      if (head.speaker) {
+        current = null;
+        open = false;
+      }
       continue;
     }
     const tab = day ? TAB_LINE.exec(line) : null;
@@ -207,7 +215,7 @@ const WA_IPHONE = new RegExp(`^\\[${WA_STAMP}\\] ?(.*)$`);
 const WA_SPEAKER = /^(.{1,60}?):(?: (.*))?$/;
 // An iPhone marks the chat's own lines and media after the colon (テニス部: \u200e加藤 健 added …), and the chat's
 // name may hold a colon too (Tennis: 会計: \u200e…).
-const SYSTEM_MARK = /^.{0,110}?:\s{0,2}[\u200e\u200f]/;
+const SYSTEM_MARK = /^.{0,110}?:[\s\p{Cf}]{0,4}?[\u200e\u200f]/u;
 
 // A message with no text of its own: <Media omitted> or <メディアなし> (any words in those brackets), null, a file
 // (IMG-20251016-WA0001.jpg (file attached)), image omitted, a deleted message, one still on its way, a shared location,
@@ -267,8 +275,11 @@ export function parseWhatsApp(raw: string): ChatMessage[] {
   }
 
   const dayFirst = readsDayFirst(drafts.map(({ date }) => date));
-  // When the export marks its system lines, their words aren't needed. One marked line could be a member's own.
-  const trusted = drafts.filter(({ marked }) => marked).length >= 2;
+  // When the export marks its system lines and media, their words aren't needed. A marked line counts only when it
+  // reads as one (a member's message may start with a mark too), and it takes two.
+  const trusted =
+    drafts.filter(({ marked, text }) => marked && systemShaped(text)).length >=
+    2;
   return drafts.flatMap(({ date, time, speaker, text, iphone, marked }) => {
     const message = {
       at: whatsAppAt(date, dayFirst, time),
@@ -325,6 +336,11 @@ function whatsAppHead(line: string): WhatsAppDraft | null {
 function speakerName(raw: string): string {
   const name = raw.replace(/\p{Cf}/gu, "").trim();
   return /[\p{L}\p{N}]/u.test(name) && !/["“”„「」『』]/.test(name) ? name : "";
+}
+
+function systemShaped(text: string): boolean {
+  const bare = text.replace(/^[\s\p{Cf}]+/u, "");
+  return WA_MEDIA.test(bare) || WA_SYSTEM.test(bare);
 }
 
 // A LINE row: a message (21:03⇥名前⇥本文) or a system line (21:03⇥名前がグループに参加しました).
