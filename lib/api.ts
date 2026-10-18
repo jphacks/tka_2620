@@ -15,6 +15,7 @@ import {
   ConsoleSession,
   DraftResponse,
   EventsRow,
+  GapResponse,
   ImportResponse,
   InboxResponse,
   MyNotesResponse,
@@ -98,6 +99,7 @@ export function createApi(db: SupabaseClient): Api {
       call(PublishResponse, "/api/handover/publish", request),
     prompts: ({ seat }) =>
       call(PromptsResponse, `/api/handover/prompts?${query({ seat })}`),
+    gap: (request) => call(GapResponse, "/api/handover/prompts", request),
     readers: ({ seat, scope }) =>
       call(ReadersResponse, `/api/handover/readers?${query({ seat, scope })}`),
     import: (request) => call(ImportResponse, "/api/import", request),

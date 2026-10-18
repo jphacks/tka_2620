@@ -15,6 +15,8 @@ import {
   DraftResponse,
   EventsRow,
   FollowupOutput,
+  GapRequest,
+  GapResponse,
   ImportOutput,
   ImportRequest,
   ImportResponse,
@@ -48,6 +50,8 @@ import {
   mockDraftRequest,
   mockDraftWithFollowup,
   mockEventsRow,
+  mockGap,
+  mockGapRequest,
   mockIds,
   mockImport,
   mockImportNotice,
@@ -113,6 +117,8 @@ const fixtures: [string, z.ZodType, unknown][] = [
   ["PublishResponse", PublishResponse, mockPublish],
   ["LiveAnswer", LiveAnswer, mockLiveAnswer],
   ["PromptsResponse", PromptsResponse, mockPrompts],
+  ["GapRequest", GapRequest, mockGapRequest],
+  ["GapResponse", GapResponse, mockGap],
   ...Object.values(mockReaders).map((count): [string, z.ZodType, unknown] => [
     "ReadersResponse",
     ReadersResponse,
@@ -461,6 +467,36 @@ describe("createMockApi", () => {
     expect(ApiError.parse(notMine)).toEqual({ error: "not_found" });
     await expect(
       newcomer.import({ ...mockImportRequest, text: "電話は 03-0000-0000" }),
+    ).rejects.toMatchObject({ error: "unredacted" });
+  });
+
+  it("adds a missing item as a gap prompt once, for holders of the seat only", async () => {
+    const newcomer = createMockApi("a26", { latencyMs: 0 });
+    expect(await newcomer.gap(mockGapRequest)).toEqual(mockGap);
+    const text = mockImport.missing[0].prompt;
+    const added = await newcomer.gap({ seat, text });
+    expect(added.promptId).not.toBe(mockGap.promptId);
+    expect(
+      await createMockApi("a25", { latencyMs: 0 }).gap({ seat, text }),
+    ).toEqual(added);
+    const { prompts } = await createMockApi("a24", { latencyMs: 0 }).prompts({
+      seat,
+    });
+    expect(prompts.map((prompt) => [prompt.reason, prompt.text])).toEqual([
+      ["gap", mockGapRequest.text],
+      ["gap", text],
+      ["core", mockPrompts.prompts[2].text],
+    ]);
+    for (const [persona, code] of [
+      ["x", "forbidden"],
+      ["b", "forbidden"],
+    ] as const) {
+      await expect(
+        createMockApi(persona, { latencyMs: 0 }).gap({ seat, text }),
+      ).rejects.toMatchObject({ error: code });
+    }
+    await expect(
+      newcomer.gap({ seat, text: "[電話番号] に聞く" }),
     ).rejects.toMatchObject({ error: "unredacted" });
   });
 });

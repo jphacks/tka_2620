@@ -19,6 +19,8 @@ import {
   type DraftResponse,
   type EventsRow,
   type FollowupOutput,
+  GapRequest,
+  type GapResponse,
   type HandoverPrompt,
   type ImportedCard,
   type ImportOutput,
@@ -425,6 +427,11 @@ export const mockPrompts: PromptsResponse = {
   ],
 };
 
+// POST /api/handover/prompts: 「先輩に聞く」 on the old handover doc's second missing item, which the seed world already
+// asks (the gap prompt above), so it answers with that prompt.
+export const mockGapRequest: GapRequest = { seat: SEAT, text: gapPrompt.text };
+export const mockGap: GapResponse = { promptId: gapPrompt.id };
+
 // GET /api/handover/readers: people besides the author (a25) in the seed world. successor: a26; group: a24 and
 // a26; institution: every member at みなと大学; public: every account.
 export const mockReaders: Record<Scope, number> = {
@@ -797,6 +804,7 @@ type State = {
   published: (MyNote & { author: Persona })[];
   sources: Map<string, SourceNote>; // published notes as GET /api/notes/[id] returns them, by id
   withdrawn: Map<string, string>; // note id → withdrawnAt
+  gaps: Map<string, string>; // gap prompts added with 「先輩に聞く」: text → prompt id
 };
 
 function freshState(): State {
@@ -808,6 +816,7 @@ function freshState(): State {
     published: [],
     sources: new Map(),
     withdrawn: new Map(),
+    gaps: new Map([[gapPrompt.text, gapPrompt.id]]),
   };
 }
 
@@ -1147,7 +1156,38 @@ export function createMockApi(
               askCount: prompt.askers.length,
             }))
           : [];
-      return reply({ prompts: [...demand, gapPrompt, corePrompt].slice(0, 3) });
+      // The seed's gap prompt first, then those 「先輩に聞く」 added, as every holder reads them.
+      const gaps = [...state.gaps].map(
+        ([text, id]): HandoverPrompt => ({
+          id,
+          text,
+          reason: "gap",
+          askCount: 0,
+        }),
+      );
+      return reply({ prompts: [...demand, ...gaps, corePrompt].slice(0, 3) });
+    },
+
+    // Like add_gap_prompt (0009) behind the route: a holder of the seat only, text the guard lets through, and the same
+    // open text twice is one prompt.
+    async gap(request) {
+      const { seat, text } = GapRequest.parse(request);
+      if (seat !== SEAT) {
+        throw new MockApiError(
+          mockOtherSeatViews[seat] ? "forbidden" : "not_found",
+        );
+      }
+      if (!holders[persona]) throw new MockApiError("forbidden");
+      if (
+        /\d{2,4}-\d{2,4}-\d{3,4}|[\w.+-]+@[\w-]+\.[\w.]+|\[[^\]\n]+\]/.test(
+          text,
+        )
+      ) {
+        throw new MockApiError("unredacted");
+      }
+      const promptId = state.gaps.get(text) ?? newId();
+      state.gaps.set(text, promptId);
+      return reply({ promptId });
     },
 
     async readers(query) {
