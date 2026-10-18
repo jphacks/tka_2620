@@ -362,10 +362,11 @@ function Guide({ slug, api }: { slug: string; api: Api }) {
         </p>
       )}
       {sections.map(({ kind, notes }) => (
+        // 12px from each heading to its notes, as in every section; 16px between the notes
         <section
           key={kind}
           className="dd-col"
-          style={{ gap: "var(--s-4)" }}
+          style={{ gap: "var(--s-3)" }}
           aria-labelledby={`guide-${kind}`}
         >
           <h2 id={`guide-${kind}`} className="dd-h">
@@ -374,38 +375,42 @@ function Guide({ slug, api }: { slug: string; api: Api }) {
             </span>{" "}
             {t(`kinds.${kind}`)}
           </h2>
-          {notes.map((note) => {
-            const termLabel = termLabelOf(note.termOrder);
-            return (
-              <article key={note.id} className="dd-slip dd-entry">
-                <h3
-                  className="dd-source-title"
-                  lang={note.lang}
-                  style={{ margin: 0 }}
-                >
-                  {note.title}
-                </h3>
-                {note.deadlineDate && (
-                  <p style={{ margin: 0 }}>
-                    <span className="dd-marker dd-fig">
-                      {t("guide.deadline", {
-                        date: format.dateTime(tokyoDay(note.deadlineDate), {
-                          dateStyle: "long",
-                        }),
-                      })}
-                    </span>
+          <div className="dd-col" style={{ gap: "var(--s-4)" }}>
+            {notes.map((note) => {
+              const termLabel = termLabelOf(note.termOrder);
+              return (
+                <article key={note.id} className="dd-slip dd-entry">
+                  <h3
+                    className="dd-source-title"
+                    lang={note.lang}
+                    style={{ margin: 0 }}
+                  >
+                    {note.title}
+                  </h3>
+                  {note.deadlineDate && (
+                    <p style={{ margin: 0 }}>
+                      <span className="dd-marker dd-fig">
+                        {t("guide.deadline", {
+                          date: format.dateTime(tokyoDay(note.deadlineDate), {
+                            dateStyle: "long",
+                          }),
+                        })}
+                      </span>
+                    </p>
+                  )}
+                  <p className="dd-ruled dd-guide-body" lang={note.lang}>
+                    {note.body}
                   </p>
-                )}
-                <p className="dd-ruled dd-guide-body" lang={note.lang}>
-                  {note.body}
-                </p>
-                <div className="dd-entry-foot">
-                  <span className="dd-cap">{note.byline}</span>
-                  {termLabel && <DateStamp seat={seat} termLabel={termLabel} />}
-                </div>
-              </article>
-            );
-          })}
+                  <div className="dd-entry-foot">
+                    <span className="dd-cap">{note.byline}</span>
+                    {termLabel && (
+                      <DateStamp seat={seat} termLabel={termLabel} />
+                    )}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
         </section>
       ))}
 
