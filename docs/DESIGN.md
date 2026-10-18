@@ -118,7 +118,7 @@ Use Japanese notebook marks, not coloured chips or emoji. Each mark is followed 
 - **`VerbTabs`**: 聞く · 残す · 自分のメモ as notebook index tabs: on phones they sit at the bottom edge; the active
   tab is `--sheet` with blue text and joins the page, inactive tabs are `--paper` with `--ink-2` text.
 - **`SignIn`**: what a signed-out seat page shows in place (the URL stays the seat link, so an NFC tap still lands
-  on the seat). A UI area with no ruled lines: 「ログイン」 and a one-line lead in `--ink-2`, then 「アカウント」 and the
+  on the seat). A UI area with no ruled lines: 「ログイン」 and a one-sentence lead in `--ink-2`, then 「アカウント」 and the
   five demo accounts as 44px choices, never by name: a holder by the label pack's byline (「2026年度 会計」), the other
   two by their group or school (「軽音サークルの部員」, 「やまて大学の学生」). Hover and the chosen one are `--blue-wash`;
   the chosen one also gets a `--blue` border and bold blue text. Below them, one password field as a writing line like
