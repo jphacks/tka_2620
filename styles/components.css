@@ -64,6 +64,10 @@ body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(
 .dd-ask input, .dd-line { flex: 1; min-width: 0; min-height: 44px; border: 0; border-bottom: 2px solid var(--blue); background: transparent; color: var(--ink); font-family: var(--font-hand); font-size: 20px; padding: 0 var(--s-1); border-radius: 0; }
 .dd-ask input::placeholder, .dd-line::placeholder { color: var(--ink-2); }
 .dd-ask input:focus-visible { outline: none; border-bottom-width: 3px; }
+/* On a narrow phone the placeholder (「先輩たちに聞いてみましょう」) fits whole: the hand shrinks with the screen, never under
+   16px (iOS zooms into a smaller field) */
+@media (max-width: 430px) { .dd-ask input { font-size: clamp(16px, 4.9vw, 20px); } }
+@media (max-width: 340px) { .dd-ask input { letter-spacing: 0; padding-inline: 0; } }
 /* The password is the app's own word: the UI face, and the usual focus ring (a wrong password puts the focus back) */
 .dd-line { box-sizing: border-box; width: 100%; font-family: var(--font-ui); }
 
@@ -95,7 +99,7 @@ body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(
 .dd-seat-group { color: var(--ink); font-weight: 700; }
 
 /* Lineage rail */
-.dd-rail { display: flex; gap: var(--s-3); overflow-x: auto; margin: 0; padding: var(--s-2) var(--s-1) var(--s-3); list-style: none; }
+.dd-rail { display: flex; gap: var(--s-3); overflow-x: auto; margin: 0; padding: var(--s-2) 0 var(--s-3); list-style: none; }
 .dd-ltag { position: relative; flex: none; width: 44px; height: 112px; box-sizing: border-box; padding-top: 26px; display: grid; justify-items: center; align-content: start;
   background: var(--sheet); border: 1.5px solid var(--ink-2); border-radius: var(--r-tag); color: var(--ink); }
 .dd-ltag::before { content: ""; position: absolute; top: 8px; left: 50%; width: 10px; height: 10px; margin-left: -5px; border-radius: var(--r-round); border: 1.5px solid var(--ink-2); box-sizing: border-box; background: var(--paper); }
@@ -110,6 +114,7 @@ body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(
 .dd-tabs { display: flex; gap: var(--s-1); padding: 0 var(--s-4); border-top: 1px solid var(--rule); }
 .dd-tab { flex: 1; min-height: 48px; margin-top: -1px; border: 1px solid var(--rule); border-top: 0; border-radius: 0 0 var(--r-button) var(--r-button); background: var(--paper); color: var(--ink-2);
   font-family: var(--font-ui); font-size: 16px; font-weight: 700; letter-spacing: .04em; cursor: pointer; }
+@media (max-width: 360px) { .dd-tab { letter-spacing: 0; white-space: nowrap; } } /* 「Hand over」 on one line at 320px */
 .dd-tab[aria-selected="true"], .dd-tab[aria-current="page"] { background: var(--sheet); color: var(--blue); min-height: 52px; }
 /* VerbTabs are links between the verb pages: fixed to the bottom edge, in the page's 640px column */
 a.dd-tab { display: grid; place-items: center; text-decoration: none; }
@@ -160,7 +165,7 @@ a.dd-tab { display: grid; place-items: center; text-decoration: none; }
 .dd-me-byline { margin: 0; font-size: var(--text-m); line-height: 30px; font-weight: 700; font-feature-settings: "palt"; letter-spacing: .04em; word-break: auto-phrase; }
 
 /* 「測定の内訳」 on the console: one line per check, collapsed under the meter and the leak counter */
-.dd-measured summary { display: flex; align-items: center; width: fit-content; min-height: 44px; color: var(--blue); font-weight: 700; cursor: pointer; }
+.dd-measured summary { display: flex; align-items: center; width: fit-content; min-height: 44px; color: var(--blue); font-weight: 700; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
 .dd-measured dl { margin: 0 0 var(--s-2); display: grid; gap: var(--s-1); }
 .dd-measured dl > div { display: grid; grid-template-columns: minmax(7em, auto) 1fr; gap: var(--s-3); }
 .dd-measured dt { color: var(--ink-2); }
@@ -176,7 +181,8 @@ a.dd-tab { display: grid; place-items: center; text-decoration: none; }
 
 /* Filter and order (the handover guide, 自分のメモ): labelled 44px selects in a light frame, as many per line as fit
    (one under another on a 320px phone), then the count of what shows and the way back to everything. Never printed. */
-.dd-filter { margin: 0; padding: var(--s-1) var(--s-3) var(--s-3); border: 1px solid var(--rule); border-radius: var(--r-slip); display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--s-2) var(--s-3); }
+.dd-filter { margin: 0; padding: var(--s-1) var(--s-3) var(--s-3); border: 1px solid var(--rule); border-radius: var(--r-slip); display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: var(--s-2) var(--s-3); }
+.dd-filter > label:nth-of-type(odd):last-of-type { grid-column: 1 / -1; } /* a lone last select: the whole row, no hole */
 .dd-filter legend { padding: 0 var(--s-1); font-size: 16px; }
 .dd-filter label { display: grid; gap: var(--s-1); }
 .dd-filter .dd-select { width: 100%; min-height: 44px; font-size: 16px; } /* 16px: iOS zooms into a smaller field */
@@ -197,7 +203,9 @@ a.dd-tab { display: grid; place-items: center; text-decoration: none; }
 .dd-gaps li > .dd-cap { grid-column: 1; }
 .dd-gaps li > .dd-stamp-blank { grid-column: 2; grid-row: 1 / span 2; }
 .dd-gap-text { overflow-wrap: anywhere; font-weight: 700; }
-.dd-gap-text.is-yours { color: var(--blue); } /* the viewer's own question, blue as everywhere */
+.dd-gap-text.is-yours { color: var(--blue); }
+/* 「あなたの質問と答え」: 12px from the heading to the first answer, as in every guide section (the section's gap is 24) */
+.dd-guide-answer:first-of-type { margin-top: calc(var(--s-3) - var(--s-5)); } /* the viewer's own question, blue as everywhere */
 @media print {
   .dd-guide { gap: var(--s-5) !important; }
 }
@@ -217,6 +225,8 @@ a.dd-tab { display: grid; place-items: center; text-decoration: none; }
   .dd-with-verbs { padding-bottom: 0 !important; }
   .dd-slip { box-shadow: none; }
   .dd-slip, .dd-entry, article { break-inside: avoid; }
+  h1, h2, h3 { break-after: avoid; } /* a heading stays with what it heads */
+  .dd-gaps { break-inside: avoid; }
 }
 
 /* SignIn: the demo-account switcher, a UI area with no ruled lines. Each account a 44px choice, the chosen one in the
@@ -256,6 +266,8 @@ span.dd-mini::after { content: none; }
 .dd-prompt { word-break: auto-phrase; overflow-wrap: anywhere; font-size: 20px; line-height: var(--s-6); font-weight: 700; letter-spacing: .04em; font-feature-settings: "palt"; margin: var(--s-3) 0 var(--s-1); }
 .is-arriving { animation: dd-arrive var(--t-quick, 160ms) ease-out both; }
 @keyframes dd-arrive { from { transform: translateY(-8px); } to { transform: none; } }
+
+@media (max-width: 360px) { .dd-inbox .dd-btn { padding-inline: var(--s-2); } } /* 「文字で答える」 on one line */
 
 /* Voice */
 .dd-voice { position: relative; width: 80px; height: 80px; border-radius: var(--r-round); border: 0; background: var(--blue); color: var(--sheet); display: grid; place-items: center; cursor: pointer; flex: none; }
@@ -328,7 +340,7 @@ textarea.dd-input { min-height: 160px; resize: vertical; }
 @keyframes dd-collapse { to { max-height: 0; opacity: 0; margin-block: 0; padding-block: 0; border-width: 0; } }
 
 /* Console: three phone-sized persona panes, the withdrawal meter and the leak counter (docs/DESIGN.md → PersonaPane) */
-.dd-pane { width: 390px; height: 844px; box-sizing: border-box; overflow: auto; background: var(--sheet); border: 1px solid var(--rule); border-radius: 12px; padding: var(--s-4); }
+.dd-pane { width: 390px; height: 844px; box-sizing: border-box; overflow: auto; scroll-padding-block: var(--s-4); background: var(--sheet); border: 1px solid var(--rule); border-radius: 12px; padding: var(--s-4); }
 .dd-meter { font-family: var(--font-figures); font-variant-numeric: tabular-nums; font-size: var(--text-xxl); line-height: 1.1; font-weight: 700; color: var(--red); }
 .dd-meter.is-frozen { color: var(--ink); }
 .dd-safe { color: var(--green); font-family: var(--font-figures); font-variant-numeric: tabular-nums; }
