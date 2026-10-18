@@ -12,9 +12,9 @@
 //   pnpm dev          (in another terminal)
 //   pnpm test:leak
 // The personas act through the API and PostgREST with their own tokens. The service-role key, which only scripts/ may
-// hold, reads the truth, re-saves the seed notes unchanged (the Realtime probe), adds one demand prompt nobody may read
-// or join (the join and draft probes), writes the events rows and removes what the run created. The run ends with the
-// database as it found it, and says so only when it is.
+// hold, reads the truth, re-saves the seed notes unchanged (the Realtime probe), adds three demand prompts nobody may
+// be offered or join (the join, draft and open-prompt probes), writes the events rows and removes what the run
+// created. The run ends with the database as it found it, and says so only when it is.
 // Don't run it during a rehearsal: the holders' questions reach a25's inbox for a moment, and an open phone keeps
 // showing them until it reloads (deletes aren't sent by Realtime). It writes nothing unless a25's inbox is empty.
 // Ids, personas and counts only: never a question, answer or note text, a canary or an email.
@@ -125,6 +125,9 @@ type Attempt = {
   inconclusive?: string;
 };
 const attempts: Attempt[] = [];
+// The viewers whose ask_question() gets as far as the join: a holder of SEAT with someone else reachable there. For
+// anyone else it routes nowhere before reading join_prompt, so the join probe proves nothing for them (#69).
+const joinReached = new Set<string>();
 
 // The attempt got an answer that can't be judged (a server error, a mistyped route or column, a status nobody
 // expected), so it proves nothing either way.
@@ -757,8 +760,11 @@ async function inbox(session: Session, context: Context): Promise<void> {
       ),
     );
     // The prompts a holder is offered to join before asking (open_demand_prompts_at(), 0012): for a holder of the seat
-    // only its open, listed demand prompts, for anyone else none. Their text is a holder's question in Haiku's words,
-    // which the seat's holders may read (docs/SPEC.md → Scope rules), so what's judged is which prompts come back.
+    // only its open, listed demand prompts, id and text, for anyone else none. Their text is a holder's question in
+    // Haiku's words, which the seat's holders may read (docs/SPEC.md → Scope rules), so what's judged is which prompts
+    // come back and that nothing else (who asked, when, how often) comes with them. The run's probe prompts make sure
+    // there is one to refuse at every viewer's reach: unlisted and retired ones at SEAT, a listed one at a seat nobody
+    // holds.
     await attempt(
       session,
       "inbox",
@@ -767,14 +773,25 @@ async function inbox(session: Session, context: Context): Promise<void> {
         const rows = ((await rowsOf(
           session.db.rpc("open_demand_prompts_at", { seat: seatId }),
           expect,
-        )) ?? []) as { id?: string }[];
+        )) ?? []) as Record<string, unknown>[];
         const holder =
           session.userId !== undefined &&
           (context.world.seatsHeld.get(session.userId)?.has(seatId) ?? false);
-        return rows.flatMap(({ id = "" }): Finding[] => {
+        return rows.flatMap((row): Finding[] => {
+          const id = typeof row.id === "string" ? row.id : "";
+          const findings: Finding[] =
+            Object.keys(row).sort().join() === "id,text"
+              ? []
+              : [
+                  {
+                    reason: "offered more than a prompt's id and text",
+                    ref: id,
+                  },
+                ];
           const prompt = context.world.prompts.get(id);
           if (!prompt) {
             return [
+              ...findings,
               { reason: "a prompt the run didn't see", ref: id, unknown: true },
             ];
           }
@@ -783,8 +800,11 @@ async function inbox(session: Session, context: Context): Promise<void> {
             prompt.kind === "demand" &&
             prompt.listed === true &&
             prompt.retired === false
-            ? []
-            : [{ reason: "offered a prompt it may not join", ref: id }];
+            ? findings
+            : [
+                ...findings,
+                { reason: "offered a prompt it may not join", ref: id },
+              ];
         });
       },
     );
@@ -986,6 +1006,11 @@ async function oracles(session: Session, context: Context): Promise<void> {
   // alike apart from the new question's id. The questions it saves go to the cleanup.
   const probePrompt = context.probePrompt;
   if (probePrompt && seatId) {
+    const othersReachable = [...world.reachable].some(
+      (key) =>
+        key.startsWith(`${seatId} `) && key !== `${seatId} ${session.userId}`,
+    );
+    if (holder && othersReachable) joinReached.add(session.key);
     const askJoining = async (prompt: string) => {
       const { data, error } = await session.db.rpc("ask_question", {
         seat: seatId,
@@ -1146,7 +1171,7 @@ async function cleanUp(
     questions: Set<string>;
     withdrawnByProbe: Set<string>;
     probeEventId?: number;
-    probePromptId?: string;
+    probePromptText: string;
   },
 ): Promise<string[]> {
   const problems: string[] = [];
@@ -1179,14 +1204,14 @@ async function cleanUp(
   ].filter((id) => !before.questionIds.has(id));
   // With them the prompts they started, unless a rehearsal's question joined one (scripts/remove-questions.ts).
   problems.push(...(await removeQuestions(service, ids)));
-  // The probe prompt, after the questions: a question that joined it (a leak, already reported) is gone by now.
-  if (run.probePromptId !== undefined) {
-    const { error } = await service
-      .from("prompts")
-      .delete()
-      .eq("id", run.probePromptId);
-    if (error) problems.push(`delete the probe prompt: ${error.code}`);
-  }
+  // The probe prompts, after the questions: a question that joined one (a leak, already reported) is gone by now. By
+  // this run's own text, so one whose insert reply was lost goes too.
+  const swept = await service
+    .from("prompts")
+    .delete()
+    .eq("text", run.probePromptText);
+  if (swept.error)
+    problems.push(`delete the probe prompts: ${swept.error.code}`);
 
   // Only the notes a withdraw probe got through on (a leak, already reported) go back to live; a withdrawal anyone
   // else made during the run stays. Its events row stays too, and so do the answers it rewrote, so the counts below
@@ -1399,7 +1424,7 @@ async function main(): Promise<void> {
     questions: context.runQuestions,
     withdrawnByProbe: context.withdrawnByProbe,
     probeEventId: undefined as number | undefined,
-    probePromptId: undefined as string | undefined,
+    probePromptText: `leak test probe prompt ${randomBytes(6).toString("hex")}`,
   };
 
   let touched: string[] = [];
@@ -1455,24 +1480,48 @@ async function main(): Promise<void> {
     );
 
     stopIfAsked();
-    // The probe prompt (Context.probePrompt), added after the questions so none of them could join it.
-    const probeSeat = context.seats.get(SEAT);
-    if (probeSeat) {
-      const added = await service
-        .from("prompts")
-        .insert({
-          seat_id: probeSeat,
-          kind: "demand",
-          text: PROBE_TEXT,
-          ask_count: 1,
-        })
-        .select("id")
-        .single();
-      if (added.error)
-        throw new Error(`write the probe prompt: ${added.error.code}`);
-      run.probePromptId = (added.data as { id: string }).id;
-      context.probePrompt = run.probePromptId;
+    // The probe prompts, added after the questions so none of them could join one, with this run's own text so the
+    // cleanup finds them even if an insert's reply was lost:
+    // - at SEAT, open and unlisted, routed to nobody: nobody may read or join it (Context.probePrompt);
+    // - at SEAT, listed but retired: no holder is offered it;
+    // - open and listed at a seat with no reachable holder, where nobody can join a prompt: no viewer holds that seat,
+    //   so nobody may be offered it, whether or not Haiku worded any of the run's own prompts.
+    const smashId = context.seats.get(SEAT);
+    const quietSeat = [...context.seats.values()].find(
+      (id) =>
+        id !== smashId &&
+        ![...world.reachable].some((key) => key.startsWith(`${id} `)),
+    );
+    const probePrompts: {
+      seat_id: string;
+      retired: boolean;
+      listed: boolean;
+    }[] = [];
+    if (smashId) {
+      probePrompts.push(
+        { seat_id: smashId, retired: false, listed: false },
+        { seat_id: smashId, retired: true, listed: true },
+      );
     }
+    if (quietSeat) {
+      probePrompts.push({ seat_id: quietSeat, retired: false, listed: true });
+    }
+    const added = await service
+      .from("prompts")
+      .insert(
+        probePrompts.map((prompt) => ({
+          ...prompt,
+          kind: "demand",
+          text: run.probePromptText,
+          ask_count: 1,
+        })),
+      )
+      .select("id, seat_id, listed");
+    if (added.error)
+      throw new Error(`write the probe prompts: ${added.error.code}`);
+    context.probePrompt = (
+      added.data as { id: string; seat_id: string; listed: boolean }[]
+    ).find((row) => row.seat_id === smashId && !row.listed)?.id;
     await readRun(service, world);
     await Promise.all(
       sessions.map(async (session) => {
@@ -1539,11 +1588,17 @@ async function main(): Promise<void> {
     .insert({ kind: "leak", payload });
 
   const enough = outsiderAttempts >= MIN_OUTSIDER_ATTEMPTS;
-  const conclusive = !stopped && inconclusive === 0 && enough;
+  const joinTested = joinReached.size > 0;
+  const conclusive = !stopped && inconclusive === 0 && enough && joinTested;
   console.log(
     `\n${found === 0 ? "✓" : "✗"} ${found} leak(s) in ${attempts.length} attempts, ${outsiderAttempts} by the outsider x${enough ? "" : ` (fewer than ${MIN_OUTSIDER_ATTEMPTS})`}${inconclusive > 0 ? `; ${inconclusive} inconclusive` : ""}`,
   );
   if (stopped) console.log(`✗ stopped early: ${stopped}`);
+  console.log(
+    joinTested
+      ? `✓ ask_question()'s join was probed for ${[...joinReached].join(", ")}`
+      : `✗ no viewer's ask_question() reached the join (a holder of ${SEAT} with someone else reachable there), so the join probe tested nothing`,
+  );
   console.log(
     recorded.error
       ? `✗ write the events row: ${recorded.error.code}`
