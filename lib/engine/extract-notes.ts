@@ -211,7 +211,10 @@ const MEMBER = [ja, en].map(
 // contact details, a name. The redaction's own rules find what it would hide (lib/redact/redact.ts), the card guard
 // what publishing refuses (lib/engine/guard.ts). Not the redaction's [秘密] line rule: 「金庫の暗証番号は部長が知っている」
 // says where it is kept, as a card should.
-function shownReason(text: string, secret = false): BlockReason | undefined {
+export function shownReason(
+  text: string,
+  secret = false,
+): BlockReason | undefined {
   const plain = normalize(text);
   if (PLACEHOLDERS.test(plain) || MEMBER.some((label) => label.test(plain))) {
     return "placeholder";
