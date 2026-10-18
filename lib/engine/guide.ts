@@ -1,13 +1,12 @@
 // The handover guide (引き継ぎ書, GET /api/seats/[slug]/guide): what the caller may read at a seat, on one page they can
 // print or export. Runs as the caller (lib/engine/route.ts), so the database decides everything here (0002, 0003): the
 // notes policy returns only the notes they may read, seat_holders only their own rows, the prompts policy the seat's
-// handover prompts to its holders alone, and questions and answers only the asker's own. Reads only, and nothing is
+// handover prompts to its holders alone, and questions and answers only the asker's own. The caller's questions and
+// their answers come from lib/engine/asked.ts, as GET /api/seats/[slug]/asked lists them. Reads only, and nothing is
 // logged but a code: the page holds note bodies, prompts and the caller's own questions.
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import {
-  AnsweredResult,
-  type GuideAsked,
   type GuideNote,
   type GuideOpen,
   type GuideView,
@@ -16,9 +15,9 @@ import {
   NoteId,
   NoteKind,
   PromptKind,
-  Timestamp,
   Uuid,
 } from "@/lib/contracts";
+import { ownQuestions, QuestionRows, withAnswers } from "@/lib/engine/asked";
 import { tokyoToday } from "@/lib/engine/notes";
 import { answeredPrompts, byRank, coveredByNotes } from "@/lib/engine/prompts";
 import { ApiFailure, dbFailure, logFailure } from "@/lib/engine/route";
@@ -26,7 +25,6 @@ import { ApiFailure, dbFailure, logFailure } from "@/lib/engine/route";
 const ROUTE = "GET /api/seats/[slug]/guide";
 // The seat's open gap, required and core prompts read at most, as GET /api/handover/prompts reads them.
 const OPEN_PROMPTS = 100;
-const ASKED = 20; // the caller's latest questions at the seat
 
 export type GuideDeps = {
   embed: (texts: string[]) => Promise<number[][]>;
@@ -57,22 +55,6 @@ const PromptRows = z.array(
     seq: z.number().int(),
   }),
 );
-
-const QuestionRows = z.array(
-  z.object({
-    id: Uuid,
-    text: z.string(),
-    lang: Lang,
-    status: z.enum(["answered", "waiting"]),
-    created_at: Timestamp,
-  }),
-);
-type QuestionRow = z.infer<typeof QuestionRows>[number];
-
-const AnswerRows = z.array(
-  z.object({ question_id: Uuid, payload: z.unknown() }),
-);
-const BylineRows = z.array(z.object({ id: NoteId, byline: z.string() }));
 
 const KINDS = NoteKind.options; // deadline, contact, rule_of_thumb, pitfall, unwritten_rule
 
@@ -109,12 +91,7 @@ export async function guideAsCaller(
       .select("term_order")
       .eq("seat_id", seatId)
       .limit(1),
-    client
-      .from("questions")
-      .select("id, text, lang, status, created_at")
-      .eq("seat_id", seatId)
-      .order("created_at", { ascending: false })
-      .limit(ASKED),
+    ownQuestions(client, seatId),
   ]);
   if (notes.error) throw dbFailure(notes.error);
   if (held.error) throw dbFailure(held.error);
@@ -214,103 +191,5 @@ async function notWrittenYet(
         (row): GuideOpen => ({ id: row.id, text: row.text, reason: row.kind }),
       ),
     openChecked: true,
-  };
-}
-
-// The caller's own questions at the seat, newest first, each with its saved answer as the caller may read it now
-// (standing()). A waiting question has none yet, and neither has one whose saved payload isn't an answer (an abstain).
-async function withAnswers(
-  client: SupabaseClient,
-  questions: QuestionRow[],
-  today: string,
-): Promise<GuideAsked[]> {
-  const answeredIds = questions
-    .filter((question) => question.status === "answered")
-    .map((question) => question.id);
-  const saved = new Map<string, AnsweredResult>();
-  if (answeredIds.length > 0) {
-    const { data, error } = await client
-      .from("answers")
-      .select("question_id, payload")
-      .in("question_id", answeredIds);
-    if (error) throw dbFailure(error);
-    const rows = AnswerRows.safeParse(data ?? []);
-    if (!rows.success) throw new ApiFailure("unavailable");
-    for (const row of rows.data) {
-      const answer = AnsweredResult.safeParse(row.payload);
-      if (answer.success) saved.set(row.question_id, answer.data);
-    }
-  }
-
-  const cited = new Set(
-    [...saved.values()].flatMap((answer) =>
-      answer.sentences.flatMap((sentence) =>
-        sentence.citations.map((citation) => citation.noteId),
-      ),
-    ),
-  );
-  const bylines = await citedBylines(client, [...cited], today);
-  return questions.map((question): GuideAsked => {
-    const stored = saved.get(question.id);
-    const answer = stored && standing(stored, question.id, bylines);
-    return {
-      questionId: question.id,
-      text: question.text,
-      lang: question.lang,
-      askedAt: question.created_at,
-      ...(answer && { answer }),
-    };
-  });
-}
-
-// The cited notes the caller reads now, of any seat (an answer may cite an institution-wide note of another seat), in
-// one query: live, not replaced and not past valid_until, as search_notes (0004) finds notes for answers. A note the
-// caller may not read comes back as no row, the same as one that is gone.
-async function citedBylines(
-  client: SupabaseClient,
-  ids: string[],
-  today: string,
-): Promise<Map<string, string>> {
-  if (ids.length === 0) return new Map();
-  const { data, error } = await client
-    .from("notes")
-    .select("id, byline")
-    .in("id", ids)
-    .eq("status", "live")
-    .is("superseded_by", null)
-    .or(`valid_until.is.null,valid_until.gte.${today}`);
-  if (error) throw dbFailure(error);
-  const rows = BylineRows.safeParse(data ?? []);
-  if (!rows.success) throw new ApiFailure("unavailable");
-  return new Map(rows.data.map((row) => [row.id, row.byline]));
-}
-
-// A saved answer as the guide shows it. The payload is the asker's own row, which they can write themselves (0003), so
-// only its words are taken as written: the question id is the row's, a sentence stays only while every note it cites
-// came back from citedBylines(), and each citation carries that note's byline as it is now. Once a sentence goes, so
-// does the rule change, which may rest on it (as the answers trigger does, 0006); `live` always goes, since the guide
-// isn't the moment the answer arrived. With no sentence left there is no answer, and the question reads as unanswered.
-function standing(
-  answer: AnsweredResult,
-  questionId: string,
-  bylines: Map<string, string>,
-): AnsweredResult | undefined {
-  const sentences = answer.sentences.flatMap((sentence) => {
-    const citations = sentence.citations.flatMap((citation) => {
-      const byline = bylines.get(citation.noteId);
-      return byline === undefined ? [] : [{ ...citation, byline }];
-    });
-    return citations.length === sentence.citations.length
-      ? [{ ...sentence, citations }]
-      : [];
-  });
-  if (sentences.length === 0) return undefined;
-  const { live: _live, ruleChange, ...rest } = answer;
-  const whole = sentences.length === answer.sentences.length;
-  return {
-    ...rest,
-    questionId,
-    sentences,
-    ...(ruleChange && whole && { ruleChange }),
   };
 }

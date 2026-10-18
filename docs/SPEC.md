@@ -277,6 +277,7 @@ type AskResult =
 //       open: { id: string; text: string; reason: "gap" | "required" | "core" }[]; openChecked: boolean; asked: { questionId: string; text: string; lang: Lang; askedAt: string; answer?: AskResult }[] }
 //   the handover guide (引き継ぎ書), as the caller (RLS): the seat's live, current notes they may read; for a holder, the prompts no note they read names
 //   or covers (openChecked false: the check failed, open is empty); their own questions, newest first, each answer ("answered", no live) checked again
+// GET  /api/seats/[slug]/asked           → { asked }   (the guide's asked alone, as the caller, checked the same way but with no embedding: 聞く after a reload or a closed tab)
 // Any error                              → { error: "invalid_request" | "unauthorized" | "forbidden" | "not_found" | "unredacted" | "unavailable" }
 // Realtime `notes` → { id, status }; `events` → { id, kind, payload: Record<string, number>, created_at }
 ```

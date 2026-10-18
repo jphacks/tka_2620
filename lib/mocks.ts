@@ -1098,6 +1098,32 @@ export function createMockApi(
     };
   }
 
+  // The seat the guide or asked names: not_found for a seat the mocks don't have.
+  function knownSeat(slug: string): string {
+    const seat = SeatSlug.parse(slug);
+    if (seat !== SEAT && !mockOtherSeatViews[seat]) {
+      throw new MockApiError("not_found");
+    }
+    return seat;
+  }
+
+  // The persona's own questions at the seat, newest first, at most 20, each with its answer while a sentence stands:
+  // the guide's asked, and GET /api/seats/[slug]/asked alike.
+  function askedAt(seat: string): GuideAsked[] {
+    return state.asked
+      .filter(
+        (question) => question.persona === persona && question.seat === seat,
+      )
+      .toReversed()
+      .slice(0, 20)
+      .map(({ persona: _persona, seat: _seat, ...question }): GuideAsked => {
+        const saved = state.answers.get(question.questionId);
+        const answer =
+          saved?.asker === persona ? standingAnswer(saved.result) : undefined;
+        return { ...question, ...(answer && { answer }) };
+      });
+  }
+
   return {
     async seat(slug) {
       const view =
@@ -1393,10 +1419,7 @@ export function createMockApi(
     // a holder, the gap and core prompts that no such note names (the mock checks no coverage, so openChecked is always
     // true); and the persona's own questions at the seat, newest first, each with its answer while a sentence stands.
     async guide(slug) {
-      const seat = SeatSlug.parse(slug);
-      if (seat !== SEAT && !mockOtherSeatViews[seat]) {
-        throw new MockApiError("not_found");
-      }
+      const seat = knownSeat(slug);
       // A live note of the seat the persona may read: it names a prompt even once replaced, and is listed while it stands.
       const live = (source: SourceNote) =>
         source.seat === seat &&
@@ -1437,20 +1460,12 @@ export function createMockApi(
               return true;
             })
           : [];
+      return reply({ notes, open, openChecked: true, asked: askedAt(seat) });
+    },
 
-      const asked = state.asked
-        .filter(
-          (question) => question.persona === persona && question.seat === seat,
-        )
-        .toReversed()
-        .slice(0, 20)
-        .map(({ persona: _persona, seat: _seat, ...question }): GuideAsked => {
-          const saved = state.answers.get(question.questionId);
-          const answer =
-            saved?.asker === persona ? standingAnswer(saved.result) : undefined;
-          return { ...question, ...(answer && { answer }) };
-        });
-      return reply({ notes, open, openChecked: true, asked });
+    // Like GET /api/seats/[slug]/asked: the guide's asked alone.
+    async asked(slug) {
+      return reply({ asked: askedAt(knownSeat(slug)) });
     },
 
     subscribe(channel, onRow) {

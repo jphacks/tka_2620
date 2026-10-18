@@ -1,13 +1,13 @@
 // #28 acceptance check (docs/SPEC.md → F4): nothing leaks, shown with numbers. Every persona, and a visitor who isn't
 // signed in, tries every way in as itself: questions (POST /api/ask), direct reads (every table, embedded selects, the
-// seat page, the handover guide, 自分のメモ, a note by id), search (search_notes with no threshold), the inbox (the route
-// and the functions), ids it shouldn't know (withdraw, route, join, draft, seen, the answers trigger), and Realtime,
-// listening from the start of the run to the end of its cleanup. tests/leak-judge.ts decides each answer against the
-// hand-written visibility table (tests/visibility-table.ts) and the rows the run created, never against what RLS
-// returned. A leak is a note the viewer can't read (its id, its body or its canary from seed/notes.csv), someone else's
-// question, answer, route, prompt or membership, or an events row it isn't meant to see. The outsider x makes at least
-// 50 attempts. The counts go to events (kind "leak", numbers only), and a conclusive run prints its METRICS line for
-// `pnpm metrics`.
+// seat page, the handover guide, its own questions alone, 自分のメモ, a note by id), search (search_notes with no
+// threshold), the inbox (the route and the functions), ids it shouldn't know (withdraw, route, join, draft, seen, the
+// answers trigger), and Realtime, listening from the start of the run to the end of its cleanup. tests/leak-judge.ts
+// decides each answer against the hand-written visibility table (tests/visibility-table.ts) and the rows the run
+// created, never against what RLS returned. A leak is a note the viewer can't read (its id, its body or its canary from
+// seed/notes.csv), someone else's question, answer, route, prompt or membership, or an events row it isn't meant to
+// see. The outsider x makes at least 50 attempts. The counts go to events (kind "leak", numbers only), and a conclusive
+// run prints its METRICS line for `pnpm metrics`.
 // Runs against the seeded database and a running dev server, with Ollama (the search) and the Claude key (answers from
 // the notes a persona may read):
 //   pnpm dev          (in another terminal)
@@ -698,21 +698,35 @@ async function directReads(session: Session, context: Context): Promise<void> {
         return reply.status === 200 ? session.judge.guide(reply.body) : [];
       },
     );
+    // The guide's asked alone, as 聞く lists it after a reload: the viewer's own questions with their answers, checked
+    // again without the guide's embedding.
+    await attempt(
+      session,
+      "reads",
+      `GET /api/seats/${slug}/asked`,
+      async () => {
+        const reply = await http(session, "GET", `/api/seats/${slug}/asked`);
+        expectReply(reply, session.token ? [200] : [401]);
+        return reply.status === 200 ? session.judge.asked(reply.body) : [];
+      },
+    );
   }
-  await attempt(
-    session,
-    "reads",
-    `GET /api/seats/${MADE_UP_SEAT}/guide`,
-    async () => {
-      const reply = await http(
-        session,
-        "GET",
-        `/api/seats/${MADE_UP_SEAT}/guide`,
-      );
-      expectReply(reply, session.token ? [404] : [401]);
-      return [];
-    },
-  );
+  for (const part of ["guide", "asked"]) {
+    await attempt(
+      session,
+      "reads",
+      `GET /api/seats/${MADE_UP_SEAT}/${part}`,
+      async () => {
+        const reply = await http(
+          session,
+          "GET",
+          `/api/seats/${MADE_UP_SEAT}/${part}`,
+        );
+        expectReply(reply, session.token ? [404] : [401]);
+        return [];
+      },
+    );
+  }
   await attempt(session, "reads", "GET /api/me/notes", async () => {
     const reply = await http(session, "GET", "/api/me/notes");
     expectReply(reply, session.token ? [200] : [401]);

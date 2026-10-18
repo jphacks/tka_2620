@@ -372,6 +372,13 @@ describe("seat page, own notes and lineage", () => {
   });
 });
 
+// One of the viewer's questions, as the guide and GET /api/seats/[slug]/asked list it, answered by one sentence.
+const askedWith = (questionId: string, noteId: string, text = "…") => ({
+  questionId,
+  text: "…",
+  answer: { sentences: [{ text, citations: [{ noteId }] }] },
+});
+
 describe("the handover guide", () => {
   const guide = (parts: Record<string, unknown>) => ({
     notes: [],
@@ -379,11 +386,6 @@ describe("the handover guide", () => {
     openChecked: true,
     asked: [],
     ...parts,
-  });
-  const askedWith = (questionId: string, noteId: string, text = "…") => ({
-    questionId,
-    text: "…",
-    answer: { sentences: [{ text, citations: [{ noteId }] }] },
   });
 
   it("flags a note, or a note an answer cites, that the viewer can't read", () => {
@@ -442,6 +444,56 @@ describe("the handover guide", () => {
       },
     ]);
     expect(a26.guide({ ...leaked, asked: [] })).toEqual([]);
+  });
+});
+
+describe("the viewer's own questions (GET /api/seats/[slug]/asked)", () => {
+  it("flags someone else's question, and passes the viewer's own", () => {
+    const asked = { asked: [{ questionId: question.a26, text: "…" }] };
+    expect(a26.asked(asked)).toEqual([]);
+    expect(a25.asked(asked)).toEqual([
+      { reason: "someone else's question", ref: question.a26 },
+    ]);
+    expect(signedOut.asked(asked)).toEqual([
+      { reason: "someone else's question", ref: question.a26 },
+    ]);
+  });
+
+  it("flags a note an answer cites that the viewer can't read, and passes one it reads", () => {
+    expect(
+      a26.asked({ asked: [askedWith(question.a26, "lab-2025-cartridge")] }),
+    ).toEqual([{ reason: "a note it can't read", ref: "lab-2025-cartridge" }]);
+    expect(
+      a26.asked({ asked: [askedWith(question.a26, "smash-2025-hokenjo")] }),
+    ).toEqual([]);
+  });
+
+  it("finds an unreadable note's canary anywhere in it, even in an answer on a note the viewer reads", () => {
+    expect(
+      x.asked({
+        asked: [
+          askedWith(
+            question.x,
+            "gakusai-2025-tsurisen",
+            "番号は TEST-4242 です",
+          ),
+        ],
+      }),
+    ).toEqual([
+      {
+        reason: "the canary of a note it can't read",
+        ref: "smash-2025-uchiage",
+      },
+    ]);
+    expect(x.asked({ asked: [] })).toEqual([]);
+  });
+
+  it("marks a question the run didn't see as unknown, not as a leak", () => {
+    const findings = a26.asked({
+      asked: [{ questionId: "30000000-0000-4000-8000-0000000000ff" }],
+    });
+    expect(findings).toHaveLength(1);
+    expect(findings[0].unknown).toBe(true);
   });
 });
 
