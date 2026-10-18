@@ -1,5 +1,6 @@
 // Publishing (F3.8) through a stub client and fake models, offline. Who may read what is the database's job, checked
 // against the shared project by scripts/check-publish.ts.
+import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   ApiError,
@@ -14,6 +15,8 @@ import {
   type PublishModels,
   publishAsCaller,
 } from "@/lib/engine/publish";
+import { parseCanaries } from "@/lib/engine/safety-net";
+import { shownReason } from "@/lib/engine/shown";
 import { mockLiveCard, mockQuestions } from "@/lib/mocks";
 import {
   type Call,
@@ -317,11 +320,18 @@ describe("publishAsCaller", () => {
         "unredacted",
       ],
       [
-        "「更新する」 before F5.6",
+        "two cards updating one note",
         {
           request: {
             ...request,
-            cards: [{ ...card, supersedes: "smash-2025-hokenjo" }],
+            cards: [
+              { ...card, supersedes: "smash-2025-ryoshusho" },
+              {
+                ...card,
+                title: "別の書き方",
+                supersedes: "smash-2025-ryoshusho",
+              },
+            ],
           },
         },
         "invalid_request",
@@ -364,11 +374,136 @@ describe("publishAsCaller", () => {
     });
   });
 
+  // F5.7: an added card was edited in the review, so it is checked again as its import was. The canary case uses a seed
+  // canary that only the canary check finds, picked at run time and never printed.
+  describe("an added card", () => {
+    const added = (fields: Partial<PublishCard>): PublishRequest => ({
+      seat: "smash-kaikei",
+      cards: [
+        {
+          ...card,
+          source: "chat",
+          provenance: "LINEグループ・2025年3月",
+          ...fields,
+        },
+      ],
+    });
+    const canary = parseCanaries(
+      readFileSync(
+        new URL("../seed/chat-canaries.txt", import.meta.url),
+        "utf8",
+      ),
+    ).find((candidate) => !shownReason(`担当は${candidate}。`));
+
+    it("has a seed canary that no other guard refuses", () => {
+      expect(canary !== undefined).toBe(true);
+    });
+
+    it.each<[string, Partial<PublishCard>]>([
+      ["a URL", { body: "申請は https://forms.gle/AbCdEf から出す。" }],
+      ["a LINE ID", { body: "連絡は LINE: kato_kaikei へ。" }],
+      ["a role placeholder", { body: "メンバーA が鍵を持っている。" }],
+      ["a hidden person", { body: "[人] に確認する。" }],
+      ["a seed canary", { body: `担当は${canary ?? ""}。` }],
+    ])("is refused when it holds %s", async (_case, fields) => {
+      const { error, calls, embedded } = await run({ request: added(fields) });
+      expect(error).toMatchObject({ name: "ApiFailure", code: "unredacted" });
+      expect(calls.notes).toBeUndefined();
+      expect(embedded).toEqual([]);
+    });
+
+    it("is published when clean, and a live-loop card keeps the card guard", async () => {
+      expect((await run({ request: added({}) })).error).toBeUndefined();
+      const live = await run({
+        request: {
+          ...request,
+          cards: [
+            { ...card, body: "申請は https://forms.gle/AbCdEf から出す。" },
+          ],
+        },
+      });
+      expect(live.error).toBeUndefined();
+    });
+  });
+
   it("turns the notes policy's refusal into forbidden", async () => {
     const { error } = await run({
       tables: { notes: [{ data: null, error: { code: "42501" } }] },
     });
     expect(error).toMatchObject({ name: "ApiFailure", code: "forbidden" });
+  });
+
+  describe("「更新する」 (F5.6)", () => {
+    const notice: PublishCard = {
+      kind: "deadline",
+      title: "保健所への臨時営業届",
+      body: "臨時営業届は2026年10月19日までに学生課窓口へ提出する。",
+      deadline_date: "2026-10-19",
+      suggested_scope: "successor",
+      critical: false,
+      lang: "ja",
+      flags: { person_verdict: false, secret: false },
+      scope: "successor",
+      source: "file",
+      supersedes: "smash-2025-hokenjo",
+    };
+    const added: PublishRequest = {
+      seat: "smash-kaikei",
+      cards: [notice, { ...card, source: "file" }],
+    };
+    const two = ok(
+      [notice, card].map((published, i) => ({
+        id: `${NOTE_ID.slice(0, -1)}${i}`,
+        seat_id: SEAT_ID,
+        term_order: 2026,
+        byline: "2026年度 会計",
+        kind: published.kind,
+        title: published.title,
+        body: published.body,
+        deadline_date: published.deadline_date ?? null,
+        lang: "ja",
+      })),
+    );
+    const a26 = ok([{ term_label: "2026", term_order: 2026 }]);
+
+    it("names the note to replace on that card only, in the same insert", async () => {
+      const { result, calls, rpcCalls } = await run({
+        request: added,
+        tables: { seat_holders: [a26], notes: [two] },
+      });
+      expect(calls.notes).toHaveLength(1);
+      const [update, other] = insertedRows(calls.notes) ?? [];
+      expect(update).toMatchObject({
+        supersedes: "smash-2025-hokenjo",
+        kind: "deadline",
+        deadline_date: "2026-10-19",
+        term_order: 2026,
+        byline: "2026年度 会計",
+        source: "file",
+      });
+      expect(other).not.toHaveProperty("supersedes");
+      expect(result?.noteIds).toHaveLength(2);
+      expect(rpcCalls).toEqual([]); // no prompt, so nobody to answer
+    });
+
+    it("never names the column when no card updates a note", async () => {
+      const { calls } = await run();
+      expect(insertedRows(calls.notes)?.[0]).not.toHaveProperty("supersedes");
+    });
+
+    it("turns the database's refusal of the update into forbidden, and answers nobody", async () => {
+      // A note of another seat or kind, one already replaced or withdrawn, one the publisher can't read, a later
+      // term's: 0010 refuses them all alike, and the insert saves nothing.
+      const { error, rpcCalls } = await run({
+        request: { ...added, promptId: PROMPT_ID },
+        tables: {
+          seat_holders: [a26],
+          notes: [{ data: null, error: { code: "42501" } }],
+        },
+      });
+      expect(error).toMatchObject({ name: "ApiFailure", code: "forbidden" });
+      expect(rpcCalls).toEqual([]);
+    });
   });
 });
 

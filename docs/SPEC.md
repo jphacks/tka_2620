@@ -182,8 +182,10 @@ through one path that keeps people out of the notes, at the start and at any tim
    with the reason. Remaining cards default to `successor`, carry `source` (`import`, `file` or `chat`) and a
    provenance chip without names.
 9. **Duplicates and updates**: each card is compared with the seat's live notes (same `kind` and embedding similarity
-   ≥ 0.88). A match shows 「似たメモがあります：…」 with 「更新する」 (the new note supersedes the old one) or
-   「別のメモとして残す」. A changed deadline then shows up as a rule change in answers.
+   ≥ 0.68, measured in `lib/engine/similar.ts`; the latest term's note when several match). A match shows
+   「似たメモがあります：…」 with 「更新する」 (the new note supersedes the old one, at the old note's scope or wider) or
+   「別のメモとして残す」. A changed deadline then shows up as a rule change in answers, against the superseded note's
+   date. Withdrawing the update brings the old note back.
 10. **Author review**: the person adding reads every card and publishes only what they choose, signed with their
    own byline. Nothing from the source is stored except those reviewed notes.
 
@@ -243,6 +245,7 @@ type AskResult =
 // POST /api/handover/publish { seat, promptId?, cards: (CardDraft & { scope: Scope; supersedes?: string; provenance?: string; source?: "import" | "file" | "chat" })[] } → { noteIds: string[]; reanswered: string[] }
 //   source: only for added cards (import is stateless); the server sets handover or live for the others
 // GET  /api/handover/prompts?seat=       → { prompts: { id: string; text: string; reason: "demand" | "gap" | "required" | "core"; askCount: number }[] }
+// POST /api/handover/prompts { seat, text } → { promptId: string }   (「先輩に聞く」: a missing item becomes a gap prompt; the same open text is one prompt)
 // GET  /api/handover/readers?seat=&scope= → { count: number }
 // POST /api/import { seat, kind: "text" | "file" | "chat", fileType?: "pdf" | "docx" | "txt" | "md", platform?: "line" | "whatsapp" | "paste", text, redaction }
 //   text: extracted in the browser and redacted there; the file itself is never sent; nothing is stored.

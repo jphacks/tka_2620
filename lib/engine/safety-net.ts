@@ -17,7 +17,9 @@ export function screenImport(
   text: string,
   canaries: readonly string[],
 ): Screened {
-  const again = redactText(text);
+  // Normalized first, which the rules do anyway: a request holds no WhatsApp mention marks (the browser's
+  // redaction dropped them), and a crafted one with thousands would build one huge pattern (lib/redact/redact.ts).
+  const again = redactText(normalize(text));
   const found = canaryCount(text, canaries);
   if (again.counts.phones > 0 || again.counts.emails > 0 || found > 0) {
     return {

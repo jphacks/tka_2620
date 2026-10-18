@@ -1,7 +1,8 @@
 // F5.5 (#35): the acceptance check for /api/import's engine, on the real model (docs/SPEC.md → F5). The seed samples go
 // the way the browser sends them (lib/ingest for the files, lib/redact) and then through the server's safety net and
 // note extraction (lib/engine/safety-net.ts, lib/engine/extract-notes.ts) with Sonnet, as POST /api/import runs them.
-// No database: no sign-in, nothing written.
+// No database: no sign-in, nothing written. The checklist is the one POST /api/import reads for 会計 after `pnpm seed`:
+// club_role's core prompts in seed/core-prompts.csv.
 //
 //   pnpm test:import                   old-handover.sample.md 3 times; the Word file, the chat and the notice once
 //   pnpm test:import --runs 5          the old handover 5 times
@@ -14,6 +15,7 @@
 // ANSWER_MODEL (.env.local); a run is a few cents.
 import { readFile } from "node:fs/promises";
 import { type LanguageModel, wrapLanguageModel } from "ai";
+import { parse } from "csv-parse/sync";
 import { sonnet } from "@/lib/ai";
 import type { ImportRequest } from "@/lib/contracts";
 import { type Extracted, extractNotes } from "@/lib/engine/extract-notes";
@@ -36,6 +38,18 @@ const HOKENJO = "保健所申請の締切が書かれていません";
 
 const seed = (name: string) => new URL(`../seed/${name}`, import.meta.url);
 const bytes = async (name: string) => new Blob([await readFile(seed(name))]);
+
+// The seeded seat's checklist, read the way scripts/seed.ts reads it.
+async function checklist(): Promise<string[]> {
+  const rows = parse(await readFile(seed("core-prompts.csv"), "utf8"), {
+    columns: true,
+    skip_empty_lines: true,
+    bom: true,
+  }) as Record<"seat_type" | "text_ja", string>[];
+  return rows
+    .filter((row) => row.seat_type === "club_role")
+    .map((row) => row.text_ja);
+}
 
 type Sample = {
   label: string;
@@ -141,6 +155,7 @@ async function main(): Promise<void> {
   const canaries = parseCanaries(
     await readFile(seed("chat-canaries.txt"), "utf8"),
   );
+  const core = await checklist();
   let failures = 0;
   const seconds: number[] = [];
   for (const sample of await samples()) {
@@ -162,7 +177,7 @@ async function main(): Promise<void> {
           text: screened.text,
           kind: sample.kind,
           seat: { name: "会計", seatType: "club_role" },
-          checklist: [],
+          checklist: core,
           asked: [],
           today: today(),
         });

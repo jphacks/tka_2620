@@ -29,6 +29,21 @@ These questions are the acceptance tests for F2, F4 and F5. / F2・F4・F5 の�
 
 Google スプレッドシートで作って CSV で書き出しても大丈夫です。
 
+## `core-prompts.csv`: what every leaver should hand over / かならず引き継ぐことの質問（F6）
+席の種類ごとの基本の質問です。引き継ぎの質問（F6）で `core` として先輩に聞き、資料を取り込むとき（F5）は「書かれていないこと」を探すチェックリストにもなります。
+The core prompts per seat type: asked of leavers as `core` handover prompts (F6), and the checklist that F5's import compares a document against.
+
+| column | 意味 | example |
+|---|---|---|
+| `seat_type` | 席の種類。その種類のすべての席に入る | `club_role`, `exchange_route`, `lab_duty` |
+| `topic` | 短い英語の見出し（並べ替えや重複チェック用） | `deadlines` |
+| `text_ja` | 先輩に聞く文。やさしい丁寧語、名前は入れない（窓口は部署や役職で） | 「団体のお金は、どこで、どうやって管理していますか？」 |
+| `text_en` | 同じ内容の英語 | "Where and how is the group's money kept?" |
+
+`club_role` は10個（締切・お金・領収書・鍵・窓口・書類・口座・最初の1か月・落とし穴・暗黙のルール）、`exchange_route` と `lab_duty` は5個ずつ。
+質問は一般的な言い方のままにします（「保健所」など特定の手続きは書かない）。取り込みは、チェックリストにあって資料にないことを「その質問の言葉で」書くので、例を入れると「保健所申請の締切が書かれていません」が別の言い方になります。この行は、資料が保健所の書類にふれて日付を書いていないことから出ます。`pnpm test:import` はこのファイルの `club_role` をチェックリストにして確かめます。
+Keep the prompts generic (no 保健所 or other named procedure): the import words a missing checklist item after the prompt, so an example in it rewords 「保健所申請の締切が書かれていません」, which comes from the doc mentioning the 保健所 form without a date. `pnpm test:import` checks the samples with this file's `club_role` prompts as the checklist.
+
 ## ほかのファイル / Other files
 - `old-handover.sample.md`：コールドスタートのデモで貼り付ける、架空の「去年の引き継ぎ資料」。わざと雑に書いてあり、保健所申請の締切がありません。
   A made-up, deliberately messy 2024 handover doc for the cold-start demo (F5). It has no 保健所 deadline on purpose.

@@ -3,10 +3,12 @@
 // publisher's byline (docs/SPEC.md → F3).
 //
 // Everything runs as the caller (lib/engine/route.ts), so the database decides: the notes policy (0003) lets a holder
-// publish only into a term they held, signed with that term; a demand prompt is readable only by the predecessors it
-// was routed to; waiting_questions() gives each waiting question the new notes its asker may read (the asker's rings,
-// never the publisher's); deliver_answer() checks every citation again, writes the asker's answers row (Realtime brings
-// it to them alone), marks the question answered and retires the prompt once nothing waits on it.
+// publish only into a term they held, signed with that term; a 「更新する」 card replaces only a live note of the same
+// seat and kind that the publisher may read, from their term or an earlier one, within the same insert (0010); a
+// demand prompt is readable only by the predecessors it was routed to; waiting_questions() gives each waiting question
+// the new notes its asker may read (the asker's rings, never the publisher's); deliver_answer() checks every citation
+// again, writes the asker's answers row (Realtime brings it to them alone), marks the question answered and retires
+// the prompt once nothing waits on it.
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { LanguageModel } from "ai";
 import { createTranslator } from "next-intl";
@@ -38,6 +40,8 @@ import {
   failed,
   logFailure,
 } from "@/lib/engine/route";
+import { canaryCount, seedCanaries } from "@/lib/engine/safety-net";
+import { shownReason } from "@/lib/engine/shown";
 import ja from "@/messages/ja.json";
 
 // The models behind publishing, passed in so a test can fake them: bge-m3 for the notes, Sonnet for the answers.
@@ -147,16 +151,28 @@ export async function publishAsCaller(
     prompt = PromptRow.parse(data);
   }
 
+  // One note is updated by one card: the database would refuse the second, but the request is wrong as sent.
+  const superseded = request.cards.flatMap((card) => card.supersedes ?? []);
+  if (new Set(superseded).size !== superseded.length) {
+    throw new ApiFailure("invalid_request");
+  }
   for (const card of request.cards) {
-    // 「更新する」 needs a way to mark the old note superseded, which is F5.6; publishing it as a second note would be
-    // wrong, so it's refused until then.
-    if (card.supersedes) throw new ApiFailure("invalid_request");
     if ((card.provenance?.length ?? 0) > PROVENANCE_MAX) {
       throw new ApiFailure("invalid_request");
     }
     // Drafting only advises: the output guard runs again here, on everything a reader will see.
     const shown = [card.title, card.body, card.provenance ?? ""].join("\n");
     if (card.flags.secret || blockReason(shown)) {
+      throw new ApiFailure("unredacted");
+    }
+    // An added card (F5) was edited in the review, so it gets its import's guard again: a placeholder, contact details
+    // (a URL, a LINE ID, an address too) or a name typed back in is refused, and so is a seed canary. Cards from the
+    // live loop and handover prompts keep the card guard above.
+    if (
+      card.source &&
+      (shownReason(shown, card.flags.secret) ||
+        canaryCount(shown, seedCanaries()) > 0)
+    ) {
       throw new ApiFailure("unredacted");
     }
   }
@@ -188,6 +204,9 @@ export async function publishAsCaller(
         source: sourceOf(card, prompt),
         provenance: card.provenance ?? null,
         embedding: JSON.stringify(vectors[i]),
+        // Only on a 「更新する」 card, so publishing anything else never names the column. The trigger turns it into
+        // the old note's superseded_by and stores nothing here (0010).
+        ...(card.supersedes && { supersedes: card.supersedes }),
       })),
     )
     .select(

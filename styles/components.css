@@ -30,7 +30,7 @@ body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(
 .dd-btn:hover { background: var(--blue-wash); }
 .dd-btn-primary { background: var(--blue); color: var(--sheet); }
 .dd-btn-primary:hover { background: var(--blue); text-decoration: underline; text-underline-offset: 3px; }
-.dd-btn[disabled] { border-color: var(--rule); color: var(--ink-2); background: var(--paper); cursor: not-allowed; text-decoration: none; }
+.dd-btn[disabled], .dd-btn[aria-disabled="true"] { border-color: var(--rule); color: var(--ink-2); background: var(--paper); cursor: not-allowed; text-decoration: none; }
 .dd-link { color: var(--blue); text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; background: none; border: 0; padding: 0; font: inherit; cursor: pointer; }
 
 /* Date stamp (日付印): authorship only */
@@ -38,7 +38,7 @@ body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(
   color: var(--red); transform: rotate(-3deg); overflow: hidden; text-align: center; font-family: var(--font-ui); font-size: 13px; line-height: 1; letter-spacing: 0; flex: none; }
 .dd-stamp > span { display: grid; place-items: center; }
 .dd-stamp > span:first-child { align-self: end; padding-bottom: 2px; }
-.dd-stamp > span:last-child { align-self: start; padding-top: 2px; letter-spacing: -.02em; }
+.dd-stamp > span:last-child { align-self: start; padding-top: 0; letter-spacing: -.04em; }
 .dd-stamp-year { border-block: 1px solid var(--red); font-family: var(--font-figures); font-weight: 700; }
 .dd-mini { position: relative; display: inline-grid; place-items: center; width: 24px; height: 24px; box-sizing: border-box; border: 1.5px solid var(--red); border-radius: var(--r-round);
   color: var(--red); font-family: var(--font-figures); font-size: 13px; font-weight: 700; line-height: 1; letter-spacing: 0; transform: rotate(-3deg); vertical-align: 2px; margin-inline: 2px 6px; background: none; padding: 0; cursor: pointer; }
@@ -151,6 +151,16 @@ textarea.dd-input { min-height: 160px; resize: vertical; }
 .dd-roles-name { overflow-wrap: anywhere; }
 .dd-preview { max-height: 320px; overflow: auto; padding: var(--s-3); border: 1px solid var(--rule); border-radius: var(--r-slip); background: var(--paper); white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.8; }
 .dd-date { display: inline-grid; place-items: center; min-width: 72px; height: 32px; border: 1px solid var(--ink); border-radius: var(--r-slip); font-family: var(--font-figures); font-variant-numeric: tabular-nums; font-size: 16px; }
+
+/* Import review (ImportReview): a drafted NoteEntry with its date stamp at the bottom right, the red-pen DuplicateHint
+   (inside .dd-margin's red bracket) with its two choices, and MissingList's blank lines */
+.dd-entry { display: grid; gap: var(--s-2); padding: var(--s-4); }
+.dd-entry-foot { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--s-3); }
+.dd-hint { margin: 0; color: var(--red); font-weight: 700; }
+/* the chosen one of a pair: the wash plus a ring, so it differs from hover */
+.dd-btn[aria-pressed="true"] { background: var(--blue-wash); box-shadow: inset 0 0 0 1.5px var(--blue); }
+.dd-missing { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s-4); }
+.dd-blank { display: flex; align-items: center; justify-content: flex-end; height: var(--s-6); }
 
 /* Withdrawal (自分のメモ): the two red lines draw left to right, then the entry collapses and leaves */
 .dd-cross { position: relative; }
