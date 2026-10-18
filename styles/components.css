@@ -66,7 +66,7 @@ body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(
 .dd-ask input:focus-visible { outline: none; border-bottom-width: 3px; }
 /* On a narrow phone the placeholder (「先輩たちに聞いてみましょう」) fits whole: the hand shrinks with the screen, never under
    16px (iOS zooms into a smaller field) */
-@media (max-width: 430px) { .dd-ask input { font-size: clamp(16px, 4.9vw, 20px); } }
+@media (max-width: 480px) { .dd-ask input { font-size: clamp(16px, 4.5vw, 20px); } } /* room to spare at 320, 375 and 390 */
 @media (max-width: 340px) { .dd-ask input { letter-spacing: 0; padding-inline: 0; } }
 /* The password is the app's own word: the UI face, and the usual focus ring (a wrong password puts the focus back) */
 .dd-line { box-sizing: border-box; width: 100%; font-family: var(--font-ui); }
