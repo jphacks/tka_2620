@@ -1,7 +1,7 @@
-// Chats become messages on the device (docs/SPEC.md → adding knowledge, step 1): a LINE export or pasted messages
-// turn into { at, speaker, text }, without stickers, photos, files, system lines or messages under four characters.
-// The speakers are what the preview lists for the role picker; lib/redact/redact.ts then hides every name. Nothing
-// here leaves the browser, and nothing is logged.
+// Chats become messages on the device (docs/SPEC.md → adding knowledge, step 1): a LINE or WhatsApp export or pasted
+// messages turn into { at, speaker, text }, without stickers, photos, files, system lines or messages under four
+// characters. The speakers are what the preview lists for the role picker; lib/redact/redact.ts then hides every name.
+// Nothing here leaves the browser, and nothing is logged.
 
 export type ChatMessage = {
   at: string | null; // local time as the export writes it, without a zone (2024-04-12T21:03); null in a paste
@@ -9,10 +9,17 @@ export type ChatMessage = {
   text: string;
 };
 
-export type ChatPlatform = "line" | "paste"; // WhatsApp is #32
+export type ChatPlatform = "line" | "whatsapp" | "paste";
 
 export function parseChat(raw: string, platform: ChatPlatform): ChatMessage[] {
-  return platform === "line" ? parseLine(raw) : parsePaste(raw);
+  switch (platform) {
+    case "line":
+      return parseLine(raw);
+    case "whatsapp":
+      return parseWhatsApp(raw);
+    case "paste":
+      return parsePaste(raw);
+  }
 }
 
 // Every speaker with their message count, in order of first appearance (the preview's role rows).
@@ -53,8 +60,22 @@ export function parseLine(raw: string): ChatMessage[] {
   let day: string | null = null;
   let current: Draft | null = null; // the message that unquoted continuation lines join
   let open = false; // inside a quoted multi-line message
+  const rows = lines(raw);
+  // WhatsApp messages here mean a WhatsApp export read as LINE: their lines are no part of a LINE message, as their
+  // names would go out as text.
+  const whatsapp = rows.some((line) => whatsAppHead(line)?.speaker);
 
-  for (const line of lines(raw)) {
+  for (const line of rows) {
+    // A WhatsApp message line goes with the lines under it, a system line alone. Without WhatsApp messages around, a
+    // line in that shape with no name is a schedule (2025/10/20 9:00 - 正門集合) and stays.
+    const head = whatsAppHead(line);
+    if (head && (whatsapp || WA_SYSTEM.test(head.text))) {
+      if (head.speaker) {
+        current = null;
+        open = false;
+      }
+      continue;
+    }
     const tab = day ? TAB_LINE.exec(line) : null;
     // Inside quotes every line belongs to the message, even one that looks like a date; only a new message line
     // ends it, so a message that merely starts with a quote can't swallow the rest of the chat.
@@ -151,10 +172,15 @@ function splitSpaced(drafts: Draft[]): void {
 }
 
 function at(day: string, time: RegExpExecArray): string {
-  const half = time[1]?.toUpperCase();
-  let hour = Number(time[2]) % (half ? 12 : 24);
-  if (half === "午後" || half === "PM") hour += 12;
-  return `${day}T${pad(String(hour))}:${time[3]}`;
+  return `${day}T${clock(time[1], time[2], time[3])}`;
+}
+
+// 21:03, 午後9:03 (下午9:03) and 9:03 PM → 21:03.
+function clock(half: string | undefined, hour: string, minute: string): string {
+  const marker = half?.toUpperCase();
+  let hours = Number(hour) % (marker ? 12 : 24);
+  if (marker === "午後" || marker === "下午" || marker === "PM") hours += 12;
+  return `${pad(String(hours))}:${minute}`;
 }
 
 function pad(value: string): string {
@@ -172,6 +198,202 @@ function unquote(text: string): string {
   return trimmed.length >= 2 && trimmed.startsWith('"') && trimmed.endsWith('"')
     ? trimmed.slice(1, -1).replace(/""/g, '"')
     : text;
+}
+
+// WhatsApp --------------------------------------------------------------------------------------------------------
+// Chat → Export chat → without media: one line per message, 16/10/2025, 17:03 - 名前: 本文 (Android) or
+// [16/10/2025, 17:03:12] 名前: 本文 (iPhone), with a message's further lines below it. The phone's settings write the
+// date (2025/10/16 in Japan, 10/16/25 in the US, 16.10.25) and the time (17:03, 5:03 PM, 午後5:03). A system line
+// (someone added, someone left, a new group name) has no name on Android; an iPhone gives it the chat's own name and
+// starts its text with a direction mark (U+200E), as it does for media.
+
+const WA_STAMP = String.raw`(\d{1,4}[/.-]\d{1,2}[/.-]\d{1,4}),? {1,2}(?:(午前|午後|上午|下午) ?)?(\d{1,2})[:.](\d{2})(?:[:.]\d{2})?(?: ?([AaPp])\.? ?[Mm]\.?)?`;
+const WA_ANDROID = new RegExp(`^${WA_STAMP} [-–] (.*)$`);
+const WA_IPHONE = new RegExp(`^\\[${WA_STAMP}\\] ?(.*)$`);
+// 名前: 本文, or 名前: alone when the text starts on the next line. The shortest name that fits, so a colon in the text
+// stays there (加藤: 締切: 10/20).
+const WA_SPEAKER = /^(.{1,60}?):(?: (.*))?$/;
+// An iPhone marks the chat's own lines and media after the colon (テニス部: \u200e加藤 健 added …), and the chat's
+// name may hold a colon too (Tennis: 会計: \u200e…).
+const SYSTEM_MARK = /^.{0,110}?:[\s\p{Cf}]{0,4}?[\u200e\u200f]/u;
+
+// A message with no text of its own: <Media omitted> or <メディアなし> (any words in those brackets), null, a file
+// (IMG-20251016-WA0001.jpg (file attached)), image omitted, a deleted message, one still on its way, a shared location,
+// a missed call.
+const WA_MEDIA = new RegExp(
+  [
+    String.raw`^<[^<>\n]{1,80}>$`,
+    "^null$",
+    String.raw`^[^\n]{1,120}\.[A-Za-z0-9]{2,5} ?\([^()\n]{1,30}\)$`,
+    "(?:image|video|audio|sticker|GIF|document|contact card) omitted$",
+    "^(?:This message was deleted|You deleted this message|Waiting for this message|(?:この)?メッセージ(?:は削除されました|を削除しました|を待)|Live location shared|Missed (?:group )?(?:voice|video) call|不在着信)",
+    String.raw`^(?:location|位置情報): ?https?://\S+$`,
+  ].join("|"),
+  "i",
+);
+
+// The chat's own lines on an iPhone, for an export that lost its direction marks: who was added, removed, left or
+// joined, the group made or changed, a new security code or number, the encryption notice. Only for such an export:
+// a member may write the same words.
+const WA_SYSTEM = new RegExp(
+  [
+    "end-to-end|エンドツーエンド|security code|セキュリティコード",
+    String.raw`^[^\n]{1,60}? (?:added|removed) [^\n]{1,100}$`,
+    String.raw`^[^\n]{1,60}? (?:left|joined|was added|was removed|is now an admin|is no longer an admin|requested to join|created group|created this group|changed (?:the subject|the group|this group's|their phone number)|deleted this group's|pinned a message|turned (?:on|off) disappearing)`,
+    String.raw`^[^\n]{1,60}? (?:made [^\n]{1,60} an admin|invited [^\n]{1,100})$`,
+    String.raw`が[^\n]{1,60}を(?:追加|削除)しました$|が(?:退出|参加)しました$|(?:グループ|招待リンク|コミュニティ|アイコン|説明)[^\n]{0,40}(?:参加|作成|変更|削除|退出)しました$|電話番号を[^\n]{0,40}変更しました$|電話番号が変わりました$|管理者|参加(?:を)?リクエスト`,
+  ].join("|"),
+  "i",
+);
+
+// What WhatsApp adds to a message edited after sending.
+const EDITED =
+  /[ \u200e\u200f]{0,3}<[^<>\n]{0,40}(?:edited|編集)[^<>\n]{0,40}>$/i;
+
+type WhatsAppDraft = {
+  date: string; // as written (16/10/2025); which field is the day is decided from every date in the export
+  time: string; // 17:03
+  speaker: string;
+  text: string;
+  iphone: boolean;
+  marked: boolean; // an iPhone's own line or media, by its mark
+};
+
+export function parseWhatsApp(raw: string): ChatMessage[] {
+  const drafts: WhatsAppDraft[] = [];
+  let current: WhatsAppDraft | null = null; // the message that further lines join
+  for (const line of lines(raw)) {
+    const head = whatsAppHead(line);
+    if (head) {
+      current = head;
+      drafts.push(head);
+    } else if (isLineRow(line)) {
+      current = null; // a LINE row (21:03⇥名前⇥本文) is no part of a message: its name would go out as text
+    } else if (current && line.trim()) {
+      current.text += `\n${line}`;
+    }
+  }
+
+  const dayFirst = readsDayFirst(drafts.map(({ date }) => date));
+  // When the export marks its system lines and media, their words aren't needed. A marked line counts only when it
+  // reads as one (a member's message may start with a mark too), and it takes two.
+  const trusted =
+    drafts.filter(({ marked, text }) => marked && systemShaped(text)).length >=
+    2;
+  return drafts.flatMap(({ date, time, speaker, text, iphone, marked }) => {
+    const message = {
+      at: whatsAppAt(date, dayFirst, time),
+      speaker,
+      text: text.replace(EDITED, "").trim(),
+    };
+    const dropped =
+      marked ||
+      WA_MEDIA.test(message.text) ||
+      (iphone &&
+        !trusted &&
+        !message.text.includes("\n") &&
+        WA_SYSTEM.test(message.text));
+    return speaker && !dropped && keep(message.text) ? [message] : [];
+  });
+}
+
+// A WhatsApp message line as parseWhatsApp reads it, for telling a WhatsApp export from other text
+// (components/redaction.ts).
+export function isWhatsAppLine(line: string): boolean {
+  return Boolean(whatsAppHead(line.normalize("NFKC"))?.speaker);
+}
+
+// How many lines parseLine would read as LINE messages, for the same: tab rows, and space rows after a date line.
+export function lineRows(raw: string): number {
+  let day = false;
+  let rows = 0;
+  for (const line of lines(raw)) {
+    if (DATE_LINE.test(line.trim())) day = true;
+    else if (TAB_LINE.test(line) || (day && SPACE_LINE.test(line))) rows += 1;
+  }
+  return rows;
+}
+
+function whatsAppHead(line: string): WhatsAppDraft | null {
+  const bare = line.replace(/^[\s\p{Cf}]+/u, "");
+  const iphone = WA_IPHONE.exec(bare);
+  const head = iphone ?? WA_ANDROID.exec(bare);
+  if (!head) return null;
+  const said = WA_SPEAKER.exec(head[6]);
+  const speaker = said ? speakerName(said[1]) : "";
+  return {
+    date: head[1],
+    time: clock(head[2] ?? (head[5] && `${head[5]}M`), head[3], head[4]),
+    speaker,
+    text: speaker ? (said?.[2] ?? "") : head[6],
+    iphone: iphone !== null,
+    marked: SYSTEM_MARK.test(head[6]),
+  };
+}
+
+// Without direction marks. A "name" holding quotes belongs to a system line that quotes a group's name (changed the
+// subject to "練習: 土曜"); a name has a letter or a digit.
+function speakerName(raw: string): string {
+  const name = raw.replace(/\p{Cf}/gu, "").trim();
+  return /[\p{L}\p{N}]/u.test(name) && !/["“”„「」『』]/.test(name) ? name : "";
+}
+
+function systemShaped(text: string): boolean {
+  const bare = text.replace(/^[\s\p{Cf}]+/u, "");
+  return WA_MEDIA.test(bare) || WA_SYSTEM.test(bare);
+}
+
+// A LINE row: a message (21:03⇥名前⇥本文) or a system line (21:03⇥名前がグループに参加しました).
+function isLineRow(line: string): boolean {
+  return TAB_LINE.test(line);
+}
+
+// Whether 05/10/2025 is the 5th of October: a field over 12 is the day; else the reading under which the dates run in
+// order; else day first, as most phones write it, but month first for a two-digit year after slashes (10/16/25, the
+// US). A year first (2025/10/16) reads one way only.
+function readsDayFirst(dates: string[]): boolean {
+  const fields = dates
+    .map((date) => date.split(/[/.-]/))
+    .filter(([first]) => first.length <= 2)
+    .map((parts) => parts.map(Number));
+  const dayFirst = fields.every(([, second]) => second <= 12);
+  const monthFirst = fields.every(([first]) => first <= 12);
+  if (dayFirst !== monthFirst) return dayFirst;
+  if (dayFirst) {
+    const backwards = (day: number, month: number) =>
+      fields.filter(
+        (date, index) =>
+          index > 0 &&
+          ordinal(date, day, month) < ordinal(fields[index - 1], day, month),
+      ).length;
+    const dm = backwards(0, 1);
+    const md = backwards(1, 0);
+    if (dm !== md) return dm < md;
+  }
+  return !dates.some((date) => /^\d{1,2}\/\d{1,2}\/\d{2}$/.test(date));
+}
+
+function ordinal(fields: number[], day: number, month: number): number {
+  return fields[2] * 10000 + fields[month] * 100 + fields[day];
+}
+
+// 2025-10-16T17:03, or null for a date no calendar has.
+function whatsAppAt(
+  date: string,
+  dayFirst: boolean,
+  time: string,
+): string | null {
+  const [a, b, c] = date.split(/[/.-]/);
+  const [year, month, day] =
+    a.length > 2 ? [a, b, c] : dayFirst ? [c, b, a] : [c, a, b];
+  const full = year.length <= 2 ? `20${year.padStart(2, "0")}` : year;
+  const valid =
+    full.length === 4 &&
+    Number(month) >= 1 &&
+    Number(month) <= 12 &&
+    Number(day) >= 1 &&
+    Number(day) <= 31;
+  return valid ? `${full}-${pad(month)}-${pad(day)}T${time}` : null;
 }
 
 // Paste ----------------------------------------------------------------------------------------------------------

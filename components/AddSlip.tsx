@@ -12,14 +12,21 @@ import {
 } from "react";
 import type { Dropped } from "@/components/AddPanel";
 import { FileDrop } from "@/components/FileDrop";
+import { ImportReview } from "@/components/ImportReview";
 import { RedactionPreview } from "@/components/RedactionPreview";
 import { readSource, type Source, splitRoles } from "@/components/redaction";
+import {
+  type Provenance,
+  provenanceOf,
+  todayInJapan,
+} from "@/components/review";
 import {
   type Api,
   ApiError,
   type ImportRequest,
   type ImportResponse,
   type RedactionCounts,
+  type SeatView,
 } from "@/lib/contracts";
 import { extractFile, fileTypeOf } from "@/lib/ingest/extract";
 import { extractTextFile } from "@/lib/ingest/text";
@@ -29,7 +36,8 @@ import { createMockApi } from "@/lib/mocks";
 // The 「＋ 追加」 slip (docs/SPEC.md → adding knowledge, steps 1–5; docs/DESIGN.md → AddPanel): pasted text, a file or a
 // chat becomes text on this device, RedactionPreview hides names, contact details and secrets, and only the text the
 // person saw and agreed to goes to POST /api/import. The file, the raw text and the chat's names live only in this
-// component's state and go with 「やり直す」, 「閉じる」 or a sent request. Nothing here is logged.
+// component's state and go with 「やり直す」, 「閉じる」 or a sent request. Nothing here is logged. What comes back is
+// reviewed in ImportReview (steps 8–10): the missing list, then the drafted notes to publish.
 
 type Tab = "text" | "file" | "chat";
 const TABS = [
@@ -49,8 +57,7 @@ type Problem =
   | "unreadable"
   | "unsupported"
   | "notChat"
-  | "noSpeakers"
-  | "whatsapp";
+  | "noSpeakers";
 
 // Problems that pasting the text by hand gets around: the notice offers 「貼り付けに切り替える」. Not for a chat with
 // nobody speaking: as a doc its names would stay, so the person goes there knowingly, by the notice's words.
@@ -106,7 +113,7 @@ export function AddSlip({
   dragging: boolean;
   dropped?: Dropped;
   onClose: () => void;
-  /** The drafted notes, the missing list and the similar notes, for the review (#37). */
+  /** What POST /api/import drafted, for a caller that wants it; the review itself is shown here (ImportReview). */
   onImported?: (response: ImportResponse) => void;
 }) {
   const t = useTranslations();
@@ -127,16 +134,21 @@ export function AddSlip({
   const [reading, setReading] = useState(false);
   const [problem, setProblem] = useState<Problem>();
   const [roleChoices, setRoleChoices] = useState<string[]>([]);
+  const [seatView, setSeatView] = useState<SeatView>();
   const [sending, setSending] = useState(false);
   const [failed, setFailed] = useState<"unredacted" | "failed">();
   const [result, setResult] = useState<ImportResponse>();
+  // Where the reviewed notes came from, read before the source goes: the provenance chip, never a name.
+  const [provenance, setProvenance] = useState<Provenance>();
 
-  // The seat's label pack offers the roles (部長, 会計 …); without the seat view only メンバーA/B/C remain.
+  // The seat's label pack offers the roles (部長, 会計 …); without the seat view only メンバーA/B/C remain. The review
+  // words the scope and signs the stamp from it too.
   useEffect(() => {
     let alive = true;
     api.seat(slug).then(
       (view) => {
         if (alive) {
+          setSeatView(view);
           setRoleChoices(
             splitRoles(t(`seatTypes.${view.seat.seatType}.roles`)),
           );
@@ -237,7 +249,9 @@ export function AddSlip({
   function startOver() {
     begin();
     setDraft("");
-    tabs.current[TABS.findIndex((item) => item.tab === tab)]?.focus();
+    // After the render: from the review, the tabs come back only then.
+    const at = TABS.findIndex((item) => item.tab === tab);
+    requestAnimationFrame(() => tabs.current[at]?.focus());
   }
 
   function onTabKey(event: KeyboardEvent<HTMLDivElement>) {
@@ -275,6 +289,7 @@ export function AddSlip({
   async function send(text: string, redaction: RedactionCounts) {
     if (!source) return;
     const mine = round.current;
+    const from = provenanceOf(source, todayInJapan());
     setSending(true);
     setFailed(undefined);
     try {
@@ -284,6 +299,7 @@ export function AddSlip({
       if (mine !== round.current) return;
       begin();
       setDraft("");
+      setProvenance(from);
       setResult(response);
       onImported?.(response);
     } catch (error) {
@@ -320,35 +336,40 @@ export function AddSlip({
           {t("import.close")}
         </button>
       </div>
+      {/* No tabs during the review: a tab would start over and drop drafts not yet published. */}
+      {!result && (
+        <div
+          role="tablist"
+          aria-label={t("import.title")}
+          className="dd-itabs"
+          onKeyDown={onTabKey}
+        >
+          {TABS.map((item, index) => (
+            <button
+              key={item.tab}
+              ref={(button) => {
+                tabs.current[index] = button;
+              }}
+              id={`${ids}-${item.tab}`}
+              type="button"
+              role="tab"
+              aria-selected={item.tab === tab}
+              aria-controls={panelId}
+              tabIndex={item.tab === tab ? 0 : -1}
+              className="dd-itab"
+              onClick={() => choose(item.tab)}
+            >
+              {t(`import.${item.label}`)}
+            </button>
+          ))}
+        </div>
+      )}
       <div
-        role="tablist"
-        aria-label={t("import.title")}
-        className="dd-itabs"
-        onKeyDown={onTabKey}
-      >
-        {TABS.map((item, index) => (
-          <button
-            key={item.tab}
-            ref={(button) => {
-              tabs.current[index] = button;
-            }}
-            id={`${ids}-${item.tab}`}
-            type="button"
-            role="tab"
-            aria-selected={item.tab === tab}
-            aria-controls={panelId}
-            tabIndex={item.tab === tab ? 0 : -1}
-            className="dd-itab"
-            onClick={() => choose(item.tab)}
-          >
-            {t(`import.${item.label}`)}
-          </button>
-        ))}
-      </div>
-      <div
-        role="tabpanel"
+        // The tab's panel, or during the review (no tabs) a region named like the slip.
+        {...(result
+          ? { role: "region", "aria-label": t("import.title") }
+          : { role: "tabpanel", "aria-labelledby": `${ids}-${tab}` })}
         id={panelId}
-        aria-labelledby={`${ids}-${tab}`}
         className="dd-col dd-pad"
         style={{ gap: "var(--s-4)" }}
       >
@@ -365,6 +386,16 @@ export function AddSlip({
                 missing: result.missing.length,
               })}
             </output>
+            {provenance && (
+              <ImportReview
+                key={sourceId}
+                slug={slug}
+                view={seatView}
+                response={result}
+                provenance={provenance}
+                api={api}
+              />
+            )}
             <button
               type="button"
               className="dd-link"

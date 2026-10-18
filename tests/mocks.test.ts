@@ -15,6 +15,8 @@ import {
   DraftResponse,
   EventsRow,
   FollowupOutput,
+  GapRequest,
+  GapResponse,
   ImportOutput,
   ImportRequest,
   ImportResponse,
@@ -48,6 +50,8 @@ import {
   mockDraftRequest,
   mockDraftWithFollowup,
   mockEventsRow,
+  mockGap,
+  mockGapRequest,
   mockIds,
   mockImport,
   mockImportNotice,
@@ -113,6 +117,8 @@ const fixtures: [string, z.ZodType, unknown][] = [
   ["PublishResponse", PublishResponse, mockPublish],
   ["LiveAnswer", LiveAnswer, mockLiveAnswer],
   ["PromptsResponse", PromptsResponse, mockPrompts],
+  ["GapRequest", GapRequest, mockGapRequest],
+  ["GapResponse", GapResponse, mockGap],
   ...Object.values(mockReaders).map((count): [string, z.ZodType, unknown] => [
     "ReadersResponse",
     ReadersResponse,
@@ -462,5 +468,63 @@ describe("createMockApi", () => {
     await expect(
       newcomer.import({ ...mockImportRequest, text: "電話は 03-0000-0000" }),
     ).rejects.toMatchObject({ error: "unredacted" });
+  });
+
+  it("adds a missing item as a gap prompt once, for holders of the seat only", async () => {
+    const newcomer = createMockApi("a26", { latencyMs: 0 });
+    expect(await newcomer.gap(mockGapRequest)).toEqual(mockGap);
+    const text = mockImport.missing[0].prompt;
+    const added = await newcomer.gap({ seat, text });
+    expect(added.promptId).not.toBe(mockGap.promptId);
+    expect(
+      await createMockApi("a25", { latencyMs: 0 }).gap({ seat, text }),
+    ).toEqual(added);
+    const { prompts } = await createMockApi("a24", { latencyMs: 0 }).prompts({
+      seat,
+    });
+    expect(prompts.map((prompt) => [prompt.reason, prompt.text])).toEqual([
+      ["gap", mockGapRequest.text],
+      ["gap", text],
+      ["core", mockPrompts.prompts[2].text],
+    ]);
+    for (const [persona, code] of [
+      ["x", "forbidden"],
+      ["b", "forbidden"],
+    ] as const) {
+      await expect(
+        createMockApi(persona, { latencyMs: 0 }).gap({ seat, text }),
+      ).rejects.toMatchObject({ error: code });
+    }
+    for (const refused of [
+      "[電話番号] に聞く",
+      "メンバーA に聞く",
+      "加藤さんに聞く",
+      "https://forms.gle/AbCdEf を見る",
+    ]) {
+      await expect(newcomer.gap({ seat, text: refused })).rejects.toMatchObject(
+        { error: "unredacted" },
+      );
+    }
+  });
+
+  it("refuses an added card that the review let someone type a URL back into, like the route", async () => {
+    const senpai = createMockApi("a25", { latencyMs: 0 });
+    const [drafted] = mockImport.cards;
+    const sent = {
+      ...drafted,
+      scope: "successor" as const,
+      provenance: "LINEグループ・2025年3月",
+    };
+    await expect(
+      senpai.publish({
+        seat,
+        cards: [
+          { ...sent, body: "申請は https://forms.gle/AbCdEf から出す。" },
+        ],
+      }),
+    ).rejects.toMatchObject({ error: "unredacted" });
+    expect(
+      (await senpai.publish({ seat, cards: [sent] })).noteIds,
+    ).toHaveLength(1);
   });
 });
