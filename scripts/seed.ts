@@ -187,6 +187,11 @@ type QuestionRow = Record<
   "id" | "persona" | "seat_slug" | "expected_notes",
   string
 >;
+// What every leaver should hand over, per seat type: F6's core prompts and F5's checklist (seed/README.md).
+type CorePromptRow = Record<
+  "seat_type" | "topic" | "text_ja" | "text_en",
+  string
+>;
 
 function env(name: string): string {
   const value = process.env[name];
@@ -207,7 +212,11 @@ async function readCsv<Row>(path: string): Promise<Row[]> {
   }) as Row[];
 }
 
-function validate(notes: NoteRow[], questions: QuestionRow[]): string[] {
+function validate(
+  notes: NoteRow[],
+  questions: QuestionRow[],
+  corePrompts: CorePromptRow[],
+): string[] {
   const problems: string[] = [];
   const noteIds = new Set<string>();
   for (const note of notes) {
@@ -260,6 +269,18 @@ function validate(notes: NoteRow[], questions: QuestionRow[]): string[] {
         problems.push(`${where}: expected note ${id} isn't in notes.csv`);
     }
   }
+  const topics = new Set<string>();
+  for (const prompt of corePrompts) {
+    const where = `core-prompts.csv ${prompt.seat_type}/${prompt.topic}`;
+    if (!seats.some((seat) => seat.type === prompt.seat_type)) {
+      problems.push(`${where}: no seat of type ${prompt.seat_type}`);
+    }
+    if (topics.has(where)) problems.push(`${where}: duplicate topic`);
+    topics.add(where);
+    if (!prompt.topic || !prompt.text_ja || !prompt.text_en) {
+      problems.push(`${where}: missing topic, text_ja or text_en`);
+    }
+  }
   return problems;
 }
 
@@ -306,14 +327,15 @@ async function seed() {
   // Check and embed everything before touching the database, so a bad CSV or a stopped Ollama changes nothing.
   const notes = await readCsv<NoteRow>("seed/notes.csv");
   const questions = await readCsv<QuestionRow>("seed/questions.csv");
-  const problems = validate(notes, questions);
+  const corePrompts = await readCsv<CorePromptRow>("seed/core-prompts.csv");
+  const problems = validate(notes, questions, corePrompts);
   if (problems.length > 0) {
     throw new Error(
       `seed data has ${problems.length} problem(s):\n  ${problems.join("\n  ")}`,
     );
   }
   console.log(
-    `✓ ${notes.length} notes and ${questions.length} questions are consistent`,
+    `✓ ${notes.length} notes, ${questions.length} questions and ${corePrompts.length} core prompts are consistent`,
   );
   const vectors = await embed(notes.map(noteText));
   console.log(
@@ -440,6 +462,21 @@ async function seed() {
         embedding: JSON.stringify(vectors[i]),
       };
     }),
+  );
+
+  // Every seat gets its type's core prompts, in Japanese like the seed notes (the English line is for the README).
+  await insert(
+    db,
+    "prompts",
+    seats.flatMap((seat) =>
+      corePrompts
+        .filter((prompt) => prompt.seat_type === seat.type)
+        .map((prompt) => ({
+          seat_id: seatIds.get(seat.slug),
+          kind: "core",
+          text: prompt.text_ja,
+        })),
+    ),
   );
 
   const users = await demoUsers(db);

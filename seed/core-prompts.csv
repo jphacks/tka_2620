@@ -1,0 +1,21 @@
+seat_type,topic,text_ja,text_en
+club_role,deadlines,学内外への申請や提出で、毎年締切があるものは何ですか？（学祭の出店、保健所への届出など）いつまでに、どこへ出しますか？,"Which applications have a yearly deadline (a festival stall, the health-department notice)? When are they due, and where do they go?"
+club_role,money,団体のお金は、どこで、どうやって管理していますか？,Where and how is the group's money kept?
+club_role,receipts,立て替えや領収書は、いつ、どうやって精算しますか？期限を過ぎたものはどうしますか？,"When and how are advances and receipts settled, and what happens to late ones?"
+club_role,keys,部室や備品の鍵は、どこにあって、無くしたときはどこに連絡しますか？,"Where are the keys to the room and the equipment, and whom do you contact if one is lost?"
+club_role,contacts,困ったときに連絡する窓口はどこですか？（人の名前ではなく、部署や役職で）,"Which offices or roles do you contact when something goes wrong? (Offices or roles, not names.)"
+club_role,forms,毎年使う書類や申請書のひな形は、どこにありますか？,Where are the templates of the forms you use every year?
+club_role,accounts,口座や団体のアカウントの代表者を変えるとき、何が必要ですか？,What do you need to change the representative on the bank account or the group's accounts?
+club_role,first_month,この役職を引き継いだ人が、最初の1か月で困りそうなことは何ですか？,What will the next holder of this role likely struggle with in their first month?
+club_role,pitfalls,去年、失敗しかけたことや、次の人が気をつけたほうがいいことはありますか？,Did anything almost go wrong last year? What should the next person watch out for?
+club_role,unwritten_rules,書かれていないけれど、みんなが守っている決まりはありますか？（顧問やほかの団体とのやりとりなど）,"Are there unwritten rules everyone keeps (with the advisor or other groups, for example)?"
+exchange_route,deadlines,出発前と到着後の手続きで、締切があるものは何ですか？（ビザ、住民登録、保険、履修登録など）,"Which steps before and after arrival have deadlines (visa, residence registration, insurance, course registration)?"
+exchange_route,housing,住まいはどうやって探しましたか？早めに動いたほうがいいことはありますか？,"How did you find housing, and what should be started early?"
+exchange_route,courses,授業や単位の取り方で、知っておくとよいことは何ですか？,What is worth knowing about choosing courses and transferring credits?
+exchange_route,contacts,困ったときに相談できる窓口はどこですか？（人の名前ではなく、部署や役職で）,"Which offices can you turn to when something goes wrong? (Offices or roles, not names.)"
+exchange_route,first_week,着いてから最初の1週間で、やっておくべきことは何ですか？,What should be done in the first week after arrival?
+lab_duty,before_use,この機器を使う前に、かならず確認することは何ですか？,What must be checked before using this equipment?
+lab_duty,after_use,使い終わったあと、すぐにやらないと困ることは何ですか？,"What has to be done right after use, or it causes trouble?"
+lab_duty,supplies,消耗品や予備はどこにあって、無くなったらどう注文しますか？,"Where are the consumables and spares kept, and how are they reordered?"
+lab_duty,contacts,故障やトラブルのときは、どこに連絡しますか？（人の名前ではなく、部署や役職で）,"Whom do you contact about a breakdown or trouble? (Offices or roles, not names.)"
+lab_duty,maintenance,定期点検や更新で、期限があるものはありますか？,Is there periodic maintenance or renewal with a deadline?
