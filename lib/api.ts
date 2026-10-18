@@ -223,7 +223,7 @@ function refused(error: unknown): boolean {
   );
 }
 
-export type SignedIn = { account: DemoAccount; api: Api };
+export type SignedIn = { account: DemoAccount; userId: string; api: Api };
 
 // Signs this device (or the pane under storageKey) in as a demo account. The password goes to Supabase Auth and
 // nowhere else. A password Auth turns down is unauthorized, so the screen can ask again; offline, a rate limit or
@@ -241,7 +241,8 @@ export async function signIn(
   if (error || !data.session) {
     throw new ApiClientError(refused(error) ? "unauthorized" : "unavailable");
   }
-  return { account, api: createApi(db, data.session.user.id) };
+  const userId = data.session.user.id;
+  return { account, userId, api: createApi(db, userId) };
 }
 
 // The session this device (or pane) already has, checked with Supabase Auth: the routes verify a token on their own,
@@ -269,7 +270,22 @@ export async function signedIn(
     await signOut(storageKey);
     return undefined;
   }
-  return { account, api: createApi(db, user.id) };
+  return { account, userId: user.id, api: createApi(db, user.id) };
+}
+
+// Calls back with the user of this device's (or pane's) session whenever it changes, in this tab or another one:
+// undefined once signed out. A screen showing one account's data uses it to stop showing it. Returns the unsubscribe.
+export function onSessionChange(
+  onChange: (userId: string | undefined) => void,
+  storageKey = DEVICE,
+): () => void {
+  const { data } = sessionClient(storageKey).auth.onAuthStateChange(
+    (event, session) => {
+      // The session the screen just checked; only what comes after it matters.
+      if (event !== "INITIAL_SESSION") onChange(session?.user.id);
+    },
+  );
+  return () => data.subscription.unsubscribe();
 }
 
 // Signs this device (or pane) out, and nothing else: the default scope would end the account's sessions on every

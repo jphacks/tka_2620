@@ -3,17 +3,22 @@
 // signOut). Signed out, the page shows SignIn in place, so its URL stays what was opened; signed in, it shows its content
 // as that account, then SignedInAs with 「切り替える」, which signs out this device only (the demo phone stays signed
 // in). Any page can use it: `<SignInGate>{({ account, api }) => …}</SignInGate>`.
+//
+// The content is one account's data (an answer is readable by its asker only), so it never outlives that account on
+// screen: 「切り替える」 takes it away before signing out, and a session that changes anywhere on the device (another
+// tab switching, a session that ends after `pnpm demo:reset`) brings the switcher, or the new account, at once.
 import { useTranslations } from "next-intl";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { SignIn } from "@/components/SignIn";
 import { accountLabel } from "@/components/sign-in";
-import { type SignedIn, signedIn, signOut } from "@/lib/api";
+import { onSessionChange, type SignedIn, signedIn, signOut } from "@/lib/api";
 import type { DemoAccount } from "@/lib/contracts";
 
 type Session =
   | { kind: "checking" }
   | { kind: "offline" }
   | { kind: "signedOut" }
+  | { kind: "signingOut" }
   | { kind: "signedIn"; signed: SignedIn };
 
 export function SignInGate({
@@ -46,11 +51,29 @@ export function SignInGate({
   }, []);
   useEffect(check, [check]);
 
+  // While an account's data is on screen: signed out anywhere on the device → the switcher; someone else → check again.
+  const shown = session.kind === "signedIn" ? session.signed.userId : undefined;
+  useEffect(() => {
+    if (!shown) return;
+    return onSessionChange((userId) => {
+      if (userId === shown) return;
+      if (userId) check();
+      else setSession({ kind: "signedOut" });
+    });
+  }, [shown, check]);
+
+  async function switchAccount() {
+    setSession({ kind: "signingOut" }); // the data leaves the screen now, not when Auth answers
+    await signOut().catch(() => undefined);
+    setSession({ kind: "signedOut" });
+  }
+
   switch (session.kind) {
     case "checking":
+    case "signingOut":
       return (
         <output className="dd-cap" style={{ display: "block" }}>
-          {t("checking")}
+          {t(session.kind === "checking" ? "checking" : "signingOut")}
         </output>
       );
     case "offline":
@@ -78,40 +101,27 @@ export function SignInGate({
           {children(session.signed)}
           <SignedInAs
             account={session.signed.account}
-            onSignedOut={() => setSession({ kind: "signedOut" })}
+            onSwitch={switchAccount}
           />
         </div>
       );
   }
 }
 
-// The page's foot: which demo account this device is, and 「切り替える」 (this device only).
+// The page's foot: which demo account this device is, and 「切り替える」. SignInGate renders it and does the switching.
 export function SignedInAs({
   account,
-  onSignedOut,
+  onSwitch,
 }: {
   account: DemoAccount;
-  onSignedOut: () => void;
+  onSwitch: () => void;
 }) {
   const t = useTranslations();
-  const [busy, setBusy] = useState(false);
   const label = accountLabel(account);
-
-  async function switchAccount() {
-    setBusy(true);
-    await signOut();
-    onSignedOut();
-  }
-
   return (
     <div className="dd-who">
       <p>{t("signIn.signedInAs", { account: t(label.key, label.values) })}</p>
-      <button
-        type="button"
-        className="dd-btn"
-        disabled={busy}
-        onClick={switchAccount}
-      >
+      <button type="button" className="dd-btn" onClick={onSwitch}>
         {t("signIn.switch")}
       </button>
     </div>

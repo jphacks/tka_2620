@@ -124,3 +124,29 @@ it("drops the passphrase link's strings from the seat page", () => {
     ).toEqual([]);
   }
 });
+
+// The screens have no DOM test environment here, so these read their source.
+describe("the login screen's source", () => {
+  const source = (file: string) =>
+    readFileSync(new URL(`../components/${file}`, import.meta.url), "utf8");
+
+  it("keeps the password out of the markup: an uncontrolled field with no name", () => {
+    // React copies a controlled input's value into its value attribute, and a name would let a native submit send it.
+    const text = source("SignIn.tsx");
+    const at = text.indexOf('type="password"');
+    expect(at).toBeGreaterThan(0);
+    const field = text.slice(
+      text.lastIndexOf("<input", at),
+      text.indexOf("/>", at),
+    );
+    expect(field).not.toMatch(/\b(value|defaultValue|name)=/);
+  });
+
+  it("no longer signs the seat pages in with the passphrase link", () => {
+    for (const file of ["SeatSignIn.tsx", "SignInGate.tsx", "SignIn.tsx"]) {
+      expect(source(file)).not.toMatch(
+        /sessionStorage|consoleKey|signInConsolePane|\.get\("(key|as)"\)/,
+      );
+    }
+  });
+});

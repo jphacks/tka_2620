@@ -129,7 +129,8 @@
     "offline": "ログインを確かめられませんでした。通信を確かめて、もう一度ためしてください。",
     "retry": "もう一度ためす",
     "signedInAs": "{account}でログインしています",
-    "switch": "切り替える"
+    "switch": "切り替える",
+    "signingOut": "ログアウトしています"
   },
   "kinds": {
     "deadline": "締切",

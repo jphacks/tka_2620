@@ -129,7 +129,8 @@
     "offline": "Couldn't check your sign-in. Check the connection and try again.",
     "retry": "Try again",
     "signedInAs": "Signed in as {account}",
-    "switch": "Switch account"
+    "switch": "Switch account",
+    "signingOut": "Signing out"
   },
   "kinds": {
     "deadline": "Deadline",

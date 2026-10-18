@@ -1,9 +1,12 @@
 "use client";
 // docs/DESIGN.md → SignIn (F7.5, #87): the demo-account switcher a signed-out page shows in place, so the URL stays the
 // seat link and an NFC tap still lands on the seat. The five demo accounts, never by name (components/sign-in.ts), one
-// password field and 「ログインする」; nobody signs up. The password goes to Supabase Auth only (lib/api.ts → signIn): it
-// lives in this form's state, is never logged, and is cleared after a wrong one. SignInGate renders this only after
-// it has checked the device's session, so the form never exists before hydration and can't submit itself as a GET.
+// password field and 「ログインする」; nobody signs up. The password goes to Supabase Auth only (lib/api.ts → signIn):
+// it is read from the field when the form is sent, never kept in state, never logged, and cleared after a wrong one.
+// The field is uncontrolled on purpose: React copies a controlled input's value into its value attribute, which puts
+// the password in the page's markup for any extension or DevTools to read. It has no name, and SignInGate renders the
+// form only after it has checked the device's session, so the form never exists before hydration and a native submit
+// could never carry the password.
 import { useTranslations } from "next-intl";
 import { type FormEvent, useId, useRef, useState } from "react";
 import { accountLabel, signInFailure } from "@/components/sign-in";
@@ -19,12 +22,13 @@ export function SignIn({
   const title = useId();
   const field = useRef<HTMLInputElement>(null);
   const [account, setAccount] = useState<DemoAccount>();
-  const [password, setPassword] = useState("");
+  const [typed, setTyped] = useState(false);
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<"wrongPassword" | "unavailable">();
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const password = field.current?.value ?? "";
     if (!account || !password || busy) return;
     setBusy(true);
     setFailure(undefined);
@@ -33,7 +37,10 @@ export function SignIn({
     } catch (error) {
       const why = signInFailure(error);
       setFailure(why);
-      if (why === "wrongPassword") setPassword("");
+      if (why === "wrongPassword" && field.current) {
+        field.current.value = "";
+        setTyped(false);
+      }
       setBusy(false);
       field.current?.focus();
     }
@@ -69,8 +76,7 @@ export function SignIn({
         ref={field}
         type="password"
         className="dd-line"
-        value={password}
-        onChange={(event) => setPassword(event.target.value)}
+        onChange={(event) => setTyped(event.target.value !== "")}
         placeholder={t("signIn.password")}
         aria-label={t("signIn.password")}
         autoComplete="current-password"
@@ -79,7 +85,7 @@ export function SignIn({
       <button
         type="submit"
         className="dd-btn dd-btn-primary dd-btn-wide"
-        disabled={busy || !account || !password}
+        disabled={busy || !account || !typed}
       >
         {t(busy ? "signIn.submitting" : "signIn.submit")}
       </button>
