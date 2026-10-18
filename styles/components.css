@@ -138,6 +138,8 @@ span.dd-mini::after { content: none; }
 .dd-field dt { font-size: 13px; color: var(--ink-2); }
 .dd-field dd { margin: 0; font-weight: 700; overflow-wrap: anywhere; }
 .dd-inbox-q { word-break: auto-phrase; overflow-wrap: anywhere; font-family: var(--font-hand); font-size: 20px; line-height: var(--s-6); font-weight: 600; margin: var(--s-3) 0 var(--s-1); }
+/* the app's own question (a gap, required or core prompt, the follow-up) in the UI face; a newcomer's stays .dd-inbox-q */
+.dd-prompt { word-break: auto-phrase; overflow-wrap: anywhere; font-size: 20px; line-height: var(--s-6); font-weight: 700; letter-spacing: .04em; font-feature-settings: "palt"; margin: var(--s-3) 0 var(--s-1); }
 .is-arriving { animation: dd-arrive var(--t-quick, 160ms) ease-out both; }
 @keyframes dd-arrive { from { transform: translateY(-8px); } to { transform: none; } }
 
@@ -176,6 +178,9 @@ span.dd-mini::after { content: none; }
 /* 16px text: iOS zooms into a smaller field on focus */
 .dd-input { box-sizing: border-box; width: 100%; min-height: 44px; padding: var(--s-2) var(--s-3); font: inherit; font-size: 16px; color: var(--ink); background: var(--sheet); border: 1px solid var(--ink-2); border-radius: var(--r-button); }
 textarea.dd-input { min-height: 160px; resize: vertical; }
+/* a field's own face wins over .dd-input's font: inherit: figures for a date, the hand for a predecessor's words */
+.dd-input.dd-fig { font-family: var(--font-figures); font-variant-numeric: tabular-nums; }
+.dd-input.dd-hand { font-family: var(--font-hand); font-size: 17px; letter-spacing: .02em; }
 .dd-check { display: flex; gap: var(--s-2); align-items: flex-start; min-height: 44px; cursor: pointer; }
 .dd-check input { accent-color: var(--blue); width: 20px; height: 20px; margin: 2px 0 0; flex: none; }
 .dd-roles { list-style: none; margin: 0; padding: 0; display: grid; }

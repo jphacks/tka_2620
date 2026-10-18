@@ -27,6 +27,7 @@ import type {
   Scope,
   SeatView,
 } from "@/lib/contracts";
+import { questionLang } from "@/lib/engine/lang";
 import { createMockApi } from "@/lib/mocks";
 import { useRealtime } from "@/lib/realtime";
 
@@ -230,9 +231,13 @@ export function HandoverPrompts({
               <p className="dd-cap" style={{ margin: 0 }}>
                 {reason(prompt)}
               </p>
+              {/* A newcomer's question in the hand, as on the inbox slip; the app's own prompts in the UI face. */}
               <p
                 id={`${titleId}-${prompt.id}`}
-                className="dd-inbox-q"
+                className={
+                  prompt.reason === "demand" ? "dd-inbox-q" : "dd-prompt"
+                }
+                lang={questionLang(prompt.text)}
                 style={{ margin: 0 }}
               >
                 {prompt.text}

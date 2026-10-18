@@ -17,6 +17,7 @@ import {
   type PublishCard,
   type SeatView,
 } from "@/lib/contracts";
+import { questionLang } from "@/lib/engine/lang";
 
 // A deadline as the page's language writes a full date: 2025年10月20日, October 20, 2025.
 function dateLabel(date: string, locale: string): string {
@@ -166,7 +167,12 @@ export function CardReview({
           if (reply.trim() && !busy) onReply(reply.trim());
         }}
       >
-        <p id={`${ids}-q`} className="dd-inbox-q" style={{ marginTop: 0 }}>
+        <p
+          id={`${ids}-q`}
+          className="dd-prompt"
+          lang={questionLang(followup.question)}
+          style={{ marginTop: 0 }}
+        >
           {followup.question}
         </p>
         <label className="dd-label" htmlFor={`${ids}-reply`}>
@@ -174,7 +180,7 @@ export function CardReview({
         </label>
         <input
           id={`${ids}-reply`}
-          className="dd-input"
+          className="dd-input dd-hand"
           value={reply}
           disabled={busy}
           autoComplete="off"
