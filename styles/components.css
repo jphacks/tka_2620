@@ -154,9 +154,10 @@ span.dd-mini::after { content: none; }
 .dd-scope { display: flex; gap: var(--s-5); align-items: center; flex-wrap: wrap; }
 .dd-scope svg circle { fill: none; stroke: var(--blue); stroke-width: 1.5; }
 .dd-scope svg circle.is-on { fill: var(--blue-wash); }
-.dd-scope fieldset { border: 0; margin: 0; padding: 0; display: grid; gap: var(--s-1); }
-.dd-scope label { display: flex; gap: var(--s-2); align-items: center; min-height: 36px; cursor: pointer; }
-.dd-scope input { accent-color: var(--blue); width: 18px; height: 18px; margin: 0; }
+/* each scope's whole row is its 44px tap target (DESIGN → Space), rows touching */
+.dd-scope fieldset { border: 0; margin: 0; padding: 0; display: grid; gap: 0; }
+.dd-scope label { display: flex; gap: var(--s-2); align-items: center; min-height: 44px; cursor: pointer; }
+.dd-scope input { accent-color: var(--blue); width: 24px; height: 24px; margin: 0; flex: none; }
 
 /* Drop area and planner */
 .dd-drop { border: 1.5px dashed var(--ink-2); border-radius: var(--r-slip); padding: var(--s-5) var(--s-4); text-align: center; display: grid; gap: var(--s-1); justify-items: center; }
