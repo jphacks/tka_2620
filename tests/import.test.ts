@@ -580,6 +580,7 @@ describe("importAsCaller", () => {
       functions?: Record<string, Result>;
       request?: ImportRequest;
       reply?: unknown;
+      embed?: (texts: string[]) => Promise<number[][]>;
     } = {},
   ) {
     const stub = stubClient(
@@ -600,9 +601,16 @@ describe("importAsCaller", () => {
         ],
         ...options.tables,
       },
-      { record_import: ok(null), ...options.functions },
+      { record_import: ok(null), search_notes: ok([]), ...options.functions },
     );
     const model = fakeModel(options.reply ?? mockModelReplies.import);
+    const embedded: string[][] = [];
+    const embed =
+      options.embed ??
+      (async (texts: string[]) => {
+        embedded.push(texts);
+        return texts.map(() => new Array(1024).fill(0.01));
+      });
     let result: unknown;
     let error: unknown;
     try {
@@ -610,12 +618,12 @@ describe("importAsCaller", () => {
         stub.client,
         USER_ID,
         options.request ?? request,
-        { model: () => model, canaries, today: TODAY },
+        { model: () => model, embed, canaries, today: TODAY },
       );
     } catch (thrown) {
       error = thrown;
     }
-    return { ...stub, model, result, error };
+    return { ...stub, model, embedded, result, error };
   }
 
   // What record_import got: the seat and numbers, never a string.
@@ -732,6 +740,67 @@ describe("importAsCaller", () => {
       ),
     );
     expect([...sent].sort()).toEqual([...accepted].sort());
+  });
+
+  it("marks each card that a live note of the seat already says, searching as the caller (F5.6)", async () => {
+    const ryoshusho = {
+      id: "smash-2025-ryoshusho",
+      seat_id: SEAT_ID,
+      term_order: 2025,
+      term_label: "2025",
+      byline: "2025年度 会計",
+      kind: "rule_of_thumb",
+      title: "領収書は月末にまとめて精算",
+      body: "領収書は月末に会計にまとめて渡す。",
+      deadline_date: null,
+      lang: "ja",
+      similarity: 0.802,
+    };
+    const { result, embedded, rpcCalls } = await run({
+      functions: { search_notes: ok([ryoshusho]) },
+    });
+    const response = ImportResponse.parse(result);
+    expect(embedded).toHaveLength(1);
+    expect(embedded[0]).toHaveLength(response.cards.length);
+    const searches = rpcCalls.filter(([name]) => name === "search_notes");
+    expect(searches).toHaveLength(response.cards.length);
+    expect(searches[0][1]).toMatchObject({ seat: "smash-kaikei", k: 20 });
+    // The same note comes back for every card here, so only the cards of its kind match it.
+    expect(response.duplicates).toEqual(
+      response.cards.flatMap((card, i) =>
+        card.kind === "rule_of_thumb"
+          ? [
+              {
+                card: i,
+                noteId: "smash-2025-ryoshusho",
+                title: "領収書は月末にまとめて精算",
+                byline: "2025年度 会計",
+                similarity: 0.802,
+              },
+            ]
+          : [],
+      ),
+    );
+    expect(response.duplicates.length).toBeGreaterThan(0);
+  });
+
+  it("still answers when the similar notes can't be found, and logs a code only", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { result, error } = await run({
+      embed: async () => {
+        throw new Error("Ollama answered 500");
+      },
+    });
+    expect(error).toBeUndefined();
+    const response = ImportResponse.parse(result);
+    expect(response.cards.length).toBeGreaterThan(0);
+    expect(response.duplicates).toEqual([]);
+    expect(log).toHaveBeenCalledWith(
+      "POST /api/import: similar notes failed: unavailable (Error)",
+    );
+    const logged = JSON.stringify(log.mock.calls);
+    expect(logged).not.toContain("部費");
+    expect(logged).not.toContain("Ollama");
   });
 
   it("still answers when the counts can't be recorded, and logs a code only", async () => {

@@ -325,7 +325,8 @@ export const ImportResponse = z.object({
   missing: z.array(MissingItem),
   // title is empty when the title itself held what blocked the card.
   blocked: z.array(z.object({ title: z.string(), reason: BlockReason })),
-  // A live note of the same kind with embedding similarity ≥ 0.88; card is an index into cards.
+  // The seat's live note of the same kind that a card would update (bge-m3 similarity ≥ 0.68, the latest term's when
+  // several match; lib/engine/similar.ts), at most one per card; card is an index into cards.
   duplicates: z.array(
     z.object({
       card: Count,

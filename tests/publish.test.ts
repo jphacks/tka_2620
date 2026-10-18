@@ -317,11 +317,18 @@ describe("publishAsCaller", () => {
         "unredacted",
       ],
       [
-        "「更新する」 before F5.6",
+        "two cards updating one note",
         {
           request: {
             ...request,
-            cards: [{ ...card, supersedes: "smash-2025-hokenjo" }],
+            cards: [
+              { ...card, supersedes: "smash-2025-ryoshusho" },
+              {
+                ...card,
+                title: "別の書き方",
+                supersedes: "smash-2025-ryoshusho",
+              },
+            ],
           },
         },
         "invalid_request",
@@ -369,6 +376,79 @@ describe("publishAsCaller", () => {
       tables: { notes: [{ data: null, error: { code: "42501" } }] },
     });
     expect(error).toMatchObject({ name: "ApiFailure", code: "forbidden" });
+  });
+
+  describe("「更新する」 (F5.6)", () => {
+    const notice: PublishCard = {
+      kind: "deadline",
+      title: "保健所への臨時営業届",
+      body: "臨時営業届は2026年10月19日までに学生課窓口へ提出する。",
+      deadline_date: "2026-10-19",
+      suggested_scope: "successor",
+      critical: false,
+      lang: "ja",
+      flags: { person_verdict: false, secret: false },
+      scope: "successor",
+      source: "file",
+      supersedes: "smash-2025-hokenjo",
+    };
+    const added: PublishRequest = {
+      seat: "smash-kaikei",
+      cards: [notice, { ...card, source: "file" }],
+    };
+    const two = ok(
+      [notice, card].map((published, i) => ({
+        id: `${NOTE_ID.slice(0, -1)}${i}`,
+        seat_id: SEAT_ID,
+        term_order: 2026,
+        byline: "2026年度 会計",
+        kind: published.kind,
+        title: published.title,
+        body: published.body,
+        deadline_date: published.deadline_date ?? null,
+        lang: "ja",
+      })),
+    );
+    const a26 = ok([{ term_label: "2026", term_order: 2026 }]);
+
+    it("names the note to replace on that card only, in the same insert", async () => {
+      const { result, calls, rpcCalls } = await run({
+        request: added,
+        tables: { seat_holders: [a26], notes: [two] },
+      });
+      expect(calls.notes).toHaveLength(1);
+      const [update, other] = insertedRows(calls.notes) ?? [];
+      expect(update).toMatchObject({
+        supersedes: "smash-2025-hokenjo",
+        kind: "deadline",
+        deadline_date: "2026-10-19",
+        term_order: 2026,
+        byline: "2026年度 会計",
+        source: "file",
+      });
+      expect(other).not.toHaveProperty("supersedes");
+      expect(result?.noteIds).toHaveLength(2);
+      expect(rpcCalls).toEqual([]); // no prompt, so nobody to answer
+    });
+
+    it("never names the column when no card updates a note", async () => {
+      const { calls } = await run();
+      expect(insertedRows(calls.notes)?.[0]).not.toHaveProperty("supersedes");
+    });
+
+    it("turns the database's refusal of the update into forbidden, and answers nobody", async () => {
+      // A note of another seat or kind, one already replaced or withdrawn, one the publisher can't read, a later
+      // term's: 0009 refuses them all alike, and the insert saves nothing.
+      const { error, rpcCalls } = await run({
+        request: { ...added, promptId: PROMPT_ID },
+        tables: {
+          seat_holders: [a26],
+          notes: [{ data: null, error: { code: "42501" } }],
+        },
+      });
+      expect(error).toMatchObject({ name: "ApiFailure", code: "forbidden" });
+      expect(rpcCalls).toEqual([]);
+    });
   });
 });
 

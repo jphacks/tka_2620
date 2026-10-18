@@ -63,3 +63,33 @@ export function closeEnough(notes: FoundNote[]): FoundNote[] {
     .filter((note) => note.similarity >= RELATED)
     .sort((a, b) => b.similarity - a.similarity);
 }
+
+// A deadline note that a found note replaced (「更新する」, F5.6): superseded_deadlines()'s row (0009). Never an answer's
+// source, only the rule-change flag's history; ids, terms and the date, no title or body.
+export const ReplacedNote = z.object({
+  id: z.string(),
+  seat_id: z.string(),
+  term_order: z.number().int(),
+  term_label: z.string(),
+  deadline_date: IsoDate,
+  superseded_by: z.string(),
+});
+export type ReplacedNote = z.infer<typeof ReplacedNote>;
+
+// The deadline notes the found deadline notes of the asked seat replaced, read as the asker, so the notes policy
+// decides which they see. No call when no such note was found.
+export async function replacedDeadlines(
+  client: SupabaseClient,
+  notes: FoundNote[],
+  seatId: string,
+): Promise<ReplacedNote[]> {
+  const ids = notes
+    .filter((note) => note.seat_id === seatId && note.kind === "deadline")
+    .map((note) => note.id);
+  if (ids.length === 0) return [];
+  const { data, error } = await client.rpc("superseded_deadlines", {
+    note_ids: ids,
+  });
+  if (error) throw dbFailure(error);
+  return z.array(ReplacedNote).parse(data ?? []);
+}
