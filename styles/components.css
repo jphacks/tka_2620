@@ -125,6 +125,9 @@ a.dd-tab { display: grid; place-items: center; text-decoration: none; }
 .dd-verbs .dd-tab:focus-visible { outline-offset: -4px; }
 /* A page with the tabs keeps room under its content for them (after .dd-pad, so it wins), and whatever the browser or
    the page scrolls to (a focused field, an answer that just arrived) stops above them */
+/* The page ends where its content ends: no rubber-band bounce past the end (or the top) that would pull blank paper
+   out from under the fixed verb tabs. */
+html { overscroll-behavior-y: none; }
 /* only the tabs' own 52px and a 12px gap: scrolled to the end, the last element sits just above the tabs, no blank paper */
 .dd-with-verbs { padding-bottom: calc(52px + var(--s-3) + env(safe-area-inset-bottom)); }
 :root:has(.dd-verbs) { scroll-padding-bottom: calc(52px + var(--s-4) + env(safe-area-inset-bottom)); }
