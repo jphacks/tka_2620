@@ -103,19 +103,15 @@ const RINGS = Scope.options;
 
 // The scope a card is published at: the draft's suggestion (successor unless the model said otherwise; the scope picker
 // is F6.4), or for 「更新する」 the replaced note's scope when that is wider. The database refuses an update narrower
-// than the note it replaces, whose readers would lose it (F5.6, #36); a duplicate carries that scope from then on, and
-// until then the suggestion stands.
+// than the note it replaces, whose readers would lose it (F5.6, #36).
 export function scopeOf(
   entry: Entry,
   similar: ImportResponse["duplicates"][number] | undefined,
 ): Scope {
   const suggested = entry.card.suggested_scope;
-  if (entry.choice !== "update") return suggested;
-  const replaced = Scope.safeParse(
-    (similar as { scope?: unknown } | undefined)?.scope,
-  ).data;
-  return replaced && RINGS.indexOf(replaced) > RINGS.indexOf(suggested)
-    ? replaced
+  if (entry.choice !== "update" || !similar) return suggested;
+  return RINGS.indexOf(similar.scope) > RINGS.indexOf(suggested)
+    ? similar.scope
     : suggested;
 }
 
