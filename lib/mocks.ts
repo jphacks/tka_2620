@@ -14,6 +14,7 @@ import {
   type CardDraft,
   type Citation,
   type DedupeOutput,
+  type DemoAccount,
   type DraftOutput,
   DraftRequest,
   type DraftResponse,
@@ -54,8 +55,8 @@ import { shownReason } from "@/lib/engine/shown";
 
 export const USE_MOCKS = process.env.NEXT_PUBLIC_USE_MOCKS === "1";
 
-// The demo accounts (docs/SPEC.md → Personas).
-export type Persona = "a24" | "a25" | "a26" | "b" | "x";
+// The demo accounts (docs/SPEC.md → Personas), as lib/contracts.ts lists them.
+export type Persona = DemoAccount;
 
 // Fixed v4 uuids, so a question, its prompt and its answer line up across panes and tests
 // (crypto.randomUUID needs https, and phones may load the dev server over plain http).
