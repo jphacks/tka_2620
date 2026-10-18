@@ -25,7 +25,7 @@ a missing number stays missing, it is never rounded down to 0.
 | `leaks` | outsider attempts (≥50), all attempts, leaks found | `scripts/check-leak.ts` (F4.4, #28) |
 | `withdraw` | runs, median and max seconds from click to absent in every pane (a throwaway note, ten times) | `scripts/check-withdraw.ts` (F4.2, #26) |
 | `citations` | answer sentences over `seed/questions.csv`, and those whose every source is a note the asker may read | `scripts/check-citations.ts` (F4.5, #29) |
-| `redaction` | chats imported, items hidden, items that left the browser | `scripts/check-redact.ts` (F5.8, #38, not built yet) |
+| `redaction` | the seed's made-up chats and files added, items the browser hid in them, canaries seen outside the browser (target 0) | `scripts/check-redact.ts` (F5.8, #38), also `pnpm test:redact`; it needs no dev server |
 | `loop` | live-loop runs, failures, median seconds from 「誰も知りません」 to the signed answer | `scripts/check-loop.ts` (F3.9, #11), last: it resets the demo |
 
 ## How `pnpm metrics` collects the numbers

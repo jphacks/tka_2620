@@ -1,6 +1,7 @@
 // The strings that must never leave the browser (seed/chat-canaries.txt). leaked() says which of them a text still
 // holds by their line in that file, so a failing test prints line numbers, never a canary.
 import { readFileSync } from "node:fs";
+import { canaryCount as holds } from "@/lib/engine/safety-net";
 
 const canaries = readFileSync(
   new URL("../seed/chat-canaries.txt", import.meta.url),
@@ -15,6 +16,13 @@ export const canaryCount = canaries.length;
 export const leaked = (text: string) =>
   canaries
     .filter(({ text: canary }) => text.includes(canary))
+    .map(({ line }) => line);
+
+// The same, matched the way the server's safety net matches (lib/engine/safety-net.ts): full-width or kanji digits,
+// spaces, dashes or a line break inside a canary still count. For what leaves the browser (pnpm test:redact).
+export const foundLines = (text: string) =>
+  canaries
+    .filter(({ text: canary }) => holds(text, [canary]) > 0)
     .map(({ line }) => line);
 
 // RedactionCounts with nothing hidden.

@@ -467,9 +467,10 @@ export const Metrics = z.object({
     .optional(),
   // seed/questions.csv: answer sentences, and those citing a retrieved note.
   citations: z.object({ sentences: Count, cited: Count }).optional(),
-  // pnpm test:redact: chats imported, items hidden, items that left the browser.
+  // pnpm test:redact: the seed's made-up chats and files added, items the browser hid in them, and canaries seen
+  // outside the browser (in a request, the model's payload, a drafted or stored note, or a log).
   redaction: z
-    .object({ chats: Count, hidden: Count, leftBrowser: Count })
+    .object({ chats: Count, files: Count, hidden: Count, leftBrowser: Count })
     .optional(),
   // pnpm test:loop: runs, failures and the median from 「誰も知りません」 to the signed answer.
   loop: z
