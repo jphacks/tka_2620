@@ -424,6 +424,10 @@ const PHONE = new RegExp(
 const PHONE_DIGITS = /(?<!\d)(?:\+?810?\d{9,10}|0\d{9,10})(?!\d)/g;
 const DIGIT_RUN =
   /\+?\d+(?:(?:[^\p{L}\p{N}\n:\uE000-\uF8FF]|[のー]){1,3}\d+)*/gu;
+// Numbers from abroad, as WhatsApp writes a member saved only by number (+44 7700 900123) and an @mention of one
+// (@447700900123): a + and 8 to 15 digits in groups, or an @ and 8 to 15 digits. @500円 is a unit price.
+const INTL_PHONE =
+  /(?<![\w+])\+\d(?:[-‐‑‒–—―− ().]{0,3}\d){7,14}(?!\d)|(?<=(?<![\w.@])@)\d{8,15}(?!\d)/g;
 const PHONE_NEAR =
   /(?<=(?:電話|(?<![A-Za-z])TEL|携帯|ケータイ|でんわ)[^\n\d]{0,6})\d(?:[-‐−() ]?\d){6,13}(?!\d)/giu;
 
@@ -484,6 +488,11 @@ const RULES: Rule[] = [
       /^(?:0\d{9,10}|810?\d{9,10})$/.test(found.replace(/\D/g, ""))
         ? hide("phones", PLACEHOLDER.phone)
         : original,
+  },
+  {
+    pattern: INTL_PHONE,
+    digits: true,
+    replace: always("phones", PLACEHOLDER.phone),
   },
   {
     pattern: PHONE_NEAR,

@@ -7,8 +7,10 @@ import {
   type ChatMessage,
   type ChatPlatform,
   isChatHeader,
+  isWhatsAppLine,
   parseLine,
   parsePaste,
+  parseWhatsApp,
   speakers,
 } from "@/lib/redact/parse";
 import { PLACEHOLDER } from "@/lib/redact/redact";
@@ -36,14 +38,16 @@ export type Read =
       messages: ChatMessage[];
       doc?: string;
     }
-  | { kind: "whatsapp" } // no reader yet (#32)
   | { kind: "notChat" } // chat-shaped, but not a form lib/redact reads
   | { kind: "noSpeakers" }; // on トーク履歴, nobody speaking was found
 
 // Where text goes, wherever it arrives (pasted, dropped on any tab, picked as any file type):
-// - A LINE export is a chat, so its speaker column gets roles: redactText alone doesn't know that a speaker is a name.
-// - A WhatsApp export is refused until it has a reader (#32); parsePaste would take it as one message with no speaker.
-// - A LINE row copied without its date line (21:03⇥名前⇥本文) is refused: parseLine needs the date line.
+// - A LINE or WhatsApp export is a chat, so its speaker column gets roles: redactText alone doesn't know that a
+//   speaker is a name. With lines of both, the one with more message lines wins, and a tie or a [LINE] header is LINE:
+//   a WhatsApp message can hold a date line and 9:00 正門 集合です, and read as LINE, the rest of the chat would go out
+//   as that message's text, names and all.
+// - WhatsApp lines that aren't read as WhatsApp, or leave no message, are refused: parsePaste would take each as text
+//   with no speaker. So is a LINE row copied without its date line (21:03⇥名前⇥本文): parseLine needs the date line.
 // - On トーク履歴, pasted messages need someone speaking.
 // - On 貼り付け, copied messages are a chat when someone speaks twice (名前: 本文) or a line has a chat's header
 //   (Slack 名前␣␣21:03, Discord 名前 — 日時, [21:03] 名前:). A doc's field labels each appear once (the seed docs'
@@ -55,12 +59,20 @@ export function readSource(
   tab: "text" | "chat",
 ): Read | undefined {
   if (!raw.trim()) return undefined;
+  const lines = raw.split(/\r\n|\r|\n/).filter((row) => row.trim());
+  const whatsapp = whatsAppLines(lines, tab);
+  if (whatsapp > lines.filter((row) => LINE_ROW.test(row)).length) {
+    const messages = parseWhatsApp(raw);
+    return messages.length > 0
+      ? { kind: "chat", platform: "whatsapp", messages }
+      : { kind: "notChat" };
+  }
   const line = parseLine(raw);
   if (line.length > 0)
     return { kind: "chat", platform: "line", messages: line };
-  const lines = raw.split(/\r\n|\r|\n/).filter((row) => row.trim());
-  if (isWhatsApp(lines, tab)) return { kind: "whatsapp" };
-  if (lines.some((row) => LINE_ROW.test(row))) return { kind: "notChat" };
+  if (whatsapp > 0 || lines.some((row) => LINE_ROW.test(row))) {
+    return { kind: "notChat" };
+  }
   const pasted = parsePaste(raw);
   const people = speakers(pasted);
   if (tab === "chat") {
@@ -80,17 +92,17 @@ export function readSource(
 const LINE_ROW =
   /^(?:(?:午前|午後|AM|PM)\s?)?\d{1,2}:\d{2}(?:\s?[AP]M)?\t[^\t\n]+\t/i;
 
-// A WhatsApp message line: 16/10/2025, 17:03 - 名前: (Android), [16/10/2025, 17:03:12] 名前: (iPhone), with any date
-// order, 5:03 PM, and the direction mark iPhones put first.
-const WHATSAPP_LINE =
-  /^[\u200e\u200f\ufeff]?\[?\d{1,4}[/.-]\d{1,2}[/.-]\d{1,4},?\s+\d{1,2}:\d{2}(?::\d{2})?(?:\s?[AaPp]\.?[Mm]\.?)?(?:\]\s*|\s+[-–]\s+)[^:\n]{1,40}:/;
-
-// On トーク履歴 one such line is enough. A doc may hold one (2025/10/16 17:00 - 学生課: 提出), so on 貼り付け it takes
-// two, or a paste that starts with one (a message and its continuation lines).
-function isWhatsApp(lines: string[], tab: "text" | "chat"): boolean {
-  const headers = lines.filter((line) => WHATSAPP_LINE.test(line)).length;
-  if (tab === "chat") return headers >= 1;
-  return headers >= 2 || (lines.length > 0 && WHATSAPP_LINE.test(lines[0]));
+// How many WhatsApp message lines (16/10/2025, 17:03 - 名前: …, [16/10/2025, 17:03:12] 名前: …) there are, when
+// they're enough to be a WhatsApp chat: on トーク履歴 one; on 貼り付け two, or one first (a message and its
+// continuation lines), as a doc may hold one (2025/10/16 17:00 - 学生課: 提出). None in a LINE export, which starts
+// with its [LINE] header and whose messages may hold such a line.
+function whatsAppLines(lines: string[], tab: "text" | "chat"): number {
+  if (/^\ufeff?\[LINE\]/.test(lines[0] ?? "")) return 0;
+  const count = lines.filter(isWhatsAppLine).length;
+  if (tab === "chat") return count;
+  return count >= 2 || (lines.length > 0 && isWhatsAppLine(lines[0]))
+    ? count
+    : 0;
 }
 
 // The placeholders lib/redact writes, drawn as black bars with their type inside (docs/DESIGN.md → Blackout). The type
