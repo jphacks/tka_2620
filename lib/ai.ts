@@ -18,7 +18,7 @@ export function sonnet(): LanguageModel {
   return anthropic(env("ANSWER_MODEL"));
 }
 
-// Haiku: dedupe, where a short call matters more than depth. No effort option: Haiku 4.5 rejects one.
+// Haiku: dedupe and follow-ups, where a short call matters more than depth. No effort option: Haiku 4.5 rejects one.
 export function haiku(): LanguageModel {
   env("ANTHROPIC_API_KEY"); // presence only; the provider reads the key itself
   return anthropic(env("FAST_MODEL"));

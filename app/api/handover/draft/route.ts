@@ -1,9 +1,10 @@
-// POST /api/handover/draft: a predecessor's spoken or typed answer to a prompt → drafted cards (F3.7, F6).
-// Nothing is stored; publishing is POST /api/handover/publish.
+// POST /api/handover/draft: a predecessor's spoken or typed answer to a prompt → drafted cards, and at most one
+// follow-up when the answer leaves out a date, a contact or a threshold (F3.7, F6). Nothing is stored; publishing is
+// POST /api/handover/publish.
 import { z } from "zod";
-import { sonnet } from "@/lib/ai";
+import { haiku, sonnet } from "@/lib/ai";
 import { DraftRequest, DraftResponse, SeatType } from "@/lib/contracts";
-import { draftCards } from "@/lib/engine/draft";
+import { draftAnswer } from "@/lib/engine/draft";
 import {
   apiError,
   bearerToken,
@@ -31,7 +32,7 @@ export async function POST(request: Request): Promise<Response> {
     await request.json().catch(() => undefined),
   );
   if (!parsed.success) return apiError("invalid_request");
-  const { seat, promptId, answer } = parsed.data;
+  const { seat, promptId, answer, followup } = parsed.data;
 
   try {
     const caller = await callerFor(token);
@@ -49,14 +50,16 @@ export async function POST(request: Request): Promise<Response> {
     if (!data) return apiError("not_found");
     const prompt = PromptRow.parse(data);
 
-    const cards = await draftCards({
-      model: sonnet(),
+    // A request with the follow-up's reply is the reply round: it never gets another follow-up.
+    const drafted = await draftAnswer({
+      models: { draft: sonnet, followup: haiku },
       question: prompt.text,
       answer,
+      followup,
       seat: { name: prompt.seats.name, seatType: prompt.seats.seat_type },
       today: today(),
     });
-    return Response.json(DraftResponse.parse({ cards }));
+    return Response.json(DraftResponse.parse(drafted));
   } catch (error) {
     // The code and the error's class only: a message can quote the answer, the prompt or the model's reply.
     return failed("POST /api/handover/draft", error);

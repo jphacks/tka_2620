@@ -63,7 +63,7 @@ export const CardDraft = z.object({
   kind: NoteKind,
   title: z.string(),
   body: z.string(),
-  deadline_date: IsoDate.optional(), // a deadline card lacks it only while a follow-up asks for it
+  deadline_date: IsoDate.optional(), // always on a deadline card: one given without a date is drafted as another kind
   suggested_scope: Scope,
   critical: z.boolean(),
   valid_until: IsoDate.optional(), // seats with noteExpiry
@@ -195,6 +195,14 @@ export const DraftRequest = z.object({
   seat: SeatSlug,
   promptId: Uuid,
   answer: z.string().trim().min(1).max(4000), // spoken or typed
+  // The reply round (F6.3): the one follow-up the first draft asked, and the predecessor's reply to it. A draft with it
+  // never asks again, so an answer gets at most one follow-up.
+  followup: z
+    .object({
+      question: z.string().trim().min(1).max(200),
+      answer: z.string().trim().min(1).max(1000),
+    })
+    .optional(),
 });
 export type DraftRequest = z.infer<typeof DraftRequest>;
 
@@ -204,7 +212,7 @@ export type FollowupMissing = z.infer<typeof FollowupMissing>;
 export const Followup = z.object({
   missing: FollowupMissing,
   question: z.string(),
-}); // at most one per answer
+}); // at most one per answer: the reply round (DraftRequest.followup) gets none
 export type Followup = z.infer<typeof Followup>;
 
 export const DraftResponse = z.object({
