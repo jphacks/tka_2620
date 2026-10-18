@@ -22,7 +22,7 @@ export function HandoverColumn({
   return (
     <div className="dd-col" style={{ gap: "var(--s-7)" }}>
       <InboxPanel
-        key={inboxRead}
+        refresh={inboxRead}
         slug={slug}
         api={api}
         mockShortcuts={mockShortcuts}

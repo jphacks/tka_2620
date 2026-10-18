@@ -23,6 +23,7 @@ export function InboxPanel({
   mockShortcuts = true,
   closeAfterPublish = false,
   onPublished,
+  refresh = 0,
   api: given,
 }: {
   slug: string;
@@ -31,6 +32,8 @@ export function InboxPanel({
   closeAfterPublish?: boolean;
   /** An answer was published here (the handover prompts below read their list again). */
   onPublished?: () => void;
+  /** Changes when the handover prompts below published: read the slips again, keeping an answer being written. */
+  refresh?: number;
   /** The signed-in predecessor's client (a console pane's); mocks as a25 when left out. */
   api?: Api;
 }) {
@@ -70,9 +73,10 @@ export function InboxPanel({
     if ("vibrate" in navigator) navigator.vibrate([180, 80, 180]);
   }, [api, slug]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: refresh is the signal to read again
   useEffect(() => {
     load();
-  }, [load]);
+  }, [load, refresh]);
   // A route row holds no question text, so fetch the inbox again.
   useRealtime(api, "prompt_routes", () => {
     load();
