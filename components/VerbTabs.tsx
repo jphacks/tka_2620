@@ -6,7 +6,8 @@ import { useTranslations } from "next-intl";
 
 export type Verb = "ask" | "handover" | "myNotes";
 
-export function VerbTabs({ seat, current }: { seat: string; current: Verb }) {
+// current: the verb page this is; none on /me, which isn't a verb.
+export function VerbTabs({ seat, current }: { seat: string; current?: Verb }) {
   const t = useTranslations("verbs");
   const slug = encodeURIComponent(seat);
   const verbs: { verb: Verb; href: string }[] = [
@@ -15,7 +16,8 @@ export function VerbTabs({ seat, current }: { seat: string; current: Verb }) {
     { verb: "myNotes", href: `/me/notes?seat=${slug}` },
   ];
   return (
-    <nav className="dd-verbs">
+    // Labelled, since every seat page has a second nav (SeatBar).
+    <nav className="dd-verbs" aria-label={t("label")}>
       <div className="dd-tabs">
         {verbs.map(({ verb, href }) => (
           <Link

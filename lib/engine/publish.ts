@@ -41,6 +41,7 @@ import {
   logFailure,
 } from "@/lib/engine/route";
 import { canaryCount, seedCanaries } from "@/lib/engine/safety-net";
+import { SeatSettings } from "@/lib/engine/seat";
 import { shownReason } from "@/lib/engine/shown";
 import ja from "@/messages/ja.json";
 
@@ -80,7 +81,12 @@ export async function handlePublish(request: Request): Promise<Response> {
 // A stored byline is Japanese whatever the publisher's language, as scripts/seed.ts writes the seed's.
 const labelPack = createTranslator({ locale: "ja", messages: ja });
 
-const SeatRow = z.object({ id: Uuid, name: z.string(), seat_type: SeatType });
+const SeatRow = z.object({
+  id: Uuid,
+  name: z.string(),
+  seat_type: SeatType,
+  settings: SeatSettings,
+});
 const TermRow = z.object({
   term_label: z.string(),
   term_order: z.number().int(),
@@ -119,7 +125,7 @@ export async function publishAsCaller(
 ): Promise<PublishResponse> {
   const { data: seatRow, error: seatError } = await client
     .from("seats")
-    .select("id, name, seat_type")
+    .select("id, name, seat_type, settings")
     .eq("slug", request.seat)
     .maybeSingle();
   if (seatError) throw dbFailure(seatError);
@@ -199,8 +205,12 @@ export async function publishAsCaller(
         deadline_date: card.deadline_date ?? null,
         lang: card.lang,
         scope: card.scope,
-        critical: card.critical,
-        valid_until: card.valid_until ?? null,
+        // A seat setting that is off has no control on the screen, so nothing of it is stored: the live loop publishes
+        // drafts unreviewed, and a draft keeps a valid_until whenever the answer names a date (F6.4, #43).
+        critical: seat.settings.groupOwnsCriticalNotes ? card.critical : false,
+        valid_until: seat.settings.noteExpiry
+          ? (card.valid_until ?? null)
+          : null,
         source: sourceOf(card, prompt),
         provenance: card.provenance ?? null,
         embedding: JSON.stringify(vectors[i]),

@@ -4,6 +4,8 @@
 // editable field in Klee One on ruled lines, so the keyboard's dictation works in the same place.
 // Mocks only for now (NEXT_PUBLIC_USE_MOCKS=1), as last year's treasurer (a25): the real client replaces
 // createMockApi when /api/handover/draft and /api/handover/publish exist. The console hands in its a25 pane's client.
+// On the handover prompts (F6) the panel only takes the answer: onDraft gets it, and the cards are reviewed before
+// anything is published (components/HandoverPrompts.tsx).
 import { Mic } from "lucide-react";
 import { useTranslations } from "next-intl";
 import {
@@ -47,18 +49,29 @@ export function VoiceAnswer({
   mode = "voice",
   onPublished,
   onClose,
+  onDraft,
+  drafting = false,
+  headingLevel = 2,
   api: given,
 }: {
-  item: InboxItem;
+  /** The prompt being answered; a handover prompt has no language of its own. */
+  item: Pick<InboxItem, "promptId"> & { lang?: InboxItem["lang"] };
   seat: string;
   /** voice starts the microphone; text opens the field focused (both land in the same field). */
   mode?: AnswerMode;
   onPublished?: () => void; // after publish: refresh the inbox (the waiting question is gone)
   onClose?: () => void; // dismiss the panel after reading the drafted card
+  /** Take the answer instead of publishing it: the button says 下書きを作る. */
+  onDraft?: (answer: string) => void;
+  /** onDraft's request is on its way. */
+  drafting?: boolean;
+  /** The title's level: 3 inside a handover prompt, under the prompts' h2. */
+  headingLevel?: 2 | 3;
   /** The signed-in predecessor's client; mocks as a25 when left out. */
   api?: Api;
 }) {
   const t = useTranslations();
+  const Title = headingLevel === 3 ? "h3" : "h2";
   const api = useMemo(() => given ?? createMockApi("a25"), [given]);
   const fieldId = useId();
   const field = useRef<HTMLTextAreaElement>(null);
@@ -124,6 +137,10 @@ export function VoiceAnswer({
     const answer = text.trim();
     if (!answer || publishing) return;
     dictation.stop();
+    if (onDraft) {
+      onDraft(answer);
+      return;
+    }
     setPublishing(true);
     setFailed(false);
     try {
@@ -166,7 +183,7 @@ export function VoiceAnswer({
         className="dd-col"
         style={{ gap: "var(--s-4)" }}
       >
-        <h2 className="dd-h">{t("voice.title")}</h2>
+        <Title className="dd-h">{t("voice.title")}</Title>
         {card && <DraftedCard card={card} />}
         <output className="dd-live-note">{t("voice.published")}</output>
         <button
@@ -188,7 +205,7 @@ export function VoiceAnswer({
       className="dd-col"
       style={{ gap: "var(--s-4)" }}
     >
-      <h2 className="dd-h">{t("voice.title")}</h2>
+      <Title className="dd-h">{t("voice.title")}</Title>
 
       <div
         className="dd-col"
@@ -238,10 +255,16 @@ export function VoiceAnswer({
           type="button"
           className="dd-btn dd-btn-primary"
           style={{ flex: 1, minHeight: "52px" }}
-          disabled={!text.trim() || publishing}
+          disabled={!text.trim() || publishing || drafting}
           onClick={publish}
         >
-          {publishing ? t("voice.publishing") : t("inbox.publish")}
+          {onDraft
+            ? drafting
+              ? t("handover.drafting")
+              : t("handover.makeDraft")
+            : publishing
+              ? t("voice.publishing")
+              : t("inbox.publish")}
         </button>
       </div>
       {failed && (

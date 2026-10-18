@@ -93,7 +93,7 @@ export const mockQuestions = {
 
 // seed/live-answer.txt: what a25 says in the live loop.
 export const mockLiveAnswerText =
-  "少額ならば予備部分から出して、大きい場合は次年度の人に回してください。そういうことが今後はないように、周知を徹底した方が良いかもしれないです。";
+  "少額ならば予備部分から出して、大きい場合は次年度の人に回してください。";
 
 // Holders of smash-kaikei; bylines come from the club_role label pack (「{term}年度 {seat}」), as in scripts/seed.ts.
 const holders: Partial<Record<Persona, { term: string; byline: string }>> = {
@@ -340,7 +340,7 @@ export const mockSeen: SeenResponse = { seenAt: "2026-10-18T10:31:20+09:00" };
 export const mockLiveCard: CardDraft = {
   kind: "rule_of_thumb",
   title: "決算後に出てきた領収書",
-  body: "少額なら予備費から出し、大きい額は次年度の会計に回す。今後出ないように、決算前の提出を周知しておく。",
+  body: "少額なら予備費から出し、大きい額は次年度の会計に回す。",
   suggested_scope: "successor",
   critical: false,
   lang: "ja",
@@ -413,10 +413,6 @@ export const mockLiveAnswer: LiveAnswer = {
   sentences: [
     {
       text: "少額ならば予備部分から出して、大きい場合は次年度の人に回してください。",
-      citations: [cite.live],
-    },
-    {
-      text: "そういうことが今後はないように、周知を徹底した方が良いかもしれないです。",
       citations: [cite.live],
     },
   ],
@@ -1280,14 +1276,17 @@ export function createMockApi(
       return reply({ withdrawnAt });
     },
 
+    // Newest first, as GET /api/me/notes lists them (created_at descending, lib/engine/notes.ts).
     async myNotes() {
       return reply({
-        notes: notesOf(persona).map(
-          ({ author: _author, ...note }): MyNote => ({
-            ...note,
-            status: state.withdrawn.has(note.id) ? "withdrawn" : "live",
-          }),
-        ),
+        notes: notesOf(persona)
+          .toReversed()
+          .map(
+            ({ author: _author, ...note }): MyNote => ({
+              ...note,
+              status: state.withdrawn.has(note.id) ? "withdrawn" : "live",
+            }),
+          ),
       });
     },
 

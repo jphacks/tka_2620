@@ -127,7 +127,7 @@ export function SignedInAs({
   const t = useTranslations();
   const label = accountLabel(account);
   return (
-    <div className="dd-who">
+    <div className="dd-who dd-noprint">
       <p>{t("signIn.signedInAs", { account: t(label.key, label.values) })}</p>
       <button type="button" className="dd-btn" onClick={onSwitch}>
         {t("signIn.switch")}
