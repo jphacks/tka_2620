@@ -4,9 +4,10 @@
 // (blank lines, never hidden), and the viewer's own questions with their answers, each stamp still opening its note.
 // The filters (kind, who wrote it, order) shape the page and the export alike: print / PDF through the browser, or a
 // Markdown file built here. Nothing is sent or stored by exporting; RLS already decided what the page received
-// (GET /api/seats/[slug]/guide). People appear only as bylines (「2025年度 会計」), never by name.
+// (GET /api/seats/[slug]/guide). People appear only as bylines (「2025年度 会計」), never by name. On mocks as a26; on real
+// data as the account signed in on this device, or the login screen in place (components/SignInGate.tsx).
 import { useFormatter, useLocale, useTranslations } from "next-intl";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AnswerEntry } from "@/components/AnswerEntry";
 import { DateStamp } from "@/components/DateStamp";
 import {
@@ -24,10 +25,11 @@ import {
   sortNotes,
 } from "@/components/guide";
 import { kindMarks } from "@/components/marks";
+import { SignInGate } from "@/components/SignInGate";
 import { plannerDate, tokyoToday } from "@/components/seat-page";
 import { UpcomingList } from "@/components/UpcomingList";
-import { useSeatApi } from "@/components/useSeatApi";
-import type { GuideOpen, GuideView, SeatView } from "@/lib/contracts";
+import type { Api, GuideOpen, GuideView, SeatView } from "@/lib/contracts";
+import { createMockApi, USE_MOCKS } from "@/lib/mocks";
 
 const START: GuideFilter = { kind: ALL, byline: ALL, sort: "newest" };
 
@@ -48,10 +50,20 @@ function saveFile(text: string, name: string) {
 }
 
 export function HandoverGuide({ slug }: { slug: string }) {
+  const mock = useMemo(
+    () => (USE_MOCKS ? createMockApi("a26") : undefined),
+    [],
+  );
+  if (mock) return <Guide slug={slug} api={mock} />;
+  return (
+    <SignInGate>{({ api }) => <Guide slug={slug} api={api} />}</SignInGate>
+  );
+}
+
+function Guide({ slug, api }: { slug: string; api: Api }) {
   const t = useTranslations();
   const locale = useLocale();
   const format = useFormatter();
-  const signed = useSeatApi("a26");
   const [view, setView] = useState<SeatView>();
   const [guide, setGuide] = useState<GuideView>();
   const [failed, setFailed] = useState(false);
@@ -59,9 +71,8 @@ export function HandoverGuide({ slug }: { slug: string }) {
   const [saved, setSaved] = useState<string>();
 
   useEffect(() => {
-    if (signed.state !== "ready") return;
     let alive = true;
-    Promise.all([signed.api.seat(slug), signed.api.guide(slug)]).then(
+    Promise.all([api.seat(slug), api.guide(slug)]).then(
       ([seatView, guideView]) => {
         if (!alive) return;
         setView(seatView);
@@ -74,24 +85,16 @@ export function HandoverGuide({ slug }: { slug: string }) {
     return () => {
       alive = false;
     };
-  }, [signed, slug]);
+  }, [api, slug]);
 
-  const calm = (message: string, toSeat = false) => (
-    <section className="dd-col" style={{ gap: "var(--s-4)" }}>
-      <h1 className="dd-h dd-guide-title">{t("guide.titlePlain")}</h1>
-      <p style={{ margin: 0, color: "var(--ink-2)" }}>{message}</p>
-      {toSeat && (
-        <a
-          className="dd-btn dd-btn-link"
-          href={`/s/${encodeURIComponent(slug)}`}
-        >
-          {t("profile.toSeat")}
-        </a>
-      )}
-    </section>
-  );
-  if (signed.state === "signedOut") return calm(t("profile.signedOut"), true);
-  if (signed.state === "failed" || failed) return calm(t("guide.failed"));
+  if (failed) {
+    return (
+      <section className="dd-col" style={{ gap: "var(--s-4)" }}>
+        <h1 className="dd-h dd-guide-title">{t("guide.titlePlain")}</h1>
+        <p style={{ margin: 0, color: "var(--ink-2)" }}>{t("guide.failed")}</p>
+      </section>
+    );
+  }
   if (!view || !guide) {
     return (
       <section className="dd-col" style={{ gap: "var(--s-4)" }}>
@@ -103,7 +106,6 @@ export function HandoverGuide({ slug }: { slug: string }) {
 
   const { seat } = view;
   const { open: openItems, openChecked } = guide; // the export below runs later, outside this check
-  const api = signed.state === "ready" ? signed.api : undefined;
   const today = tokyoToday();
   const shown = sortNotes(filterNotes(guide.notes, filter), filter.sort, today);
   const sections = groupByKind(shown);
@@ -423,7 +425,7 @@ export function HandoverGuide({ slug }: { slug: string }) {
         )}
       </section>
 
-      {answered.length > 0 && api && (
+      {answered.length > 0 && (
         <section
           className="dd-col"
           style={{ gap: "var(--s-5)" }}
