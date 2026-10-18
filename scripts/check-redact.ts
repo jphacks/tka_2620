@@ -11,21 +11,25 @@
 // - sent by the browser's own client (lib/api.ts) with a25's token;
 // - answered by the real route handler (app/api/import/route.ts) in this process, so the sign-in, RLS, the safety net,
 //   Sonnet and record_import are the real ones, and the check sees what the server sends on.
-// scripts/outgoing.ts records every request that leaves this process and everything printed, and counts what reaches
-// the network, so nothing goes out unseen. For each request sent:
+// scripts/outgoing.ts records every request that leaves this process and everything printed, and counts the requests
+// and connections that reach the network, so nothing goes out unseen. For each request sent:
 //   request body    what leaves the browser: no canary in any of its strings
 //   model           no canary; and every line of the text, as the server's second pass leaves it, is in the payload,
 //                   so a recorder that saw nothing can't pass
-//   database        reads, the notes search, and record_import with numbers only: the import stores nothing else
+//   database        reads, the notes search, and record_import with numbers only: the import stores nothing else, and
+//                   no piece of the text goes there
 //   elsewhere       nothing: another destination fails, and so does a request the recorder couldn't read
 //   drafted notes   every string of the route's answer: no canary
-//   log             no canary and no line of the text
-// Then once, with the service role and read only: no canary in any note, prompt or import event in the database.
+//   log             no canary and no piece of the text
+// Nothing may leave while the device reads the files, between two requests or after the last one. Then once, with the
+// service role and read only: no canary in any note, prompt or import event in the database.
 //
 // seed/scan.sample.pdf has no text layer: the browser refuses it (the paste hint) and sends nothing (SPEC → F5).
 // Printed: counts, and the line numbers of canaries in seed/chat-canaries.txt; never a canary, a sample's text or a
 // reply. Each request costs a Sonnet call (a few cents in all) and leaves one counts-only events row (0008), kept like
 // the loop and leak records. Nothing else is written: no question, prompt or note, nothing in a25's inbox.
+// The numbers go to pnpm metrics only from a run that passed, or from any run that saw a canary outside the browser:
+// a run that couldn't vouch for itself says "not measured", never 0.
 import { fileURLToPath } from "node:url";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
@@ -42,14 +46,16 @@ import { Uuid } from "@/lib/contracts";
 import { screenImport, seedCanaries } from "@/lib/engine/safety-net";
 import { reportMetrics } from "@/scripts/metrics-line";
 import {
+  carried,
   decoded,
   installTap,
   joined,
   ORIGIN,
   type Outgoing,
+  pieces,
+  quoted,
   strings,
   type Tap,
-  urlStrings,
   type Window,
 } from "@/scripts/outgoing";
 import { type Added, addFile, SAMPLES, type Send } from "@/tests/browser-send";
@@ -62,8 +68,10 @@ const PERSONA = "a25"; // the outgoing treasurer: 残す → 「＋ 追加」 is
 // What the device refuses on purpose: a scan has no text to read, so the slip shows the paste hint.
 const REFUSED: Record<string, string> = { "scan.sample.pdf": "no_text" };
 const SEND_MS = 180_000; // one import, Sonnet included
+// After the answer, a request is over once nothing has left for QUIET_MS, or after SETTLE_MS at most.
+const QUIET_MS = 500;
+const SETTLE_MS = 5_000;
 const CAP = 100_000; // record_import's cap on each count (lib/engine/import.ts)
-const LINE_CHARS = 8; // a line of the text this long, found in a log, is the text and not a coincidence
 const KINDS = [
   "names",
   "people",
@@ -76,14 +84,32 @@ const KINDS = [
   "secrets",
 ] as const satisfies readonly (keyof RedactionCounts)[];
 
-// What the import may ask of the database: reads, the notes search (F1.3; F5.6 looks for similar notes with it), and
-// record_import, whose body may hold the seat and numbers only.
+// What the import may ask of the database: reads, the notes search (F1.3; F5.6 looks for similar notes with it, by
+// embedding), and record_import with the seat and the counts it takes by name (0008_import_events.sql).
 const READ_CALLS = new Set(["/rest/v1/rpc/search_notes"]);
 const RECORD_CALL = "/rest/v1/rpc/record_import";
+const RECORD_KEYS = [
+  "chat",
+  "file",
+  ...KINDS,
+  "rehidden",
+  "rejected",
+  "phones_left",
+  "emails_left",
+  "canaries_left",
+  "cards",
+  "blocked",
+  "missing",
+  "dates_dropped",
+  "dates_fixed",
+] as const;
 const Recorded = z
   .object({
     seat: Uuid,
-    counts: z.record(z.string(), z.number().int().min(0).max(CAP)),
+    counts: z.partialRecord(
+      z.enum(RECORD_KEYS),
+      z.number().int().min(0).max(CAP),
+    ),
   })
   .strict();
 
@@ -97,6 +123,54 @@ for (const signal of ["SIGINT", "SIGTERM"] as const) {
 
 // An error worded by this check, so its message is safe to print (an error from elsewhere could quote a text).
 class Stop extends Error {}
+
+const plural = (count: number, one: string, many = `${one}s`) =>
+  `${count} ${count === 1 ? one : many}`;
+
+const lines = (found: number[]) =>
+  `canary line${found.length === 1 ? "" : "s"} ${found.join(", ")}`;
+
+const hiddenText = (counts: RedactionCounts) =>
+  KINDS.filter((kind) => counts[kind] > 0)
+    .map((kind) => `${kind} ${counts[kind]}`)
+    .join(", ") || "nothing";
+
+// The run so far: problems by count, every canary seen outside the browser by its line in the canary file, and the
+// samples measured. Kept outside main(), so a run that stops halfway still reports a canary it saw.
+class Run {
+  problems = 0;
+  readonly left = new Set<number>();
+  chats = 0;
+  files = 0;
+  readonly hidden = Object.fromEntries(
+    KINDS.map((kind) => [kind, 0]),
+  ) as Record<(typeof KINDS)[number], number>;
+
+  constructor(readonly say: (line: string) => void) {}
+
+  // A check on what went out: ✓ when no canary is in it.
+  canaries(place: string, found: number[], detail: string): void {
+    for (const line of found) this.left.add(line);
+    if (found.length > 0) this.problems += 1;
+    this.say(
+      `    ${found.length ? "✗" : "✓"} ${place}: ${detail}${found.length ? `; ${lines(found)}` : ", no canary"}`,
+    );
+  }
+
+  problem(text: string): void {
+    this.problems += 1;
+    this.say(`    ✗ ${text}`);
+  }
+
+  total(): number {
+    return KINDS.reduce((sum, kind) => sum + this.hidden[kind], 0);
+  }
+
+  numbers(): NonNullable<Metrics["redaction"]> {
+    const { chats, files } = this;
+    return { chats, files, hidden: this.total(), leftBrowser: this.left.size };
+  }
+}
 
 function env(name: string): string {
   const value = process.env[name];
@@ -187,72 +261,102 @@ function within<T>(promise: Promise<T>, ms: number): Promise<T> {
   return Promise.race([promise, late]).finally(() => clearTimeout(timer));
 }
 
-const hiddenText = (counts: RedactionCounts) =>
-  KINDS.filter((kind) => counts[kind] > 0)
-    .map((kind) => `${kind} ${counts[kind]}`)
-    .join(", ") || "nothing";
-
-const lines = (found: number[]) =>
-  `canary line${found.length === 1 ? "" : "s"} ${found.join(", ")}`;
-
-const plural = (count: number, one: string, many = `${one}s`) =>
-  `${count} ${count === 1 ? one : many}`;
-
-// The run's findings: problems by count, and every canary seen outside the browser by its line in the canary file.
-class Findings {
-  problems = 0;
-  readonly left = new Set<number>();
-
-  constructor(private readonly say: (line: string) => void) {}
-
-  // A check on what went out: ✓ when no canary is in it.
-  canaries(place: string, found: number[], detail: string): void {
-    for (const line of found) this.left.add(line);
-    if (found.length > 0) this.problems += 1;
-    this.say(
-      `    ${found.length ? "✗" : "✓"} ${place}: ${detail}${found.length ? `; ${lines(found)}` : ", no canary"}`,
+// Waits until nothing has left or been printed for QUIET_MS: a request the route didn't wait for still lands in the
+// window of the request that started it.
+async function settle(tap: Tap): Promise<void> {
+  const size = () => {
+    const window = tap.current();
+    return (
+      window.sent.length +
+      window.network +
+      window.sockets +
+      window.output.length
     );
-  }
-
-  problem(text: string): void {
-    this.problems += 1;
-    this.say(`    ✗ ${text}`);
+  };
+  const started = Date.now();
+  let seen = size();
+  let quietSince = started;
+  while (Date.now() - started < SETTLE_MS) {
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    const now = size();
+    if (now !== seen) {
+      seen = now;
+      quietSince = Date.now();
+    } else if (Date.now() - quietSince >= QUIET_MS) {
+      return;
+    }
   }
 }
 
-// A window's output, minus its marker, printed only once it holds no canary and no line of the texts given. A canary
-// there is one more that left the browser (a log); the text there breaks "never log the text".
+// A window's output, minus its marker, printed only once it holds no canary and no piece of the texts given. A canary
+// there is one more that left the browser (a log), unless the window is the device's own console; a piece of the text
+// breaks "never log the text". Either way the output is withheld.
 function replay(
   window: Window,
   texts: string[],
-  findings: Findings,
-  say: (line: string) => void,
+  run: Run,
+  outside = true,
 ): { clean: boolean; printed: number; marked: boolean } {
   const marked = window.output.includes(window.marker);
   const output = window.output.replace(`${window.marker}\n`, "").trimEnd();
   const found = foundLines(output);
-  const quoted = texts
-    .flatMap((text) => text.split("\n"))
-    .map((line) => line.trim())
-    .filter((line) => line.length >= LINE_CHARS && output.includes(line));
-  for (const line of found) findings.left.add(line);
-  if (found.length > 0 || quoted.length > 0) {
-    findings.problems += 1;
-    say(
-      `    ✗ log (${window.label}): ${output.length} characters withheld: ${
-        found.length
-          ? lines(found)
-          : `${plural(quoted.length, "line")} of the text`
+  const text = quoted(output, pieces(texts));
+  if (outside) for (const line of found) run.left.add(line);
+  if (found.length > 0 || text > 0) {
+    run.problem(
+      `log (${window.label}): ${output.length} characters withheld: ${
+        found.length ? lines(found) : `${plural(text, "piece")} of the text`
       }`,
     );
     return { clean: false, printed: 0, marked };
   }
   const printed = output ? output.split("\n") : [];
-  for (const line of printed) say(`    | ${line}`);
+  for (const line of printed) run.say(`    | ${line}`);
   return { clean: true, printed: printed.length, marked };
 }
 
-type Measured = { measured: boolean; seconds?: number };
+// A window in which nothing may leave: while the device reads the files, between two requests, after the last one.
+function silent(window: Window, when: string, run: Run): void {
+  const { sent, network, sockets } = window;
+  if (sent.length + network + sockets === 0) return;
+  run.problem(
+    `${when}: ${plural(sent.length, "request")} recorded, ${plural(network, "request")} and ${plural(sockets, "connection")} on the network; nothing should leave then`,
+  );
+  const found = foundLines(joined(sent.flatMap(carried)));
+  for (const line of found) run.left.add(line);
+  if (found.length > 0) run.problem(`${when}: ${lines(found)}`);
+}
+
+// A window whose requests are the check's own (signing in, the sweep): reads and sign-in calls to the shared project
+// only, and no request around fetch.
+function own(
+  window: Window,
+  when: string,
+  run: Run,
+  where: (url: string) => Destination,
+  writes: boolean,
+): void {
+  const others = window.sent.filter(
+    (call) =>
+      where(call.url) !== "database" ||
+      (!writes && call.method !== "GET" && call.method !== "HEAD"),
+  );
+  if (others.length > 0) {
+    run.problem(
+      `${when}: ${plural(others.length, "request")} not to the shared project${writes ? "" : " or not a read"}`,
+    );
+  }
+  if (
+    window.network !== window.sent.length ||
+    window.sockets > window.network
+  ) {
+    run.problem(
+      `${when}: ${plural(window.network, "request")} and ${plural(window.sockets, "connection")} on the network, ${window.sent.length} recorded`,
+    );
+  }
+}
+
+type Measured = { measured: boolean; seconds?: number; texts: string[] };
 
 // One request: what left the browser, then everything the server sent on, answered and printed.
 async function check(
@@ -263,11 +367,12 @@ async function check(
     api: Api;
     canaries: string[];
     where: (url: string) => Destination;
-    findings: Findings;
-    say: (line: string) => void;
+    run: Run;
+    sentTexts: string[];
   },
 ): Promise<Measured> {
-  const { tap, api, canaries, where, findings, say } = context;
+  const { tap, api, canaries, where, run, sentTexts } = context;
+  const say = run.say;
   const label = item.keepAll
     ? "with 「全部使う」"
     : item.messages
@@ -281,15 +386,35 @@ async function check(
   );
 
   // What leaves the browser.
-  findings.canaries(
+  run.canaries(
     "request body",
     foundLines(joined(decoded(item.body))),
     `${item.body.length} characters`,
   );
 
-  replay(tap.next(`${sample.name} ${label}`), [], findings, say);
+  const before = tap.next(`${sample.name} ${label}`);
+  silent(before, "before this request", run);
+  replay(before, sentTexts, run);
   const answer = await press(api, item.request);
-  const window = tap.next("between");
+  await settle(tap);
+  const window = tap.next("between requests");
+
+  // The texts this request could leak further: what was sent, what the server's second pass leaves, the drafts.
+  const screened = screenImport(item.request.text, canaries);
+  const texts = [
+    item.request.text,
+    ...(screened.ok ? [screened.text] : []),
+    ...(answer.ok
+      ? [
+          ...answer.response.cards.flatMap((card) => [card.title, card.body]),
+          ...answer.response.missing.flatMap((missing) => [
+            missing.topic,
+            missing.reason,
+            missing.prompt,
+          ]),
+        ]
+      : []),
+  ];
 
   const browser = window.sent.filter((call) => call.from === "browser");
   const server = window.sent.filter((call) => call.from === "server");
@@ -300,23 +425,28 @@ async function check(
       call.body === item.body,
   );
   if (browser.length === 0 || !asSent) {
-    findings.problem(
+    run.problem(
       `the browser's client sent ${plural(browser.length, "request")}, not exactly the preview's text to /api/import`,
     );
   }
   if (!answer.ok) {
-    findings.problem(`POST /api/import answered ${answer.code}: not measured`);
+    run.problem(`POST /api/import answered ${answer.code}: not measured`);
   }
 
-  // Everything the server sent on, readable and accounted for.
+  // Everything the server sent on: readable, accounted for, and only where it may go.
   if (window.network !== server.length) {
-    findings.problem(
+    run.problem(
       `${plural(window.network, "request")} reached the network, ${server.length} went through the recorder`,
+    );
+  }
+  if (window.sockets > window.network) {
+    run.problem(
+      `${plural(window.sockets, "connection")} for ${plural(window.network, "request")}: something went around fetch`,
     );
   }
   const unread = server.filter((call) => call.unverifiable);
   if (unread.length > 0) {
-    findings.problem(
+    run.problem(
       `${plural(unread.length, "request")} the recorder couldn't read (${[...new Set(unread.map((call) => call.unverifiable))].join(", ")})`,
     );
   }
@@ -324,22 +454,18 @@ async function check(
     server.filter((call) => where(call.url) === destination);
   const elsewhere = to("elsewhere");
   if (elsewhere.length > 0) {
-    findings.problem(
+    run.problem(
       `${plural(elsewhere.length, "request")} to another destination (${[...new Set(elsewhere.map((call) => new URL(call.url).host))].join(", ")})`,
     );
   }
-  const texts = (calls: Outgoing[]) =>
-    joined(
-      calls.flatMap((call) => [...urlStrings(call.url), ...decoded(call.body)]),
-    );
+  const all = (calls: Outgoing[]) => joined(calls.flatMap(carried));
 
   // The model's payload, and the positive control: the text the server's second pass leaves, made inert as the
   // prompt makes it, is in there line by line.
   const model = to("model");
-  const screened = screenImport(item.request.text, canaries);
   let control = "";
   if (!screened.ok) {
-    findings.problem(
+    run.problem(
       `the server's safety net would refuse it (phones ${screened.phones}, emails ${screened.emails}, canaries ${screened.canaries})`,
     );
   } else if (model.length > 0) {
@@ -352,42 +478,37 @@ async function check(
       (line) => !payload.some((text) => text.includes(line)),
     ).length;
     if (missing > 0) {
-      findings.problem(
+      run.problem(
         `${missing} of ${plural(expected.length, "line")} of the text aren't in the model's payload: the recorder may not see what the model gets`,
       );
     }
     control = `; it holds ${missing ? `${expected.length - missing} of` : "all"} ${plural(expected.length, "line")} of the text`;
   } else if (answer.ok) {
-    findings.problem("no request to the model was seen: nothing to check");
+    run.problem("no request to the model was seen: nothing to check");
   }
-  findings.canaries(
+  run.canaries(
     "model",
-    foundLines(texts(model)),
+    foundLines(all(model)),
     `${plural(model.length, "request")}${control}`,
   );
 
-  // The database: reads, the search, and the counts.
+  // The database: reads, the search, and the counts; never a piece of the text.
   const database = to("database");
+  const path = (call: Outgoing) => new URL(call.url).pathname;
   const reads = database.filter(
     (call) => (call.method === "GET" || call.method === "HEAD") && !call.body,
   );
   const searches = database.filter(
-    (call) =>
-      call.method === "POST" && READ_CALLS.has(new URL(call.url).pathname),
+    (call) => call.method === "POST" && READ_CALLS.has(path(call)),
   );
   const records = database.filter(
-    (call) =>
-      call.method === "POST" && new URL(call.url).pathname === RECORD_CALL,
+    (call) => call.method === "POST" && path(call) === RECORD_CALL,
   );
-  const writes = database.filter(
-    (call) =>
-      !reads.includes(call) &&
-      !searches.includes(call) &&
-      !records.includes(call),
-  );
-  for (const call of writes) {
-    findings.problem(
-      `a ${call.method} to ${new URL(call.url).pathname}: the import stores nothing but counts`,
+  for (const call of database) {
+    if (reads.includes(call) || searches.includes(call)) continue;
+    if (records.includes(call)) continue;
+    run.problem(
+      `a ${call.method} to ${path(call)}: the import stores nothing but counts`,
     );
   }
   const countsOnly = records.every((call) => {
@@ -408,21 +529,28 @@ async function check(
     );
   });
   if (!countsOnly) {
-    findings.problem("record_import carried more than the browser's counts");
+    run.problem("record_import carried more than the counts it takes");
   }
   if (answer.ok && records.length === 0) {
-    findings.problem("no record_import: the import's counts weren't recorded");
+    run.problem("no record_import: the import's counts weren't recorded");
   }
-  findings.canaries(
+  const toDatabase = quoted(all(database), pieces(texts));
+  if (toDatabase > 0) {
+    run.problem(
+      `${plural(toDatabase, "piece")} of the text went to the database`,
+    );
+  }
+  run.canaries(
     "database",
-    foundLines(texts(database)),
+    foundLines(all(database)),
     `${plural(reads.length, "read")}, ${plural(searches.length, "search", "searches")}, ${plural(records.length, "record_import")}${countsOnly && records.length ? " with counts only" : ""}`,
   );
+  // The embeddings server reads the drafted cards (F5.6), which may quote the text: canaries only.
   const embeddings = to("embeddings");
   if (embeddings.length > 0) {
-    findings.canaries(
+    run.canaries(
       "embeddings",
-      foundLines(texts(embeddings)),
+      foundLines(all(embeddings)),
       plural(embeddings.length, "request"),
     );
   }
@@ -431,7 +559,7 @@ async function check(
   const answers = browser.flatMap((call) =>
     call.answer === undefined ? [] : decoded(call.answer),
   );
-  findings.canaries(
+  run.canaries(
     "drafted notes",
     foundLines(joined(answers)),
     answer.ok
@@ -440,30 +568,26 @@ async function check(
   );
 
   // The log: everything printed while the request ran (shown above this line when there is any).
-  const log = replay(window, [item.request.text], findings, say);
+  const log = replay(window, [...sentTexts, ...texts], run);
   if (!log.marked) {
-    findings.problem(
+    run.problem(
       "log: the capture missed the marker, so it can't vouch for the log",
     );
   } else if (log.clean) {
     say(
       log.printed
-        ? `    ✓ log: ${plural(log.printed, "line")}, no canary and none of the text`
+        ? `    ✓ log: ${plural(log.printed, "line")}, no canary and no piece of the text`
         : "    ✓ log: nothing printed",
     );
   }
 
   return answer.ok
-    ? { measured: true, seconds: answer.seconds }
-    : { measured: false };
+    ? { measured: true, seconds: answer.seconds, texts }
+    : { measured: false, texts };
 }
 
 // Read only, with the service role: every note, prompt and import event in the database, whoever added it.
-async function sweep(
-  service: SupabaseClient,
-  findings: Findings,
-  say: (line: string) => void,
-): Promise<void> {
+async function sweep(service: SupabaseClient, run: Run): Promise<void> {
   const PAGE = 1000;
   const tables = [
     {
@@ -505,19 +629,15 @@ async function sweep(
     }
     counted.push(plural(rows, name));
   }
-  for (const line of found) findings.left.add(line);
-  if (found.size > 0) findings.problems += 1;
-  say(
+  for (const line of found) run.left.add(line);
+  if (found.size > 0) run.problems += 1;
+  run.say(
     `${found.size ? "✗" : "✓"} in the database: ${counted.join(", ")}${found.size ? `; ${lines([...found].sort((a, b) => a - b))} in ${plural(rowsWithCanary, "row")}` : ", no canary"}`,
   );
 }
 
-type Outcome = {
-  redaction?: NonNullable<Metrics["redaction"]>;
-  passed: boolean;
-};
-
-async function main(tap: Tap, say: (line: string) => void): Promise<Outcome> {
+async function main(tap: Tap, run: Run): Promise<boolean> {
+  const say = run.say;
   const url = env("NEXT_PUBLIC_SUPABASE_URL");
   const anonKey = env("NEXT_PUBLIC_SUPABASE_ANON_KEY");
   const password = env("DEMO_PASSWORD");
@@ -528,33 +648,39 @@ async function main(tap: Tap, say: (line: string) => void): Promise<Outcome> {
   // the same canaries.
   const canaries = seedCanaries(ROOT);
   const where = destinations(url);
-  const findings = new Findings(say);
 
   // The route is loaded once the tap is in place, so everything it sends goes through it.
   const { POST } = await import("@/app/api/import/route");
   tap.route(POST);
   const api = createApi(await signIn(url, anonKey, password));
+  const setup = tap.next("the device reads the files");
+  own(setup, "signing in", run, where, true);
+  replay(setup, [], run);
 
   say(
     `pnpm test:redact: ${plural(SAMPLES.length, "made-up file")} from seed/, added by ${PERSONA} at ${SEAT} the way 「＋ 追加」 adds them`,
   );
   const added: Added[] = [];
   for (const name of SAMPLES) added.push(await addFile(name, SEAT));
+  const device = tap.next("between requests");
+  silent(device, "while the device read the files", run);
+  // The device's own console: a canary there hasn't left the browser, but it isn't printed either.
+  replay(
+    device,
+    added.map((sample) => sample.raw),
+    run,
+    false,
+  );
 
   // The positive control for the whole run: the samples hold canaries, so there is something to find.
   const planted = new Set(added.flatMap((sample) => foundLines(sample.raw)));
-  if (planted.size === 0) findings.problems += 1;
+  if (planted.size === 0) run.problems += 1;
   say(
     `${planted.size ? "✓" : "✗"} ${planted.size} of ${CANARIES} canaries are in the samples as exported${planted.size ? "" : ": nothing to find"}`,
   );
 
-  let chats = 0;
-  let files = 0;
   let complete = true;
-  const hidden = Object.fromEntries(KINDS.map((kind) => [kind, 0])) as Record<
-    (typeof KINDS)[number],
-    number
-  >;
+  const sentTexts: string[] = [];
   const seconds: number[] = [];
   for (const sample of added) {
     if (stopping) {
@@ -566,7 +692,7 @@ async function main(tap: Tap, say: (line: string) => void): Promise<Outcome> {
     if (sample.refused) {
       const asExpected = sample.refused === expected;
       if (!asExpected) {
-        findings.problems += 1;
+        run.problems += 1;
         complete = false;
       }
       say(
@@ -581,7 +707,7 @@ async function main(tap: Tap, say: (line: string) => void): Promise<Outcome> {
       continue;
     }
     if (expected) {
-      findings.problems += 1;
+      run.problems += 1;
       say(`\n✗ ${sample.name}: the device should refuse it (${expected})`);
     }
     const first = sample.sends[0].request;
@@ -605,9 +731,10 @@ async function main(tap: Tap, say: (line: string) => void): Promise<Outcome> {
         api,
         canaries,
         where,
-        findings,
-        say,
+        run,
+        sentTexts,
       });
+      sentTexts.push(...result.texts);
       if (!result.measured) measured = false;
       if (result.seconds !== undefined) seconds.push(result.seconds);
     }
@@ -615,63 +742,71 @@ async function main(tap: Tap, say: (line: string) => void): Promise<Outcome> {
       complete = false;
       continue;
     }
-    if (first.kind === "chat") chats += 1;
-    else files += 1;
+    if (first.kind === "chat") run.chats += 1;
+    else run.files += 1;
     // What the sample had hidden: its widest send (「全部使う」 for a chat that offers it).
     const widest = sample.sends.at(-1)?.counts;
-    for (const kind of KINDS) hidden[kind] += widest?.[kind] ?? 0;
+    for (const kind of KINDS) run.hidden[kind] += widest?.[kind] ?? 0;
   }
 
   say("");
-  replay(tap.next("database"), [], findings, say);
+  const after = tap.next("reading the database");
+  silent(after, "after the last request", run);
+  replay(after, sentTexts, run);
   if (!stopping) {
     await sweep(
       createClient(url, serviceKey, {
         auth: { persistSession: false, autoRefreshToken: false },
       }),
-      findings,
-      say,
+      run,
     );
   } else {
     complete = false;
   }
-  replay(tap.next("end"), [], findings, say);
+  const reading = tap.next("end");
+  own(reading, "reading the database", run, where, false);
+  replay(reading, sentTexts, run);
 
-  const total = KINDS.reduce((sum, kind) => sum + hidden[kind], 0);
   const sorted = [...seconds].sort((a, b) => a - b);
   const median = sorted[Math.floor(sorted.length / 2)];
   say(
-    `\nredaction: ${plural(chats, "chat")} and ${plural(files, "file")} added; the browser hid ${plural(total, "item")} (${hiddenText(hidden as RedactionCounts)}); ${plural(findings.left.size, "canary", "canaries")} left the browser${median === undefined ? "" : ` (${plural(seconds.length, "import")}, median ${median.toFixed(1)} s)`}`,
+    `\nredaction: ${plural(run.chats, "chat")} and ${plural(run.files, "file")} added; the browser hid ${plural(run.total(), "item")} (${hiddenText(run.hidden as RedactionCounts)}); ${plural(run.left.size, "canary", "canaries")} left the browser${median === undefined ? "" : ` (${plural(seconds.length, "import")}, median ${median.toFixed(1)} s)`}`,
   );
   const passed =
     complete &&
-    findings.problems === 0 &&
-    findings.left.size === 0 &&
-    chats + files > 0;
+    run.problems === 0 &&
+    run.left.size === 0 &&
+    run.chats + run.files > 0;
   say(
     passed
       ? "✓ every check passed"
-      : `✗ ${plural(findings.problems, "check")} failed${complete ? "" : "; not every sample was measured"}`,
+      : `✗ ${plural(run.problems, "check")} failed${complete ? "" : "; not every sample was measured"}`,
   );
-  // A complete run's numbers, and any canary seen outside the browser even when the run is cut short: the README
-  // never rounds a leak down.
-  return complete || findings.left.size > 0
-    ? {
-        redaction: {
-          chats,
-          files,
-          hidden: total,
-          leftBrowser: findings.left.size,
-        },
-        passed,
-      }
-    : { passed };
+  return passed;
 }
 
 const tap = installTap();
-let outcome: Outcome = { passed: false };
+const run = new Run(tap.say);
+
+// A crash would print its message past the capture (Node writes it straight to stderr), and a message can quote a
+// sample or a reply: only the error's class is printed, with a canary already seen.
+for (const event of ["uncaughtException", "unhandledRejection"] as const) {
+  process.on(event, (error: unknown) => {
+    const withheld = tap.restore().output.length;
+    console.log(
+      `✗ check-redact crashed: ${error instanceof Error ? error.name : typeof error} (${withheld} characters of output withheld)`,
+    );
+    if (run.left.size > 0) reportMetrics({ redaction: run.numbers() });
+    else console.log("— redaction: not measured");
+    process.exit(1);
+  });
+}
+
+let passed = false;
+let finished = false;
 try {
-  outcome = await main(tap, tap.say);
+  passed = await main(tap, run);
+  finished = true;
 } catch (error) {
   // Only this check's own words: another error's message could quote a sample or a reply.
   tap.say(
@@ -679,16 +814,17 @@ try {
   );
 } finally {
   const last = tap.restore();
-  const output = last.output.replace(`${last.marker}\n`, "");
-  if (foundLines(output).length > 0) {
-    console.log(
-      `✗ ${output.length} characters of output withheld: they held a canary`,
-    );
-    outcome = { ...outcome, passed: false };
-  } else if (output.trim()) {
-    console.log(output.trimEnd());
+  const output = last.output.replace(`${last.marker}\n`, "").trimEnd();
+  // A run that stopped halfway can't vouch for what it printed last: withheld. Otherwise it is checked like a log.
+  if (!finished || foundLines(output).length > 0) {
+    if (output)
+      console.log(`  (${output.length} characters of output withheld)`);
+  } else if (output) {
+    console.log(output);
   }
 }
-if (outcome.redaction) reportMetrics({ redaction: outcome.redaction });
+// The numbers of a run that passed, and any canary seen outside the browser, even from a run that failed or stopped:
+// the README never rounds a leak down. Anything else is "not measured", never 0.
+if (passed || run.left.size > 0) reportMetrics({ redaction: run.numbers() });
 else console.log("— redaction: not measured");
-process.exitCode = outcome.passed ? 0 : 1;
+process.exitCode = passed ? 0 : 1;

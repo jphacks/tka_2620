@@ -2,10 +2,18 @@
 // through. It must see every request and everything printed, or the check would pass on what it never saw. Made-up
 // canaries stand in for the seed's: TEST-4242, 中村健 and 7654321 aren't in seed/chat-canaries.txt.
 import http from "node:http";
-import type { AddressInfo } from "node:net";
+import net, { type AddressInfo } from "node:net";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { canaryCount } from "@/lib/engine/safety-net";
-import { decoded, installTap, joined, type Tap } from "@/scripts/outgoing";
+import {
+  carried,
+  decoded,
+  installTap,
+  joined,
+  pieces,
+  quoted,
+  type Tap,
+} from "@/scripts/outgoing";
 
 const CANARIES = ["TEST-4242", "中村健", "7654321"];
 const found = (text: string) => canaryCount(text, CANARIES);
@@ -28,6 +36,28 @@ describe("decoded: what a body says, not how JSON spells it", () => {
       0,
     );
     expect(found(joined(decoded("not JSON: TEST-4242")))).toBe(1);
+  });
+});
+
+describe("pieces: the text, found again somewhere else", () => {
+  const text =
+    "部費の集金は毎月25日、会計が学生会館で受け取ります\n学生課へ提出済みです\n了解です";
+
+  it("finds a run of a line inside other words, and a whole short line", () => {
+    expect(
+      quoted("log: …集金は毎月25日、会計が学生会館… (cut)", pieces([text])),
+    ).toBeGreaterThan(0);
+    expect(quoted("log: 学生課へ提出済みです", pieces([text]))).toBe(1);
+  });
+
+  it("ignores lines too short to be the text, and a log of codes", () => {
+    expect(quoted("了解です", pieces([text]))).toBe(0);
+    expect(
+      quoted(
+        "POST /api/import failed: unavailable (ApiFailure)",
+        pieces([text]),
+      ),
+    ).toBe(0);
   });
 });
 
@@ -120,6 +150,39 @@ describe("installTap: everything that leaves the process", () => {
     ]);
     expect(found(joined(decoded(call.body)))).toBe(1);
     expect(found(joined(decoded(call.answer ?? "")))).toBe(1);
+  });
+
+  it("records a request's headers, but never its credentials", async () => {
+    const base = await listen();
+    tap = installTap();
+    tap.next("send");
+    await (
+      await fetch(`${base}/headers`, {
+        headers: { authorization: "Bearer made-up", "x-note": "TEST-4242" },
+      })
+    ).text();
+    const [call] = tap.next("after").sent;
+    expect(call.headers).toContain("x-note: TEST-4242");
+    expect(
+      call.headers.some((header) => header.startsWith("authorization")),
+    ).toBe(false);
+    expect(found(joined(carried(call)))).toBe(1);
+  });
+
+  it("counts a raw connection, which no fetch made", async () => {
+    const port = Number(new URL(await listen()).port);
+    tap = installTap();
+    tap.next("send");
+    await new Promise<void>((resolve) => {
+      const socket = net.connect(port, "127.0.0.1", () => {
+        socket.destroy();
+        resolve();
+      });
+    });
+    const window = tap.next("after");
+    expect([window.sent.length, window.network, window.sockets]).toEqual([
+      0, 0, 1,
+    ]);
   });
 
   it("counts a request that went around fetch", async () => {

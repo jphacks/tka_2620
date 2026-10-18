@@ -3,22 +3,34 @@
 // in one process, and this tap sits between them and the rest of the world:
 // - fetch: the browser's calls to an API route (lib/api.ts calls a relative /api/… path) are recorded and handed to
 //   the route handler in this process, with the answer it gave; every other request (the model, the database, the
-//   embeddings) is recorded with its body before it goes out.
-// - the network itself: node:diagnostics_channel counts every request undici (fetch) or the http module makes, so a
-//   request that went around the fetch wrapper shows up as one more than was recorded.
+//   embeddings) is recorded with its headers and body before it goes out.
+// - the network itself: node:diagnostics_channel counts every request undici (fetch) or the http module makes, and
+//   every socket opened, so a request that went around the fetch wrapper (another client, a raw socket, http2) shows
+//   up as more than was recorded.
 // - stdout and stderr: everything written (console.* included) is kept, and the check prints it only after reading
 //   it; the check's own lines go through say().
 // Windows split the run: next(label) ends the current one and starts the next, so each request the check sends has
-// its own requests and output. Nothing here prints what it records.
+// its own requests and output, and a window between two requests has to stay empty. Nothing here prints what it
+// records.
 import diagnostics from "node:diagnostics_channel";
 
 // Where the browser's relative calls resolve. Never reached: they're handed to the route handler in this process.
 export const ORIGIN = "http://localhost:3000";
 
+// Credentials, not content: left out of what is recorded, so a check can't print them by mistake.
+const SECRET_HEADERS = new Set([
+  "authorization",
+  "proxy-authorization",
+  "apikey",
+  "x-api-key",
+  "cookie",
+]);
+
 export type Outgoing = {
   from: "browser" | "server";
   method: string;
   url: string;
+  headers: string[]; // "name: value", credentials left out
   body: string; // "" without a body
   unverifiable?: string; // why the body couldn't be read as text: then nothing can be said about it
   answer?: string; // a browser call's answer, as the route gave it (before the client checks it)
@@ -28,6 +40,7 @@ export type Window = {
   label: string;
   sent: Outgoing[];
   network: number; // requests that reached undici or the http module, recorded or not
+  sockets: number; // connections opened; a fetch opens one at most, and reuses it
   output: string; // everything written to stdout and stderr, the marker included
   marker: string; // the line next() printed through console.log, to prove that console output is caught
 };
@@ -35,6 +48,7 @@ export type Window = {
 export type Tap = {
   // The handler the browser's API calls go to (app/api/import/route.ts → POST).
   route(handler: (request: Request) => Promise<Response>): void;
+  current(): Window; // the window open now, for waiting until it is quiet
   next(label: string): Window; // ends the current window and starts the next
   say(line: string): void; // the check's own output, past the capture
   restore(): Window; // puts fetch, stdout and stderr back, and ends the last window
@@ -51,6 +65,7 @@ export function installTap(): Tap {
     label: "",
     sent: [],
     network: 0,
+    sockets: 0,
     output: "",
     marker: "",
   };
@@ -74,12 +89,16 @@ export function installTap(): Tap {
     return original(request);
   }) as typeof fetch;
 
-  // Counted in whichever window is open when the request starts.
-  const counted = () => {
+  // Counted in whichever window is open when the request or the connection starts.
+  const request = () => {
     current.network += 1;
   };
-  diagnostics.subscribe("undici:request:create", counted);
-  diagnostics.subscribe("http.client.request.start", counted);
+  const socket = () => {
+    current.sockets += 1;
+  };
+  diagnostics.subscribe("undici:request:create", request);
+  diagnostics.subscribe("http.client.request.start", request);
+  diagnostics.subscribe("net.client.socket", socket);
 
   const capture = ((chunk: unknown, encoding?: unknown, done?: unknown) => {
     current.output +=
@@ -100,6 +119,7 @@ export function installTap(): Tap {
       label,
       sent: [],
       network: 0,
+      sockets: 0,
       output: "",
       marker: `[tap ${windows}: ${label}]`,
     };
@@ -113,6 +133,7 @@ export function installTap(): Tap {
     route: (given) => {
       handler = given;
     },
+    current: () => current,
     next: (label) => {
       const ended = current;
       window(label);
@@ -123,8 +144,9 @@ export function installTap(): Tap {
     },
     restore: () => {
       globalThis.fetch = original;
-      diagnostics.unsubscribe("undici:request:create", counted);
-      diagnostics.unsubscribe("http.client.request.start", counted);
+      diagnostics.unsubscribe("undici:request:create", request);
+      diagnostics.unsubscribe("http.client.request.start", request);
+      diagnostics.unsubscribe("net.client.socket", socket);
       process.stdout.write = writes.out;
       process.stderr.write = writes.err;
       return current;
@@ -138,7 +160,15 @@ async function describe(
   from: Outgoing["from"],
   request: Request,
 ): Promise<Outgoing> {
-  const call = { from, method: request.method, url: request.url, body: "" };
+  const call = {
+    from,
+    method: request.method,
+    url: request.url,
+    headers: [...request.headers]
+      .filter(([name]) => !SECRET_HEADERS.has(name))
+      .map(([name, value]) => `${name}: ${value}`),
+    body: "",
+  };
   if (!request.body) return call;
   if (request.headers.get("content-encoding")) {
     return { ...call, unverifiable: "encoded" };
@@ -150,6 +180,11 @@ async function describe(
   } catch {
     return { ...call, unverifiable: "not UTF-8 text" };
   }
+}
+
+// Everything a request carries that could hold a text: its URL and query, its headers and its body.
+export function carried(call: Outgoing): string[] {
+  return [...urlStrings(call.url), ...call.headers, ...decoded(call.body)];
 }
 
 // Every key, string and number in a JSON body, or the body itself when it isn't JSON. A body is checked as these, not
@@ -193,4 +228,27 @@ export function urlStrings(url: string): string[] {
 // dashes, dots and slashes), so the end of one string and the start of the next never read as one canary.
 export function joined(texts: string[]): string {
   return texts.join("\n|\n");
+}
+
+// Pieces of a text long enough that finding one elsewhere means the text is there: every run of RUN characters in a
+// line, and a whole line of LINE characters or more. quoted() says how many of them a haystack holds.
+const RUN = 12;
+const LINE = 8;
+
+export function pieces(texts: string[]): string[] {
+  const found = new Set<string>();
+  for (const text of texts) {
+    for (const row of text.split("\n")) {
+      const chars = [...row.trim()];
+      if (chars.length >= LINE && chars.length < RUN) found.add(chars.join(""));
+      for (let at = 0; at + RUN <= chars.length; at++) {
+        found.add(chars.slice(at, at + RUN).join(""));
+      }
+    }
+  }
+  return [...found];
+}
+
+export function quoted(haystack: string, of: string[]): number {
+  return of.filter((piece) => haystack.includes(piece)).length;
 }

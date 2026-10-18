@@ -106,8 +106,9 @@ describe("what the browser sends for each made-up file in seed/", () => {
   });
 });
 
-// tests/browser-send.ts copies these lines of the slip, the preview and the client. When one changes, make the copy
-// follow, then update the line here.
+// tests/browser-send.ts copies these lines of the slip, the preview and the client, down to the two that decide what
+// is sent: the preview's Send hands over the redacted text and its counts, and the slip puts them in the request. When
+// one changes, make the copy follow, then update the line here.
 const COPIED: Record<string, string[]> = {
   "components/AddSlip.tsx": [
     'fileType === "txt" ? await extractTextFile(file) : await extractFile(file);',
@@ -116,6 +117,7 @@ const COPIED: Record<string, string[]> = {
     'if (next.kind !== "text") return setProblem(next.kind);',
     'if (text.length > MAX_TEXT_CHARS) throw new IngestError("too_large");',
     'const next = readSource(draft, tab === "chat" ? "chat" : "text");',
+    "await api.import(importRequest(slug, source, text, redaction))",
     'return { seat, kind: "text", text, redaction };',
     'return { seat, kind: "file", fileType: source.fileType, text, redaction };',
     'return { seat, kind: "chat", platform: source.platform, text, redaction };',
@@ -127,6 +129,7 @@ const COPIED: Record<string, string[]> = {
     "(keepAll || sent.chat.kept < sent.chat.total)",
     "const empty = !sent.text.trim();",
     "const tooLong = sent.text.length > MAX_TEXT_CHARS;",
+    "onClick={() => onSend(sent.text, sent.counts)}",
   ],
   "lib/api.ts": [
     "body: body === undefined ? undefined : JSON.stringify(body),",
@@ -134,7 +137,9 @@ const COPIED: Record<string, string[]> = {
   ],
 };
 
-const squash = (code: string) => code.replace(/\s+/g, " ");
+// Compared without spaces, line breaks or trailing commas, so a reformat doesn't trip it but a changed word does.
+const squash = (code: string) =>
+  code.replace(/\s+/g, "").replace(/,(?=[)}\]]|$)/g, "");
 
 describe("tests/browser-send.ts follows the browser's code", () => {
   it.each(Object.entries(COPIED))("still matches %s", (file, lines) => {
