@@ -139,7 +139,7 @@ const SourceRow = z.object({
 });
 
 // Today on the Japanese calendar, which valid_until follows (fiscal years end 3/31), as search_notes (0004) reads it.
-function tokyoToday(): string {
+export function tokyoToday(): string {
   return new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Tokyo" }).format(
     new Date(),
   );
