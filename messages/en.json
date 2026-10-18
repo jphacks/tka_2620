@@ -73,9 +73,12 @@
     "action": "Try again"
   },
   "abstain": {
+    "noOneReachable": "No predecessor can take questions right now, so it wasn't sent.",
+    "notHolder": "Only the seat's holders can send a question to their predecessors.",
     "routed": "Added to the next handover."
   },
   "handover": {
+    "seatLine": "The {seat} seat of {group}",
     "reasonDemand": "{n, plural, one {# newcomer asked this} other {# newcomers asked this}}",
     "reasonRequired": "Required by {group}",
     "readers": "{n, plural, one {# person can read this} other {# people can read this}}",
@@ -280,6 +283,7 @@
     "unwritten_rule": "Unwritten rule"
   },
   "myNotes": {
+    "withdrawnNote": "Withdrew “{title}”. It no longer appears in any answer.",
     "used": "This note was used in {n} answers",
     "empty": "You haven't written any notes yet.",
     "withdrawn": "Withdrawn",
@@ -287,6 +291,7 @@
     "withdrawFailed": "Couldn't withdraw the note. Press Withdraw again."
   },
   "inbox": {
+    "announce": "A newcomer asked ({from}): {question}",
     "title": "Questions from newcomers",
     "arrived": "A newcomer asked you something",
     "from": "From",
@@ -322,6 +327,7 @@
     "stamp": "Note by {byline}"
   },
   "import": {
+    "holdersOnly": "Only the seat's holders can add documents or chats here.",
     "title": "Add from docs, files and chats",
     "paste": "Paste last year's handover doc",
     "extract": "Turn into notes",

@@ -188,6 +188,9 @@ html { overscroll-behavior-y: none; }
 .dd-measured dt { color: var(--ink-2); }
 .dd-measured dd { margin: 0; overflow-wrap: anywhere; }
 
+/* The console's way home and display switches, at the end of its title row */
+.dd-console-tools { display: flex; align-items: center; gap: var(--s-2); }
+
 /* Console on a laptop: the panes stay phone-sized and side by side, never taller than the window leaves room for, so
    the whole proof is on one screen (844px at 1920×1080, 556px on a 1366×768 laptop; each pane scrolls inside). 212px:
    the page's padding, the title row, 「測定の内訳」 and the pane labels. The row scrolls sideways when the window is
@@ -325,6 +328,12 @@ span.dd-mini::after { content: none; }
 .is-arriving { animation: dd-arrive var(--t-quick, 160ms) ease-out both; }
 @keyframes dd-arrive { from { transform: translateY(-8px); } to { transform: none; } }
 
+
+/* A verb page's heading with the seat it's for (残す): the h1, then one caption line kept even while it loads */
+.dd-page-head { display: grid; gap: var(--s-1); }
+.dd-page-head .dd-cap { margin: 0; min-height: 20px; }
+/* The answer box shows focus with DESIGN.md's ring (2px blue, 2px off), not only a border change */
+.dd-answer:focus-within { outline: 2px solid var(--blue); outline-offset: 2px; }
 
 /* Voice */
 .dd-voice { position: relative; width: 80px; height: 80px; border-radius: var(--r-round); border: 0; background: var(--blue); color: var(--sheet); display: grid; place-items: center; cursor: pointer; flex: none; }

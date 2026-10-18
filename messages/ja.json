@@ -73,9 +73,12 @@
     "action": "もう一度ためす"
   },
   "abstain": {
+    "noOneReachable": "いま質問を受け取れる先輩がいないため、届けていません。",
+    "notHolder": "先輩に質問を届けられるのは、この席を担当した人だけです。",
     "routed": "この質問を次の引き継ぎに追加しました。"
   },
   "handover": {
+    "seatLine": "{group}の{seat}の席",
     "reasonDemand": "後輩の{n}人がこれを質問しました",
     "reasonRequired": "{group}の必須質問です",
     "readers": "{n}人が読めます",
@@ -280,6 +283,7 @@
     "unwritten_rule": "暗黙のルール"
   },
   "myNotes": {
+    "withdrawnNote": "「{title}」を撤回しました。どの回答にも出ません。",
     "used": "このメモは{n}回、回答に使われました",
     "empty": "まだメモはありません。",
     "withdrawn": "撤回済み",
@@ -287,6 +291,7 @@
     "withdrawFailed": "撤回できませんでした。もう一度「撤回する」を押してください。"
   },
   "inbox": {
+    "announce": "後輩から質問が届きました（{from}）：{question}",
     "title": "後輩からの質問",
     "arrived": "後輩から質問が届きました",
     "from": "から",
@@ -322,6 +327,7 @@
     "stamp": "{byline}のメモ"
   },
   "import": {
+    "holdersOnly": "資料やトーク履歴を追加できるのは、この席を担当した人だけです。",
     "title": "資料・ファイル・トーク履歴から追加",
     "paste": "去年の引き継ぎ資料を貼り付けてください",
     "extract": "メモにする",

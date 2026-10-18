@@ -24,6 +24,7 @@ export function MyNotes({
   onWithdraw,
   tools,
   emptyText,
+  headingLevel = 2,
 }: {
   notes: MyNote[];
   seats: NoteSeats;
@@ -35,6 +36,8 @@ export function MyNotes({
   tools?: ReactNode;
   /** What an empty list says when the author has notes the filter hides. */
   emptyText?: string;
+  /** 1 on /me/notes, where this is the page; 2 inside the console's pane. */
+  headingLevel?: 1 | 2;
 }) {
   const t = useTranslations();
   return (
@@ -43,7 +46,11 @@ export function MyNotes({
       style={{ gap: "var(--s-5)" }}
       aria-label={t("verbs.myNotes")}
     >
-      <h2 className="dd-h">{t("verbs.myNotes")}</h2>
+      {headingLevel === 1 ? (
+        <h1 className="dd-h">{t("verbs.myNotes")}</h1>
+      ) : (
+        <h2 className="dd-h">{t("verbs.myNotes")}</h2>
+      )}
       {tools}
       {withdrawFailed && (
         <p role="alert" style={{ margin: 0 }}>
@@ -62,6 +69,7 @@ export function MyNotes({
               }
               onWithdraw={() => onWithdraw(note.id)}
               disabled={withdrawing !== undefined}
+              titleLevel={headingLevel === 1 ? 2 : 3}
             />
           ) : null,
         )}

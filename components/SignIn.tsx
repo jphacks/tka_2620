@@ -22,6 +22,7 @@ export function SignIn({
   const title = useId();
   const field = useRef<HTMLInputElement>(null);
   const message = useRef<HTMLParagraphElement>(null);
+  const failureId = useId(); // the line saying what went wrong, read with the field
   const [account, setAccount] = useState<DemoAccount>();
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<"wrongPassword" | "unavailable">();
@@ -87,6 +88,8 @@ export function SignIn({
         className="dd-line"
         placeholder={t("signIn.password")}
         aria-label={t("signIn.password")}
+        aria-invalid={failure === "wrongPassword" || undefined}
+        aria-describedby={failure ? failureId : undefined}
         autoComplete="current-password"
         enterKeyHint="go"
       />
@@ -100,6 +103,7 @@ export function SignIn({
       {failure && (
         <p
           ref={message}
+          id={failureId}
           role="alert"
           className="dd-phrase"
           style={{ margin: 0, color: "var(--ink-2)" }}

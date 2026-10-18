@@ -30,7 +30,11 @@ export function InboxSlip({
           <dd className="dd-fig">{item.askedBy}</dd>
         </div>
       </dl>
-      <p className="dd-inbox-q" lang={item.lang}>
+      <p
+        id={`inbox-q-${item.promptId}`}
+        className="dd-inbox-q"
+        lang={item.lang}
+      >
         {item.question}
       </p>
       <p className="dd-cap" style={{ margin: 0 }}>

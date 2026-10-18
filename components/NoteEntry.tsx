@@ -19,13 +19,17 @@ export function NoteEntry({
   phase,
   onWithdraw,
   disabled = false,
+  titleLevel = 3,
 }: {
   note: MyNote;
   seat: SeatView["seat"];
   phase?: WithdrawPhase;
   onWithdraw?: () => void;
+  /** One level under the list's heading: 2 under 自分のメモ's page h1, 3 under the console pane's h2. */
+  titleLevel?: 2 | 3;
   disabled?: boolean;
 }) {
+  const Title = titleLevel === 2 ? "h2" : "h3";
   const t = useTranslations();
   const scope = t(`seatTypes.${seat.seatType}.scope.${note.scope}`, {
     seat: seat.name,
@@ -51,9 +55,9 @@ export function NoteEntry({
         padding: "var(--s-4)",
       }}
     >
-      <h3 className="dd-h" lang={note.lang} style={{ margin: 0 }}>
+      <Title className="dd-h" lang={note.lang} style={{ margin: 0 }}>
         {note.title}
-      </h3>
+      </Title>
       <p className="dd-cap" style={{ margin: 0 }}>
         {scope}
       </p>

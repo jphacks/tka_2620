@@ -10,6 +10,15 @@ import { useRealtime } from "@/lib/realtime";
 
 // Long enough to read 「公開しました」 and the card, short enough that the pane is clear before the next step.
 const CLOSE_AFTER_PUBLISH_MS = 3000;
+// Heard, not seen: the line a screen reader reads when a question arrives.
+const SR_ONLY = {
+  position: "absolute",
+  width: 1,
+  height: 1,
+  overflow: "hidden",
+  clip: "rect(0 0 0 0)",
+  whiteSpace: "nowrap",
+} as const;
 const newestFirst = (a: InboxItem, b: InboxItem) =>
   Date.parse(b.askedAt) - Date.parse(a.askedAt);
 
@@ -23,6 +32,7 @@ export function InboxPanel({
   closeAfterPublish = false,
   onPublished,
   refresh = 0,
+  onItems,
   api: given,
 }: {
   slug: string;
@@ -32,6 +42,8 @@ export function InboxPanel({
   onPublished?: () => void;
   /** Changes when the handover prompts below published: read the slips again, keeping an answer being written. */
   refresh?: number;
+  /** The questions now in the inbox, so the handover prompts below don't show them a second time. */
+  onItems?: (promptIds: ReadonlySet<string>) => void;
   /** The signed-in predecessor's client (a console pane's); mocks as a25 when left out. */
   api?: Api;
 }) {
@@ -45,6 +57,8 @@ export function InboxPanel({
   // the inbox no longer lists them.
   const [kept, setKept] = useState<ReadonlyMap<string, InboxItem>>(new Map());
   const known = useRef<Set<string> | undefined>(undefined);
+  // What a screen reader hears when a question arrives: one line, not the whole slip and its answer field.
+  const [announced, setAnnounced] = useState<InboxItem>();
 
   // The first load shows what is already waiting; anything new after that arrives.
   const load = useCallback(async () => {
@@ -58,6 +72,7 @@ export function InboxPanel({
     setFailed(false);
     const seen = known.current;
     known.current = new Set(next.map((item) => item.promptId));
+    onItems?.(known.current);
     setItems([...next].sort(newestFirst));
     const fresh = seen ? next.filter((item) => !seen.has(item.promptId)) : [];
     if (fresh.length === 0) return;
@@ -65,9 +80,23 @@ export function InboxPanel({
       (previous) =>
         new Set([...previous, ...fresh.map((item) => item.promptId)]),
     );
+    setAnnounced(fresh[0]);
     // Android only, and only after the page was tapped once; iPhones can't vibrate from a web page.
     if ("vibrate" in navigator) navigator.vibrate([180, 80, 180]);
-  }, [api, slug]);
+  }, [api, slug, onItems]);
+
+  // A phone that slept, or lost the network, may have missed a Realtime row: read the inbox again when the page is back.
+  useEffect(() => {
+    const again = () => {
+      if (document.visibilityState === "visible") load();
+    };
+    document.addEventListener("visibilitychange", again);
+    window.addEventListener("online", again);
+    return () => {
+      document.removeEventListener("visibilitychange", again);
+      window.removeEventListener("online", again);
+    };
+  }, [load]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: refresh is the signal to read again
   useEffect(() => {
@@ -112,7 +141,14 @@ export function InboxPanel({
       <h2 id="inbox-title" className="dd-h">
         {t("inbox.title")}
       </h2>
-      <div className="dd-col" style={{ gap: "var(--s-5)" }} aria-live="polite">
+      <output aria-live="polite" style={SR_ONLY}>
+        {announced &&
+          t("inbox.announce", {
+            from: announced.askedBy,
+            question: announced.question,
+          })}
+      </output>
+      <div className="dd-col" style={{ gap: "var(--s-5)" }}>
         {shown?.map((item) => (
           <InboxSlip
             key={item.promptId}
@@ -124,6 +160,7 @@ export function InboxPanel({
               item={item}
               seat={slug}
               api={api}
+              describedBy={`inbox-q-${item.promptId}`}
               onPublished={() => {
                 setKept((current) => new Map(current).set(item.promptId, item));
                 load();

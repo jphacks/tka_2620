@@ -7,11 +7,13 @@
 // answer lands back in a26's pane (F4.1, #25). The outsider's pane shows what x can see of the seat: nothing.
 // Each pane runs on its own client (ConsoleSignIn: three signed-in personas, or the mocks), so every view is that
 // persona's own and RLS decides what each one gets.
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AbstainEntry } from "@/components/AbstainEntry";
 import { AnswerEntry } from "@/components/AnswerEntry";
 import { AskPanel } from "@/components/AskPanel";
+import { LanguageToggle, ThemeToggle } from "@/components/DisplayToggles";
 import { InboxPanel } from "@/components/InboxPanel";
 import { LeakCounter } from "@/components/LeakCounter";
 import { MeasuredNumbers } from "@/components/MeasuredNumbers";
@@ -244,6 +246,14 @@ export function TrustConsole({
               {t("console.signOut")}
             </button>
           )}
+          {/* As on every seat page: the way to the start page, the language and the theme */}
+          <nav className="dd-console-tools" aria-label={t("bar.label")}>
+            <Link href="/" className="dd-bar-home" title={t("bar.home")}>
+              {t("home.title")}
+            </Link>
+            <LanguageToggle />
+            <ThemeToggle />
+          </nav>
         </div>
       </header>
       {loadFailed && (
