@@ -71,7 +71,8 @@ export async function similarNotes(
   );
   return matches.flatMap(({ card, note }): Duplicate[] => {
     const scope = scopes.get(note.id);
-    // Gone between the search and this read (withdrawn just now): nothing to update.
+    // Unreadable since the search (its author withdrew it just now): nothing to offer. The importer's own note withdrawn
+    // meanwhile still reads, and 0010 refuses its update.
     if (!scope) return [];
     return [
       {

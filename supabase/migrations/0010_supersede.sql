@@ -112,7 +112,9 @@ grant execute on function public.superseded_deadlines(text[]) to authenticated;
 
 -- When a note is withdrawn, inside withdraw_note()'s transaction (it holds the withdrawals' lock):
 --   - an update taken back: the note it replaced is current again and comes back to answers, so withdrawing the 2026
---     notice never loses the 2025 deadline for everyone;
+--     notice never loses the 2025 deadline for everyone. In a chain (2024 ← 2025 ← 2026), taking back the middle one
+--     hands the oldest to the newest instead, so 2024 doesn't come back as the current rule beside 2026 (the same
+--     seat and kind, and scope and term only grow along a chain, so 0010's rules hold for the new link too);
 --   - a replaced note taken back: no saved flag keeps its date. A saved answer cites the note that replaced it, not
 --     the note itself, so withdraw_note() doesn't rewrite it; here each answer citing the replacement loses its
 --     ruleChange (computed from history the database no longer has; better none than one from a withdrawn note), and
@@ -125,7 +127,7 @@ security definer
 set search_path = ''
 as $$
 begin
-  update public.notes n set superseded_by = null where n.superseded_by = new.id;
+  update public.notes n set superseded_by = new.superseded_by where n.superseded_by = new.id;
   if new.superseded_by is not null then
     update public.answers a
     set payload = a.payload - 'ruleChange'
