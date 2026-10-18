@@ -12,8 +12,8 @@
 -- open_demand_prompts_at() takes the seat instead of a waiting question of the caller's. A holder reads nothing new by
 -- it: 0003's insert policy already lets any holder save a waiting question of their own and pass it to
 -- open_demand_prompts() (0007).
--- route_question(), open_demand_prompts() and list_prompt() stay until the code on main calls ask_question(); a later
--- migration drops them.
+-- route_question(), open_demand_prompts() and list_prompt() stay. The app no longer calls them, and none of them lets a
+-- caller do more than ask_question() and open_demand_prompts_at() do (route_question() gets their rules below).
 
 -- As a holder of the seat, before asking there: the seat's open demand prompts in Haiku's wording (listed, 0007), at
 -- most 20, the newest first, id and text only, for Haiku to compare the new question with. Who asked, when and how often
