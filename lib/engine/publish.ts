@@ -40,6 +40,8 @@ import {
   failed,
   logFailure,
 } from "@/lib/engine/route";
+import { canaryCount, seedCanaries } from "@/lib/engine/safety-net";
+import { shownReason } from "@/lib/engine/shown";
 import ja from "@/messages/ja.json";
 
 // The models behind publishing, passed in so a test can fake them: bge-m3 for the notes, Sonnet for the answers.
@@ -161,6 +163,16 @@ export async function publishAsCaller(
     // Drafting only advises: the output guard runs again here, on everything a reader will see.
     const shown = [card.title, card.body, card.provenance ?? ""].join("\n");
     if (card.flags.secret || blockReason(shown)) {
+      throw new ApiFailure("unredacted");
+    }
+    // An added card (F5) was edited in the review, so it gets its import's guard again: a placeholder, contact details
+    // (a URL, a LINE ID, an address too) or a name typed back in is refused, and so is a seed canary. Cards from the
+    // live loop and handover prompts keep the card guard above.
+    if (
+      card.source &&
+      (shownReason(shown, card.flags.secret) ||
+        canaryCount(shown, seedCanaries()) > 0)
+    ) {
       throw new ApiFailure("unredacted");
     }
   }
