@@ -3,7 +3,12 @@
 // access token, so the route acts as this user and RLS decides (AGENTS.md → Rules); Realtime subscribes on the same
 // client, so a row reaches it only when this user may read it. A failed call throws ApiClientError with the route's
 // code, like MockApiError, so `ApiError.safeParse(error)` works on both.
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import {
+  createClient,
+  isAuthApiError,
+  isAuthSessionMissingError,
+  type SupabaseClient,
+} from "@supabase/supabase-js";
 import type { z } from "zod";
 import {
   AnswersRow,
@@ -13,6 +18,8 @@ import {
   AskResult,
   type ConsolePersona,
   ConsoleSession,
+  DEMO_EMAIL,
+  DemoAccount,
   DraftResponse,
   EventsRow,
   GapResponse,
@@ -129,6 +136,100 @@ export function createApi(db: SupabaseClient): Api {
       };
     },
   };
+}
+
+// Demo sign-in (F7.4, #86; docs/SPEC.md → Auth): Supabase's own email and password, one session per device. Every
+// seat page on this device shares the session under DEVICE; a console pane keeps its own under its own storage key
+// (#89). The session lives in localStorage and refreshes itself, so a reload or a closed tab keeps it. Nobody signs
+// up: only the demo accounts sign in (lib/contracts.ts → DEMO_EMAIL), and sign-ups are off in Supabase Auth, since
+// the anon key is public.
+const DEVICE = "daidai-session";
+
+// One client per storage key: two clients on one key would race over its session (supabase-js warns about that).
+const clients = new Map<string, SupabaseClient>();
+
+function sessionClient(storageKey: string): SupabaseClient {
+  const known = clients.get(storageKey);
+  if (known) return known;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !anonKey) throw new ApiClientError("unavailable");
+  const db = createClient(url, anonKey, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      // No #access_token=… from the address bar: a link never signs a device in.
+      detectSessionInUrl: false,
+      storageKey,
+    },
+  });
+  clients.set(storageKey, db);
+  return db;
+}
+
+// Auth answered and said no (as opposed to not answering, or a rate limit).
+function refused(error: unknown): boolean {
+  return (
+    isAuthSessionMissingError(error) ||
+    (isAuthApiError(error) &&
+      error.status >= 400 &&
+      error.status < 500 &&
+      error.status !== 429)
+  );
+}
+
+export type SignedIn = { account: DemoAccount; api: Api };
+
+// Signs this device (or the pane under storageKey) in as a demo account. The password goes to Supabase Auth and
+// nowhere else. A password Auth turns down is unauthorized, so the screen can ask again; offline, a rate limit or
+// anything else is unavailable.
+export async function signIn(
+  account: DemoAccount,
+  password: string,
+  storageKey = DEVICE,
+): Promise<SignedIn> {
+  const db = sessionClient(storageKey);
+  const { data, error } = await db.auth.signInWithPassword({
+    email: DEMO_EMAIL[account],
+    password,
+  });
+  if (error || !data.session) {
+    throw new ApiClientError(refused(error) ? "unauthorized" : "unavailable");
+  }
+  return { account, api: createApi(db) };
+}
+
+// The session this device (or pane) already has, checked with Supabase Auth: the routes verify a token on their own,
+// so a token whose user `pnpm demo:reset` has deleted would pass them for up to an hour and see nothing. Undefined
+// when there is no session, or when Auth turns it down (reset, or ended elsewhere); such a session is cleared here, so
+// the screen asks for the password again. Offline is unavailable, and the session stays for the next try. A user
+// outside the demo accounts counts as signed out.
+export async function signedIn(
+  storageKey = DEVICE,
+): Promise<SignedIn | undefined> {
+  const db = sessionClient(storageKey);
+  // Refreshes an expired access token first; a refresh Auth turns down clears the session.
+  const { data: stored, error: storedError } = await db.auth.getSession();
+  if (storedError && !refused(storedError)) {
+    throw new ApiClientError("unavailable");
+  }
+  if (!stored.session) return undefined;
+  const { data, error } = await db.auth.getUser();
+  if (error && !refused(error)) throw new ApiClientError("unavailable");
+  const account = DemoAccount.options.find(
+    (key) => DEMO_EMAIL[key] === data.user?.email,
+  );
+  if (error || !account) {
+    await signOut(storageKey);
+    return undefined;
+  }
+  return { account, api: createApi(db) };
+}
+
+// Signs this device (or pane) out, and nothing else: the default scope would end the account's sessions on every
+// device, the demo phone's too. The session leaves this device even when Auth can't be reached.
+export async function signOut(storageKey = DEVICE): Promise<void> {
+  await sessionClient(storageKey).auth.signOut({ scope: "local" });
 }
 
 // One console pane's own client (docs/SPEC.md → Console panes): the persona's session from POST /api/console/session,

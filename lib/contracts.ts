@@ -403,10 +403,26 @@ export const NoteView = z.object({
 });
 export type NoteView = z.infer<typeof NoteView>;
 
-// POST /api/console/session (the console only) --------------------------------------------
-// The console's three panes sign in as these demo personas, one session each (docs/SPEC.md → Console panes).
+// Demo sign-in (docs/SPEC.md → Auth) --------------------------------------------------------
+// The demo accounts that sign in, in the order a switcher lists them, each with the email scripts/seed.ts gives it
+// (tests/sign-in.test.ts checks that the two agree). lib/api.ts signs a device in with one of them and the demo
+// password, which the person types: it goes to Supabase Auth only, never into client code or a NEXT_PUBLIC_* variable.
 
-export const ConsolePersona = z.enum(["a26", "a25", "x"]);
+export const DemoAccount = z.enum(["a26", "a25", "a24", "b", "x"]);
+export type DemoAccount = z.infer<typeof DemoAccount>;
+
+export const DEMO_EMAIL: Record<DemoAccount, string> = {
+  a26: "smash-kaikei-2026@example.com",
+  a25: "smash-kaikei-2025@example.com",
+  a24: "smash-kaikei-2024@example.com",
+  b: "keion-member@example.com",
+  x: "yamate-outsider@example.com",
+};
+
+// POST /api/console/session (the console only) --------------------------------------------
+// The console's three panes sign in as these demo accounts, one session each (docs/SPEC.md → Console panes).
+
+export const ConsolePersona = DemoAccount.extract(["a26", "a25", "x"]);
 export type ConsolePersona = z.infer<typeof ConsolePersona>;
 
 export const ConsoleSessionRequest = z.object({ persona: ConsolePersona });
