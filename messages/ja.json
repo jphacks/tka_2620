@@ -127,7 +127,9 @@
   },
   "seat": {
     "upcoming": "これからの締切",
-    "upcomingItem": "{title} {date}まで ・{byline}",
+    "you": "あなた",
+    "youAt": "あなた（{term}）",
+    "upcomingDate": "{date} {weekday}",
     "signingIn": "ログインしています",
     "signInOff": "このサーバーではログインできません。発表用のPCで CONSOLE_SIGN_IN に合言葉（16文字以上）を設定し、このページを #key=合言葉&as=a26（または a25）をつけて開いてください。",
     "signInFailed": "ログインできませんでした。DEMO_PASSWORD を確かめて、開き直してください。"

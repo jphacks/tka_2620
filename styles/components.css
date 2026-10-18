@@ -80,19 +80,26 @@ body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(
 .dd-source-title { font-family: var(--font-ui); font-size: 16px; font-weight: 700; }
 .dd-source-title .dd-kind-mark { margin-right: var(--s-1); }
 
-/* Key tag */
-.dd-tag { position: relative; display: inline-flex; align-items: center; gap: var(--s-3); height: 56px; padding: 0 var(--s-4) 0 var(--s-6); background: var(--sheet); border: 1.5px solid var(--ink); border-radius: var(--r-tag); box-sizing: border-box; }
+/* Key tag: at least 56px high; a long seat name (「TUM → 東大IST / 秋学期」) wraps inside it and the tag grows */
+.dd-tag { position: relative; display: inline-flex; align-items: center; gap: var(--s-3); min-height: 56px; max-width: 100%; padding: var(--s-2) var(--s-4) var(--s-2) var(--s-6); background: var(--sheet); border: 1.5px solid var(--ink); border-radius: var(--r-tag); box-sizing: border-box; }
 .dd-tag::before { content: ""; position: absolute; left: 10px; top: 50%; width: 10px; height: 10px; margin-top: -5px; border-radius: var(--r-round); background: var(--paper); border: 1.5px solid var(--ink); box-sizing: border-box; }
 .dd-tag-ring { position: absolute; left: -14px; top: 50%; width: 30px; height: 30px; margin-top: -15px; border: 2px solid var(--ink-2); border-radius: var(--r-round); box-sizing: border-box; clip-path: inset(0 50% 0 0); }
-.dd-tag-name { font-family: var(--font-marker); font-size: 31px; line-height: 36px; letter-spacing: .04em; }
+.dd-tag-name { margin: 0; font-family: var(--font-marker); font-size: 31px; line-height: 36px; font-weight: 400; letter-spacing: .04em; overflow-wrap: anywhere; }
+/* SeatHeader: the tag (its ring reaches 14px past the left edge, into the gutter), then where the seat lives */
+.dd-seat-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-3) var(--s-4); }
+.dd-seat-where { display: flex; align-items: flex-start; gap: var(--s-2); color: var(--ink-2); }
+.dd-seat-where svg { flex: none; }
+.dd-seat-where p { margin: 0; display: grid; }
+.dd-seat-group { color: var(--ink); font-weight: 700; }
 
 /* Lineage rail */
-.dd-rail { display: flex; gap: var(--s-3); overflow-x: auto; padding: var(--s-2) var(--s-1) var(--s-3); }
+.dd-rail { display: flex; gap: var(--s-3); overflow-x: auto; margin: 0; padding: var(--s-2) var(--s-1) var(--s-3); list-style: none; }
 .dd-ltag { position: relative; flex: none; width: 44px; height: 112px; box-sizing: border-box; padding-top: 26px; display: grid; justify-items: center; align-content: start;
   background: var(--sheet); border: 1.5px solid var(--ink-2); border-radius: var(--r-tag); color: var(--ink); }
 .dd-ltag::before { content: ""; position: absolute; top: 8px; left: 50%; width: 10px; height: 10px; margin-left: -5px; border-radius: var(--r-round); border: 1.5px solid var(--ink-2); box-sizing: border-box; background: var(--paper); }
 .dd-ltag-label { writing-mode: vertical-rl; font-family: var(--font-marker); font-size: 16px; line-height: 18px; letter-spacing: .08em; }
 .dd-ltag-label .tcy { text-combine-upright: all; }
+.dd-ltag-label .tcy.dd-fig { font-weight: 700; } /* figures as on the date stamp's year band, as heavy as the marker */
 .dd-ltag.is-current { border-color: var(--ink); }
 .dd-ltag.is-you { border: 1.5px dashed var(--blue); background: transparent; color: var(--blue); }
 .dd-ltag.is-you .dd-ltag-label { font-family: var(--font-ui); font-weight: 700; font-size: 13px; }
@@ -101,7 +108,29 @@ body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(
 .dd-tabs { display: flex; gap: var(--s-1); padding: 0 var(--s-4); border-top: 1px solid var(--rule); }
 .dd-tab { flex: 1; min-height: 48px; margin-top: -1px; border: 1px solid var(--rule); border-top: 0; border-radius: 0 0 var(--r-button) var(--r-button); background: var(--paper); color: var(--ink-2);
   font-family: var(--font-ui); font-size: 16px; font-weight: 700; letter-spacing: .04em; cursor: pointer; }
-.dd-tab[aria-selected="true"] { background: var(--sheet); color: var(--blue); min-height: 52px; }
+.dd-tab[aria-selected="true"], .dd-tab[aria-current="page"] { background: var(--sheet); color: var(--blue); min-height: 52px; }
+/* VerbTabs are links between the verb pages: fixed to the bottom edge, in the page's 640px column */
+a.dd-tab { display: grid; place-items: center; text-decoration: none; }
+.dd-verbs { position: fixed; inset: auto 0 0; z-index: 1; background: var(--paper); padding-bottom: env(safe-area-inset-bottom); }
+.dd-verbs .dd-tabs { max-width: 640px; margin-inline: auto; box-sizing: border-box; }
+@media (min-width: 600px) { .dd-verbs .dd-tabs { padding-inline: var(--s-5); } } /* the page's 24px gutter */
+/* flush with the screen's bottom edge, the ring goes inside the tab or it loses its bottom */
+.dd-verbs .dd-tab:focus-visible { outline-offset: -4px; }
+/* A page with the tabs keeps room under its content for them (after .dd-pad, so it wins), and whatever the browser or
+   the page scrolls to (a focused field, an answer that just arrived) stops above them */
+.dd-with-verbs { padding-bottom: calc(52px + var(--s-6) + env(safe-area-inset-bottom)); }
+:root:has(.dd-verbs) { scroll-padding-bottom: calc(52px + var(--s-4) + env(safe-area-inset-bottom)); }
+
+/* UpcomingList: a planner column, each row the boxed date, the title and the mini stamp of whose note it is */
+.dd-planner { list-style: none; margin: 0; padding: 0; display: grid; }
+.dd-planner-row { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: var(--s-2); min-height: 48px; padding-block: var(--s-2); border-bottom: 1px solid var(--rule); }
+.dd-planner-title { font-weight: 700; word-break: auto-phrase; overflow-wrap: anywhere; }
+/* the date clear of its box, and the seed title still on one line at 390px */
+.dd-planner .dd-date { padding-inline: var(--s-1); }
+.dd-planner .dd-mini { margin-inline: 0; }
+/* a stamp that only says whose note it is: no pointer and no 44px hit area (the tappable ones are buttons) */
+span.dd-mini { cursor: default; }
+span.dd-mini::after { content: none; }
 
 /* Inbox slip (伝言メモ) */
 .dd-inbox { max-width: 360px; padding: var(--s-4); border-top: 1px dashed var(--ink-2); }

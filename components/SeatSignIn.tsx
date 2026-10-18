@@ -6,9 +6,9 @@
 // page says sign-in is off. There is no sign-in screen this weekend (docs/SPEC.md → The golden path).
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
-import { AskPanel } from "@/components/AskPanel";
 import { consoleKey } from "@/components/ConsoleSignIn";
 import { HandoverColumn } from "@/components/HandoverColumn";
+import { SeatHome } from "@/components/SeatHome";
 import { signInConsolePane } from "@/lib/api";
 import { type Api, ApiError, ConsolePersona } from "@/lib/contracts";
 
@@ -86,7 +86,7 @@ export function SeatSignIn({
   }
   // The one-device shortcuts play the other person on mocks; on real data the other person is real.
   return panel === "ask" ? (
-    <AskPanel slug={slug} api={api} mockShortcuts={false} />
+    <SeatHome slug={slug} api={api} mockShortcuts={false} />
   ) : (
     <HandoverColumn slug={slug} api={api} mockShortcuts={false} />
   );

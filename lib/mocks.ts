@@ -14,6 +14,7 @@ import {
   type CardDraft,
   type Citation,
   type DedupeOutput,
+  type DemoAccount,
   type DraftOutput,
   DraftRequest,
   type DraftResponse,
@@ -54,8 +55,8 @@ import { shownReason } from "@/lib/engine/shown";
 
 export const USE_MOCKS = process.env.NEXT_PUBLIC_USE_MOCKS === "1";
 
-// The demo accounts (docs/SPEC.md → Personas).
-export type Persona = "a24" | "a25" | "a26" | "b" | "x";
+// The demo accounts (docs/SPEC.md → Personas), as lib/contracts.ts lists them.
+export type Persona = DemoAccount;
 
 // Fixed v4 uuids, so a question, its prompt and its answer line up across panes and tests
 // (crypto.randomUUID needs https, and phones may load the dev server over plain http).
@@ -909,7 +910,7 @@ function push<C extends keyof RealtimeRows>(
 }
 
 // Like the engine after a withdrawal: a sentence that cited a withdrawn note goes, and with it the rule change;
-// with nothing left, the question abstains.
+// with nothing left, the question abstains, routed nowhere and naming no prompt (the answers trigger, 0006).
 function withoutWithdrawn(result: AnsweredResult): AskResult {
   const sentences = result.sentences.filter((sentence) =>
     sentence.citations.every(
@@ -918,12 +919,7 @@ function withoutWithdrawn(result: AnsweredResult): AskResult {
   );
   if (sentences.length === result.sentences.length) return result;
   if (sentences.length === 0) {
-    return {
-      status: "abstained",
-      questionId: result.questionId,
-      promptId: newId(),
-      routedTo: 0,
-    };
+    return { status: "abstained", questionId: result.questionId, routedTo: 0 };
   }
   return {
     status: "answered",
@@ -996,19 +992,11 @@ export function createMockApi(
       return withoutWithdrawn(known);
     }
     // Nobody knew. A holder's question becomes a demand prompt and reaches the seat's reachable holders other than
-    // the asker: a25, unless a25 asked, when the prompt reaches nobody. A question from someone who holds no seat at
-    // that seat creates no prompt and reaches nobody, so its result names none. The database's route_question() and
-    // /api/ask answer the same way.
-    if (seat !== SEAT || !holders[persona]) {
+    // the asker: a25. A question that would reach nobody, because a25 asked it or because its asker holds no seat at
+    // that seat, creates no prompt, so its result names none. The database's ask_question() and /api/ask answer the
+    // same way.
+    if (seat !== SEAT || !holders[persona] || persona === "a25") {
       return { status: "abstained", questionId, routedTo: 0 };
-    }
-    if (persona === "a25") {
-      return {
-        status: "abstained",
-        questionId,
-        promptId: newId(),
-        routedTo: 0,
-      };
     }
     let waiting = [...state.waiting.values()].find(
       (prompt) => keyOf(prompt.question) === key,

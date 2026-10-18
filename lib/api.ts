@@ -3,7 +3,14 @@
 // access token, so the route acts as this user and RLS decides (AGENTS.md → Rules); Realtime subscribes on the same
 // client, so a row reaches it only when this user may read it. A failed call throws ApiClientError with the route's
 // code, like MockApiError, so `ApiError.safeParse(error)` works on both.
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import {
+  createClient,
+  isAuthApiError,
+  isAuthSessionMissingError,
+  type Session,
+  type SupabaseClient,
+  type SupportedStorage,
+} from "@supabase/supabase-js";
 import type { z } from "zod";
 import {
   AnswersRow,
@@ -13,6 +20,8 @@ import {
   AskResult,
   type ConsolePersona,
   ConsoleSession,
+  DEMO_EMAIL,
+  DemoAccount,
   DraftResponse,
   EventsRow,
   GapResponse,
@@ -66,7 +75,13 @@ const ROWS: { [C in keyof RealtimeRows]: z.ZodType<RealtimeRows[C]> } = {
   events: EventsRow,
 };
 
-export function createApi(db: SupabaseClient): Api {
+// userId: the user the Api acts for, when it comes from signIn or signedIn below. Every tab on a device shares that
+// device's session, so another tab can sign in as someone else; the Api then refuses to act as them (unauthorized),
+// and its Realtime rows stop.
+export function createApi(db: SupabaseClient, userId?: string): Api {
+  const someoneElse = (session: Session | null) =>
+    userId !== undefined && session?.user.id !== userId;
+
   // GET without a body, POST with one.
   async function call<S extends z.ZodType>(
     schema: S,
@@ -75,7 +90,9 @@ export function createApi(db: SupabaseClient): Api {
   ): Promise<z.output<S>> {
     const { data } = await db.auth.getSession();
     const token = data.session?.access_token;
-    if (!token) throw new ApiClientError("unauthorized");
+    if (!token || someoneElse(data.session)) {
+      throw new ApiClientError("unauthorized");
+    }
     const response = await fetch(path, {
       method: body === undefined ? "GET" : "POST",
       headers: {
@@ -113,6 +130,7 @@ export function createApi(db: SupabaseClient): Api {
     note: (noteId) =>
       call(NoteView, `/api/notes/${encodeURIComponent(noteId)}`),
     subscribe(channel, onRow) {
+      let open = true;
       const subscription = db
         .channel(`${channel}:${crypto.randomUUID()}`)
         .on(
@@ -120,15 +138,151 @@ export function createApi(db: SupabaseClient): Api {
           { event: "*", schema: "public", table: channel },
           (change) => {
             const row = ROWS[channel].safeParse(change.new);
-            if (row.success) onRow(row.data);
+            if (open && row.success) onRow(row.data);
           },
         )
         .subscribe();
+      // Realtime follows the client's current session: while that is someone else's, no row gets through. No session
+      // (signed out, or an expired token offline) changes nothing: Realtime then runs on the anon key, which RLS
+      // shows nothing, and this Api's user may come back once the token refreshes.
+      const watch =
+        userId === undefined
+          ? undefined
+          : db.auth.onAuthStateChange((_event, session) => {
+              if (session) open = session.user.id === userId;
+            }).data.subscription;
       return () => {
+        open = false;
+        watch?.unsubscribe();
         void db.removeChannel(subscription);
       };
     },
   };
+}
+
+// Demo sign-in (F7.4, #86; docs/SPEC.md → Auth): Supabase's own email and password, one session per device. Every
+// seat page on this device shares the session under DEVICE; a console pane keeps its own under its own storage key
+// (#89). The session lives in localStorage and refreshes itself, so a reload or a closed tab keeps it. Nobody signs
+// up: only the demo accounts sign in (lib/contracts.ts → DEMO_EMAIL), and sign-ups are off in Supabase Auth, since
+// the anon key is public.
+const DEVICE = "daidai-session";
+
+// Where the sessions live: localStorage, or memory where a browser blocks it (and in tests). Kept here rather than
+// left to supabase-js, so signOut can always clear a slot.
+let store: SupportedStorage | undefined;
+
+function sessionStore(): SupportedStorage {
+  if (store) return store;
+  try {
+    const probe = "daidai-storage-probe";
+    globalThis.localStorage.setItem(probe, probe);
+    globalThis.localStorage.removeItem(probe);
+    store = globalThis.localStorage;
+  } catch {
+    const memory = new Map<string, string>();
+    store = {
+      getItem: (key) => memory.get(key) ?? null,
+      setItem: (key, value) => void memory.set(key, value),
+      removeItem: (key) => void memory.delete(key),
+    };
+  }
+  return store;
+}
+
+// One client per storage key: two clients on one key would race over its session (supabase-js warns about that).
+const clients = new Map<string, SupabaseClient>();
+
+function sessionClient(storageKey: string): SupabaseClient {
+  const known = clients.get(storageKey);
+  if (known) return known;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !anonKey) throw new ApiClientError("unavailable");
+  const db = createClient(url, anonKey, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      // No #access_token=… from the address bar: a link never signs a device in.
+      detectSessionInUrl: false,
+      storage: sessionStore(),
+      storageKey,
+    },
+  });
+  clients.set(storageKey, db);
+  return db;
+}
+
+// Auth answered and said no (as opposed to not answering, or a rate limit).
+function refused(error: unknown): boolean {
+  return (
+    isAuthSessionMissingError(error) ||
+    (isAuthApiError(error) &&
+      error.status >= 400 &&
+      error.status < 500 &&
+      error.status !== 429)
+  );
+}
+
+export type SignedIn = { account: DemoAccount; api: Api };
+
+// Signs this device (or the pane under storageKey) in as a demo account. The password goes to Supabase Auth and
+// nowhere else. A password Auth turns down is unauthorized, so the screen can ask again; offline, a rate limit or
+// anything else is unavailable.
+export async function signIn(
+  account: DemoAccount,
+  password: string,
+  storageKey = DEVICE,
+): Promise<SignedIn> {
+  const db = sessionClient(storageKey);
+  const { data, error } = await db.auth.signInWithPassword({
+    email: DEMO_EMAIL[account],
+    password,
+  });
+  if (error || !data.session) {
+    throw new ApiClientError(refused(error) ? "unauthorized" : "unavailable");
+  }
+  return { account, api: createApi(db, data.session.user.id) };
+}
+
+// The session this device (or pane) already has, checked with Supabase Auth: the routes verify a token on their own,
+// so a token whose user `pnpm demo:reset` has deleted would pass them for up to an hour and see nothing. Undefined
+// when there is no session, or when Auth turns it down (reset, or ended elsewhere); such a session is cleared here, so
+// the screen asks for the password again. Offline is unavailable, and the session stays for the next try. A user
+// outside the demo accounts counts as signed out.
+export async function signedIn(
+  storageKey = DEVICE,
+): Promise<SignedIn | undefined> {
+  const db = sessionClient(storageKey);
+  // Refreshes an expired access token first; a refresh Auth turns down clears the session.
+  const { data: stored, error: storedError } = await db.auth.getSession();
+  if (storedError && !refused(storedError)) {
+    throw new ApiClientError("unavailable");
+  }
+  if (!stored.session) return undefined;
+  const { data, error } = await db.auth.getUser();
+  if (error && !refused(error)) throw new ApiClientError("unavailable");
+  const user = data.user;
+  const account = DemoAccount.options.find(
+    (key) => DEMO_EMAIL[key] === user?.email,
+  );
+  if (error || !user || !account) {
+    await signOut(storageKey);
+    return undefined;
+  }
+  return { account, api: createApi(db, user.id) };
+}
+
+// Signs this device (or pane) out, and nothing else: the default scope would end the account's sessions on every
+// device, the demo phone's too. The session leaves this device even when Auth can't be reached.
+export async function signOut(storageKey = DEVICE): Promise<void> {
+  const db = sessionClient(storageKey);
+  const { error } = await db.auth.signOut({ scope: "local" });
+  if (error) {
+    // supabase-js keeps a session whose expired token it couldn't refresh first (offline). Clear the slot here, then
+    // sign out again: that finds nothing to end and tells this page and the other tabs (SIGNED_OUT).
+    await sessionStore().removeItem(storageKey);
+    await db.auth.signOut({ scope: "local" });
+  }
 }
 
 // One console pane's own client (docs/SPEC.md → Console panes): the persona's session from POST /api/console/session,

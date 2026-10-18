@@ -130,14 +130,15 @@ They are the shared acceptance tests for F2–F4, and `lib/mocks.ts` is built fr
 - Newcomers' questions: the question text reaches only `reachable` holders of the same seat (via `prompt_routes`);
   the asker is shown by seat and term (「2026年度 会計」), never by name. `answers` rows are readable only by the asker.
 - A question from someone who holds no seat at that seat routes nowhere: no demand prompt is created, the abstain
-  carries no `promptId`, and `routedTo` is 0. The question remains readable only by the asker.
+  carries no `promptId`, and `routedTo` is 0. The question remains readable only by the asker. The same holds for a
+  holder's question that nobody but the asker could receive (a25 asking, as the only reachable holder).
 - Demand prompts (F2.5): a routed question's prompt is the question reworded by Haiku about the seat, without names or
   contact details (the asker's own `questions.text` stays as typed). So that a question can join an open prompt that
-  asks the same thing, a holder of the seat whose own question waits to be routed reads the seat's open, *listed*
-  demand prompts (id and text, never who asked) through `open_demand_prompts()`. Only the asker lists a prompt, only
-  the one their question started, and only when its text is Haiku's wording that passed the guard (`list_prompt()`); a
-  prompt as typed (Haiku down) is read only by its routed holders. A question with no prompt text free of contact
-  details, credentials and names routes nowhere.
+  asks the same thing, a holder of the seat, before asking there, reads the seat's open, *listed* demand prompts (id
+  and text, never who asked) through `open_demand_prompts_at()`. The question is then saved and routed in one
+  transaction (`ask_question()`), joining only such a prompt. Only the asker lists a prompt, only the one their question
+  started, and only when its text is Haiku's wording that passed the guard; a prompt as typed (Haiku down) is read only
+  by its routed holders. A question with no prompt text free of contact details, credentials and names routes nowhere.
 
 ## Adding knowledge: text, files and chats (F5)
 Club knowledge lives in old documents, forms, notices and, most of all, group chats. Daidai takes all of them
@@ -223,6 +224,7 @@ type Scope = "successor" | "group" | "institution" | "public";
 type NoteKind = "deadline" | "contact" | "rule_of_thumb" | "pitfall" | "unwritten_rule";
 type Lang = "ja" | "en";                                // notes.lang / questions.lang: screens set lang per note
 type SeatType = "club_role" | "exchange_route" | "lab_duty"; // every seat type has a label pack
+type DemoAccount = "a26" | "a25" | "a24" | "b" | "x";       // the accounts that sign in (Supabase Auth, no route of ours); emails in DEMO_EMAIL
 type Citation = { noteId: string; byline: string; termLabel: string };
 type CardDraft = { kind: NoteKind; title: string; body: string; deadline_date?: string; suggested_scope: Scope; critical: boolean; valid_until?: string; lang: Lang; flags: { person_verdict: boolean; secret: boolean } };
 
@@ -267,6 +269,16 @@ type AskResult =
 
 - **Auth:** every API call sends `Authorization: Bearer <access token>`; route handlers create a Supabase
   client with that token so RLS runs as the caller.
+- **Demo sign-in (seat pages):** Supabase's own email and password, one session per device (`lib/api.ts`: `signIn`,
+  `signedIn`, `signOut`). The device's client keeps its session in localStorage and refreshes it itself, so a reload
+  or a closed tab stays signed in; a console pane will keep its own under its own storage key (#89). Only the demo
+  accounts sign in (`DemoAccount` and `DEMO_EMAIL` in `lib/contracts.ts`, the emails `scripts/seed.ts` creates). The
+  demo password is typed on the device and goes to Supabase Auth only, never into client code or a `NEXT_PUBLIC_*`
+  variable. Signing out ends this device's session only (`scope: "local"`; the default would also sign the demo phone
+  out), and clears it from the device even offline. Nobody signs up: "Allow new users to sign up" is off in Supabase
+  Auth and email is the only sign-in method, since the anon key is public (`tests/sign-in.test.ts` checks both).
+  `pnpm demo:reset` recreates the demo users, so every device signs in again after a reset: `signedIn` checks a
+  stored session with Supabase Auth and clears one it no longer knows.
 - **Console panes:** each pane creates its own Supabase client signed in as its persona
   (`persistSession: false`), so three personas run side by side in one browser. The session comes from
   `POST /api/console/session`, which signs in with `DEMO_PASSWORD` on the server, so the password never reaches the

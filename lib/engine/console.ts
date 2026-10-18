@@ -19,15 +19,9 @@ import {
   type ConsolePersona,
   type ConsoleSession,
   ConsoleSessionRequest,
+  DEMO_EMAIL,
 } from "@/lib/contracts";
 import { ApiFailure, apiError, failed } from "@/lib/engine/route";
-
-// scripts/seed.ts gives each persona the account <key>@example.com (scripts/check-ask.ts uses the same keys).
-const ACCOUNT: Record<ConsolePersona, string> = {
-  a26: "smash-kaikei-2026",
-  a25: "smash-kaikei-2025",
-  x: "yamate-outsider",
-};
 
 // Shorter than this counts as off: "1" or "true" must not turn the route on.
 const MIN_PASSPHRASE = 16;
@@ -85,7 +79,7 @@ export async function signInWithDemoPassword(
     },
   });
   const { data, error } = await db.auth.signInWithPassword({
-    email: `${ACCOUNT[persona]}@example.com`,
+    email: DEMO_EMAIL[persona], // the seat pages' list (lib/contracts.ts)
     password,
   });
   if (error || !data.session) throw new ApiFailure("unavailable");

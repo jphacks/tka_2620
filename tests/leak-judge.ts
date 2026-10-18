@@ -42,10 +42,17 @@ export type World = {
   seatsHeld: Map<string, Set<string>>; // user id → the seats they hold
   reachable: Set<string>; // `${seat_id} ${user_id}` of each holder who agreed to get newcomers' questions
   questions: Map<string, { askerUserId: string; promptId: string | null }>;
-  // askerUserId: who asked the question that started the prompt (null once that question is gone)
+  // askerUserId: who asked the question that started the prompt (null once that question is gone). listed and retired
+  // say which demand prompts a holder of the seat may be offered to join (open_demand_prompts_at(), 0012).
   prompts: Map<
     string,
-    { seatId: string; kind: string; askerUserId: string | null }
+    {
+      seatId: string;
+      kind: string;
+      askerUserId: string | null;
+      listed?: boolean;
+      retired?: boolean;
+    }
   >;
   routes: Set<string>; // `${prompt_id} ${user_id}`, as the database made them
   personas: Map<string, string>; // user id → viewer key (a24 … x), for checking an asker's view
