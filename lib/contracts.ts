@@ -143,8 +143,9 @@ export type AnsweredResult = z.infer<typeof AnsweredResult>;
 export const AbstainedResult = z.object({
   status: z.literal("abstained"),
   questionId: Uuid,
-  // The demand prompt it created or joined. Absent when the asker holds no seat at the seat they asked: their
-  // question routes nowhere and creates no prompt, so routedTo is 0 and there is no prompt to name.
+  // The demand prompt it created or joined. Absent when the question routes nowhere, because the asker holds no seat
+  // at the seat they asked or nobody but the asker could receive it: no prompt is created, so routedTo is 0 and there
+  // is no prompt to name.
   promptId: Uuid.optional(),
   routedTo: Count, // reachable predecessors whose inbox it reached
 });

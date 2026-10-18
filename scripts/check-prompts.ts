@@ -6,7 +6,7 @@
 // Runs against the seeded database and a running dev server, with 0011_handover_prompts applied:
 //   pnpm dev          (in another terminal)
 //   pnpm test:prompts
-// As a26 it saves one q04 question and routes it as POST /api/ask does after an abstain (route_question(), no model
+// As a26 it saves one q04 question and routes it as POST /api/ask did before 0012 (route_question(), no model
 // call), and adds the old handover's two missing items with POST /api/handover/prompts (gap 1: 保健所, which a recent
 // note covers for a25 and a24; gap 2: the account, which nothing covers). Afterwards it removes exactly what it created
 // with the service role, which only scripts/ may hold, and says the demo data is back only when it is. Don't run it
@@ -351,7 +351,7 @@ async function main(): Promise<void> {
       );
     }
 
-    // 3. a26 asks q04 and nobody knows: saved as waiting and routed, as POST /api/ask does after an abstain.
+    // 3. a26 asks q04 and nobody knows: saved as waiting, then routed, as POST /api/ask did before 0012.
     const saved = await people.a26.db
       .from("questions")
       .insert({

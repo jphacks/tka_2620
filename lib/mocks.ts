@@ -910,7 +910,7 @@ function push<C extends keyof RealtimeRows>(
 }
 
 // Like the engine after a withdrawal: a sentence that cited a withdrawn note goes, and with it the rule change;
-// with nothing left, the question abstains.
+// with nothing left, the question abstains, routed nowhere and naming no prompt (the answers trigger, 0006).
 function withoutWithdrawn(result: AnsweredResult): AskResult {
   const sentences = result.sentences.filter((sentence) =>
     sentence.citations.every(
@@ -919,12 +919,7 @@ function withoutWithdrawn(result: AnsweredResult): AskResult {
   );
   if (sentences.length === result.sentences.length) return result;
   if (sentences.length === 0) {
-    return {
-      status: "abstained",
-      questionId: result.questionId,
-      promptId: newId(),
-      routedTo: 0,
-    };
+    return { status: "abstained", questionId: result.questionId, routedTo: 0 };
   }
   return {
     status: "answered",
@@ -997,19 +992,11 @@ export function createMockApi(
       return withoutWithdrawn(known);
     }
     // Nobody knew. A holder's question becomes a demand prompt and reaches the seat's reachable holders other than
-    // the asker: a25, unless a25 asked, when the prompt reaches nobody. A question from someone who holds no seat at
-    // that seat creates no prompt and reaches nobody, so its result names none. The database's route_question() and
-    // /api/ask answer the same way.
-    if (seat !== SEAT || !holders[persona]) {
+    // the asker: a25. A question that would reach nobody, because a25 asked it or because its asker holds no seat at
+    // that seat, creates no prompt, so its result names none. The database's ask_question() and /api/ask answer the
+    // same way.
+    if (seat !== SEAT || !holders[persona] || persona === "a25") {
       return { status: "abstained", questionId, routedTo: 0 };
-    }
-    if (persona === "a25") {
-      return {
-        status: "abstained",
-        questionId,
-        promptId: newId(),
-        routedTo: 0,
-      };
     }
     let waiting = [...state.waiting.values()].find(
       (prompt) => keyOf(prompt.question) === key,

@@ -1,5 +1,5 @@
-// POST /api/ask: answered from the notes (F2.2, issue #20), or saved and routed to the live loop (F3.5, issue #7),
-// joining an open prompt that asks the same thing (F2.5, issue #23).
+// POST /api/ask: answered from the notes (F2.2, issue #20), or saved and routed to the live loop in one call (F3.5,
+// issues #7 and #69), joining an open prompt that asks the same thing (F2.5, issue #23).
 // These tests run offline: the handler returns before it touches Supabase unless the request is well-formed, and the
 // flow itself is driven through a stub client and fake models, so the database's own rules are checked by
 // scripts/check-ask.ts.
@@ -28,26 +28,29 @@ const OPEN_PROMPT = {
   text: "決算が終わってから出てきた領収書はどう処理すればよいですか？",
 };
 
-type Reply = { data?: unknown; error?: { code: string } | null };
-
 type Stub = {
   seat: { id: string; name?: string } | null;
   found?: unknown[]; // search_notes' rows: none by default, so the question abstains
-  open?: unknown; // open_demand_prompts' rows: none by default
+  open?: unknown; // open_demand_prompts_at's rows: none by default
   openError?: { code: string } | null;
-  listError?: { code: string } | null; // list_prompt's
-  routed?: unknown; // route_question's reply, as PostgREST hands it over
-  routes?: Reply[]; // or one reply per call, in order
+  asked?: unknown; // ask_question's reply, as PostgREST hands it over
+  askError?: { code: string } | null;
   seatError?: { code: string } | null;
   searchError?: { code: string } | null;
   replaced?: unknown[]; // superseded_deadlines' rows: none by default
   replacedError?: { code: string } | null;
-  routeError?: { code: string } | null;
   inserted?: Record<string, Record<string, unknown>[]>; // rows by table
   called?: string[]; // database functions, in order
   args?: Record<string, unknown[]>; // each function's arguments, in order
   storedPayload?: unknown; // the answers row as the database keeps it, when it differs from the one inserted
 };
+
+// ask_question's row: the question it saved, the prompt it started or joined (null when routed nowhere), the routes.
+const asked = (prompt_id: string | null, routed_to: number) => ({
+  question_id: QUESTION_ID,
+  prompt_id,
+  routed_to,
+});
 
 function stubClient(stub: Stub): SupabaseClient {
   const inserted: Record<string, Record<string, unknown>[]> = {};
@@ -93,16 +96,14 @@ function stubClient(stub: Stub): SupabaseClient {
       if (name === "superseded_deadlines") {
         return { data: stub.replaced ?? [], error: stub.replacedError ?? null };
       }
-      if (name === "open_demand_prompts") {
+      if (name === "open_demand_prompts_at") {
         return { data: stub.open ?? [], error: stub.openError ?? null };
       }
-      if (name === "list_prompt") {
-        return { data: null, error: stub.listError ?? null };
+      if (name === "ask_question") {
+        return { data: stub.asked ?? null, error: stub.askError ?? null };
       }
-      const reply = stub.routes?.shift();
-      return reply
-        ? { data: reply.data ?? null, error: reply.error ?? null }
-        : { data: stub.routed, error: stub.routeError ?? null };
+      // Any other function isn't there, as PostgREST answers for one it can't find.
+      return { data: null, error: { code: "PGRST202" } };
     },
   };
   return client as unknown as SupabaseClient;
@@ -348,11 +349,11 @@ describe("askAsCaller", () => {
     ).rejects.toMatchObject({ code: "unavailable" });
   });
 
-  it("abstains when no sentence keeps a citation: saved waiting, then routed", async () => {
+  it("abstains when no sentence keeps a citation: saved and routed in one call", async () => {
     const stub: Stub = {
       seat: { id: "seat-1" },
       found: q01Notes,
-      routed: { prompt_id: PROMPT_ID, routed_to: 1 },
+      asked: asked(PROMPT_ID, 1),
     };
     const result = await askAsCaller(
       stubClient(stub),
@@ -371,22 +372,21 @@ describe("askAsCaller", () => {
       promptId: PROMPT_ID,
       routedTo: 1,
     });
-    expect(stub.inserted?.questions).toMatchObject([{ status: "waiting" }]);
-    expect(stub.inserted?.answers).toBeUndefined();
+    // ask_question saves the waiting question itself, so the flow inserts nothing of its own (#69).
+    expect(stub.inserted).toEqual({});
     expect(stub.called).toEqual([
       "search_notes",
-      "open_demand_prompts",
-      "route_question",
-      "list_prompt",
+      "open_demand_prompts_at",
+      "ask_question",
     ]);
   });
 
-  it("abstains without the answer model when no note is close enough: saves the question with its lang, then routes it", async () => {
+  it("abstains without the answer model when no note is close enough: saves the question with its lang and routes it in one call", async () => {
     const stub: Stub = {
       seat: { id: "seat-1" },
       // q04's closest note, about receipts, scores under MATCH (lib/engine/retrieve.ts).
       found: [{ ...q01Notes[0], similarity: 0.626 }],
-      routed: { prompt_id: PROMPT_ID, routed_to: 1 },
+      asked: asked(PROMPT_ID, 1),
     };
     const result = await askAsCaller(
       stubClient(stub),
@@ -395,22 +395,23 @@ describe("askAsCaller", () => {
       noAnswer,
     );
 
-    expect(stub.inserted).toEqual({
-      questions: [
-        {
-          asker_user_id: "asker-1",
-          seat_id: "seat-1",
-          text: QUESTION,
-          lang: "ja",
-          status: "waiting",
-        },
-      ],
-    });
+    expect(stub.inserted).toEqual({});
     expect(stub.called).toEqual([
       "search_notes",
-      "open_demand_prompts",
-      "route_question",
-      "list_prompt",
+      "open_demand_prompts_at",
+      "ask_question",
+    ]);
+    // The seat's open prompts are read before anything is saved, by seat.
+    expect(stub.args?.open_demand_prompts_at).toEqual([{ seat: "seat-1" }]);
+    // As typed, and in Haiku's words for the prompt: listed for the seat's later askers if it starts one.
+    expect(stub.args?.ask_question).toEqual([
+      {
+        seat: "seat-1",
+        question: QUESTION,
+        lang: "ja",
+        prompt_text: QUESTION,
+        listed: true,
+      },
     ]);
     expect(AskResult.parse(result)).toEqual({
       status: "abstained",
@@ -432,6 +433,7 @@ describe("askAsCaller", () => {
       askAsCaller(stubClient(stub), "asker-1", q04, ollamaDown),
     ).rejects.toThrow();
     expect(stub.inserted).toEqual({});
+    expect(stub.called).not.toContain("ask_question");
 
     const refused: Stub = {
       seat: { id: "seat-1" },
@@ -441,16 +443,34 @@ describe("askAsCaller", () => {
       askAsCaller(stubClient(refused), "asker-1", q04, noAnswer),
     ).rejects.toMatchObject({ name: "ApiFailure", code: "forbidden" });
     expect(refused.inserted).toEqual({});
+    expect(refused.called).not.toContain("ask_question");
   });
 
-  it("names no prompt when the asker holds no seat, so nothing was routed", async () => {
+  it("leaves nothing behind when saving and routing fails: one call, which saves all or nothing (#69)", async () => {
     const stub: Stub = {
       seat: { id: "seat-1" },
-      routed: { prompt_id: null, routed_to: 0 },
+      askError: { code: "XX000" },
+    };
+    await expect(
+      askAsCaller(stubClient(stub), "asker-1", q04, noAnswer),
+    ).rejects.toMatchObject({ name: "ApiFailure", code: "unavailable" });
+    // No insert of its own to leave behind, and no second call: asking again is the only retry, and it saves once.
+    expect(stub.inserted).toEqual({});
+    expect(stub.called?.filter((name) => name === "ask_question")).toEqual([
+      "ask_question",
+    ]);
+  });
+
+  // The asker holds no seat at the seat, or nobody but the asker could receive it (a25 asking): the database saved the
+  // question and routed it nowhere.
+  it("names no prompt when the question was routed nowhere", async () => {
+    const stub: Stub = {
+      seat: { id: "seat-1" },
+      asked: asked(null, 0),
     };
     const result = await askAsCaller(
       stubClient(stub),
-      "outsider",
+      "asker-1",
       q04,
       noAnswer,
     );
@@ -459,12 +479,13 @@ describe("askAsCaller", () => {
       questionId: QUESTION_ID,
       routedTo: 0,
     });
+    expect(result).not.toHaveProperty("promptId");
   });
 
-  it("reads route_question's row from a one-item array too", async () => {
+  it("reads ask_question's row from a one-item array too", async () => {
     const stub: Stub = {
       seat: { id: "seat-1" },
-      routed: [{ prompt_id: PROMPT_ID, routed_to: 1 }],
+      asked: [asked(PROMPT_ID, 1)],
     };
     const result = await askAsCaller(
       stubClient(stub),
@@ -472,19 +493,27 @@ describe("askAsCaller", () => {
       q04,
       noAnswer,
     );
-    expect(result).toMatchObject({ promptId: PROMPT_ID, routedTo: 1 });
+    expect(result).toEqual({
+      status: "abstained",
+      questionId: QUESTION_ID,
+      promptId: PROMPT_ID,
+      routedTo: 1,
+    });
   });
 
-  it("answers unavailable when route_question's reply isn't one it can give", async () => {
-    for (const routed of [
+  it("answers unavailable when ask_question's reply isn't one it can give", async () => {
+    for (const reply of [
       null,
       {},
-      { prompt_id: "not-a-uuid", routed_to: 1 },
-      { prompt_id: PROMPT_ID, routed_to: -1 },
+      { ...asked(PROMPT_ID, 1), prompt_id: "not-a-uuid" },
+      { ...asked(PROMPT_ID, 1), question_id: "not-a-uuid" },
+      { prompt_id: PROMPT_ID, routed_to: 1 }, // no question
+      asked(PROMPT_ID, -1),
+      { ...asked(null, 0), routed_to: null }, // a function that returned before counting
     ]) {
       await expect(
         askAsCaller(
-          stubClient({ seat: { id: "seat-1" }, routed }),
+          stubClient({ seat: { id: "seat-1" }, asked: reply }),
           "asker-1",
           q04,
           noAnswer,
@@ -509,8 +538,7 @@ describe("askAsCaller", () => {
   it("turns a policy refusal into forbidden, never into text", async () => {
     const stub: Stub = {
       seat: { id: "seat-1" },
-      routed: { prompt_id: null, routed_to: 0 },
-      routeError: { code: "42501" },
+      askError: { code: "42501" },
     };
     const failure = await askAsCaller(
       stubClient(stub),
@@ -538,15 +566,16 @@ describe("askAsCaller: dedupe (F2.5)", () => {
     return () => spy.mock.calls.map((call) => call.join(" ")).join("\n");
   };
 
-  it("joins the open prompt that asks the same thing: no new prompt, no text sent", async () => {
+  it("joins the open prompt that asks the same thing, sending its own wording only as the fallback", async () => {
+    const worded = "決算後に申請された領収書はどう処理すればよいですか？";
     const stub: Stub = {
       seat,
       open: [OPEN_PROMPT],
-      routed: { prompt_id: PROMPT_ID, routed_to: 1 },
+      asked: asked(PROMPT_ID, 1),
     };
     const { model, models } = deduping({
       duplicate_of: PROMPT_ID,
-      prompt: "決算後に申請された領収書はどう処理すればよいですか？",
+      prompt: worded,
     });
     const result = await askAsCaller(stubClient(stub), "asker-2", q04, models);
 
@@ -556,9 +585,18 @@ describe("askAsCaller: dedupe (F2.5)", () => {
       promptId: PROMPT_ID,
       routedTo: 1,
     });
-    expect(stub.args?.open_demand_prompts).toEqual([{ question: QUESTION_ID }]);
-    expect(stub.args?.route_question).toEqual([
-      { question: QUESTION_ID, join_prompt: PROMPT_ID },
+    expect(stub.args?.open_demand_prompts_at).toEqual([{ seat: SMASH_KAIKEI }]);
+    // One call: the database joins the prompt while it is still open and starts one from the wording only if it isn't
+    // (listed applies to a prompt it starts). The asker's own question stays as typed.
+    expect(stub.args?.ask_question).toEqual([
+      {
+        seat: SMASH_KAIKEI,
+        question: QUESTION,
+        lang: "ja",
+        join_prompt: PROMPT_ID,
+        prompt_text: worded,
+        listed: true,
+      },
     ]);
     // Two calls: the match saw the seat, the question and the open prompt, each in its own tag; the wording saw the
     // question alone.
@@ -573,97 +611,119 @@ describe("askAsCaller: dedupe (F2.5)", () => {
     );
     expect(wording).toContain(`<question>\n${QUESTION}\n</question>`);
     expect(wording).not.toContain(OPEN_PROMPT.text);
-    // The asker's own question stays as typed, and a joined question lists nothing.
-    expect(stub.inserted?.questions).toMatchObject([{ text: QUESTION }]);
-    expect(stub.called).not.toContain("list_prompt");
   });
 
   it("starts a new prompt worded about the seat when none asks the same thing", async () => {
     const reworded = "前任者への引き継ぎで、領収書の締め切りはいつですか？";
+    const question = "田中先輩に領収書の締め切りを聞きたい";
     const stub: Stub = {
       seat,
       open: [OPEN_PROMPT],
-      routed: { prompt_id: OTHER_PROMPT_ID, routed_to: 1 },
+      asked: asked(OTHER_PROMPT_ID, 1),
     };
     const { models } = deduping({ duplicate_of: null, prompt: reworded });
     const result = await askAsCaller(
       stubClient(stub),
       "asker-1",
-      {
-        seat: "smash-kaikei",
-        question: "田中先輩に領収書の締め切りを聞きたい",
-      },
+      { seat: "smash-kaikei", question },
       models,
     );
 
     expect(result).toMatchObject({ promptId: OTHER_PROMPT_ID, routedTo: 1 });
-    expect(stub.args?.route_question).toEqual([
-      { question: QUESTION_ID, prompt_text: reworded },
+    // In Haiku's words, so the seat's later askers may join it; the asker's own question as typed.
+    expect(stub.args?.ask_question).toEqual([
+      {
+        seat: SMASH_KAIKEI,
+        question,
+        lang: "ja",
+        prompt_text: reworded,
+        listed: true,
+      },
     ]);
-    // In Haiku's words, so the seat's later askers may join it.
-    expect(stub.args?.list_prompt).toEqual([{ question: QUESTION_ID }]);
-  });
-
-  it("still answers when listing fails: the prompt only misses a merge", async () => {
-    const log = errorLog();
-    const stub: Stub = {
-      seat,
-      routed: { prompt_id: PROMPT_ID, routed_to: 1 },
-      listError: { code: "PGRST202" },
-    };
-    const result = await askAsCaller(
-      stubClient(stub),
-      "asker-1",
-      q04,
-      noAnswer,
-    );
-    expect(result).toMatchObject({ promptId: PROMPT_ID, routedTo: 1 });
-    expect(log()).toContain("list_prompt failed: unavailable");
-    expect(log()).not.toContain(QUESTION);
   });
 
   it("never joins a prompt it wasn't given", async () => {
     const stub: Stub = {
       seat,
       open: [OPEN_PROMPT],
-      routed: { prompt_id: OTHER_PROMPT_ID, routed_to: 1 },
+      asked: asked(OTHER_PROMPT_ID, 1),
     };
     const { models } = deduping({
       duplicate_of: OTHER_PROMPT_ID,
       prompt: QUESTION,
     });
     await askAsCaller(stubClient(stub), "asker-1", q04, models);
-    expect(stub.args?.route_question).toEqual([
-      { question: QUESTION_ID, prompt_text: QUESTION },
+    expect(stub.args?.ask_question).toEqual([
+      {
+        seat: SMASH_KAIKEI,
+        question: QUESTION,
+        lang: "ja",
+        prompt_text: QUESTION,
+        listed: true,
+      },
     ]);
   });
 
-  it("starts a prompt when the one it joins was retired in the meantime", async () => {
+  it("starts a prompt when the one it joins was retired in the meantime, in the same call", async () => {
+    // What the database answers when the prompt to join is no longer open (0012): a prompt started from the text.
     const stub: Stub = {
       seat,
       open: [OPEN_PROMPT],
-      routes: [
-        { error: { code: "22023" } },
-        { data: { prompt_id: OTHER_PROMPT_ID, routed_to: 1 } },
-      ],
+      asked: asked(OTHER_PROMPT_ID, 1),
     };
     const { models } = deduping({ duplicate_of: PROMPT_ID, prompt: QUESTION });
     const result = await askAsCaller(stubClient(stub), "asker-2", q04, models);
 
     expect(result).toMatchObject({ promptId: OTHER_PROMPT_ID, routedTo: 1 });
-    expect(stub.args?.route_question).toEqual([
-      { question: QUESTION_ID, join_prompt: PROMPT_ID },
-      { question: QUESTION_ID, prompt_text: QUESTION },
+    expect(stub.args?.ask_question).toEqual([
+      {
+        seat: SMASH_KAIKEI,
+        question: QUESTION,
+        lang: "ja",
+        join_prompt: PROMPT_ID,
+        prompt_text: QUESTION,
+        listed: true,
+      },
     ]);
+  });
+
+  it("joins an open prompt even when no text of its own may be sent, and sends none", async () => {
+    const log = errorLog();
+    const withPhone =
+      "03-9876-5432 の件、決算後の領収書はどうすれば良いですか？";
+    const stub: Stub = {
+      seat,
+      open: [OPEN_PROMPT],
+      asked: asked(PROMPT_ID, 1),
+    };
+    const { models } = deduping({ duplicate_of: PROMPT_ID, prompt: withPhone });
+    const result = await askAsCaller(
+      stubClient(stub),
+      "asker-2",
+      { seat: "smash-kaikei", question: withPhone },
+      models,
+    );
+
+    expect(result).toMatchObject({ promptId: PROMPT_ID, routedTo: 1 });
+    expect(stub.args?.ask_question).toEqual([
+      {
+        seat: SMASH_KAIKEI,
+        question: withPhone,
+        lang: "ja",
+        join_prompt: PROMPT_ID,
+      },
+    ]);
+    expect(log()).not.toContain("not routed");
+    expect(log()).not.toContain("9876");
   });
 
   it("routes the question as typed when there's no Haiku or no open prompts to read", async () => {
     const log = errorLog();
     const stub: Stub = {
       seat,
-      // 0008 not applied yet: PostgREST can't find the function.
+      // The read fails: PostgREST can't find the function, say.
       openError: { code: "PGRST202" },
-      routed: { prompt_id: PROMPT_ID, routed_to: 1 },
+      asked: asked(PROMPT_ID, 1),
     };
     const noKey: AskModels = {
       ...noAnswer,
@@ -674,34 +734,41 @@ describe("askAsCaller: dedupe (F2.5)", () => {
     const result = await askAsCaller(stubClient(stub), "asker-1", q04, noKey);
 
     expect(result).toMatchObject({ promptId: PROMPT_ID, routedTo: 1 });
-    expect(stub.args?.route_question).toEqual([
-      { question: QUESTION_ID, prompt_text: QUESTION },
-    ]);
     // As typed, the prompt reaches the routed predecessors and is never listed for the seat's other askers.
-    expect(stub.called).not.toContain("list_prompt");
+    expect(stub.args?.ask_question).toEqual([
+      {
+        seat: SMASH_KAIKEI,
+        question: QUESTION,
+        lang: "ja",
+        prompt_text: QUESTION,
+        listed: false,
+      },
+    ]);
     expect(log()).not.toContain(QUESTION);
   });
 
   it("drops Haiku's wording when it names someone, and keeps the question's own, unlisted", async () => {
-    const stub: Stub = {
-      seat,
-      routed: { prompt_id: PROMPT_ID, routed_to: 1 },
-    };
+    const stub: Stub = { seat, asked: asked(PROMPT_ID, 1) };
     const { models } = deduping({
       duplicate_of: null,
       prompt: "田中さんに領収書のことを聞いてもいいですか？",
     });
     await askAsCaller(stubClient(stub), "asker-1", q04, models);
-    expect(stub.args?.route_question).toEqual([
-      { question: QUESTION_ID, prompt_text: QUESTION },
+    expect(stub.args?.ask_question).toEqual([
+      {
+        seat: SMASH_KAIKEI,
+        question: QUESTION,
+        lang: "ja",
+        prompt_text: QUESTION,
+        listed: false,
+      },
     ]);
-    expect(stub.called).not.toContain("list_prompt");
   });
 
   it("routes nowhere when no prompt text passes the guard, and saves the question as typed", async () => {
     const log = errorLog();
     const withPhone = "090-1234-5678 に領収書のことを電話してもいい？";
-    const stub: Stub = { seat };
+    const stub: Stub = { seat, asked: asked(null, 0) };
     const { models } = deduping({
       duplicate_of: null,
       prompt: "領収書のことは 090-1234-5678 に電話すればいいですか？",
@@ -718,8 +785,11 @@ describe("askAsCaller: dedupe (F2.5)", () => {
       questionId: QUESTION_ID,
       routedTo: 0,
     });
-    expect(stub.called).not.toContain("route_question");
-    expect(stub.inserted?.questions).toMatchObject([{ text: withPhone }]);
+    // Saved as typed, for the asker alone, with no prompt text to send and nothing to join.
+    expect(stub.args?.ask_question).toEqual([
+      { seat: SMASH_KAIKEI, question: withPhone, lang: "ja" },
+    ]);
+    expect(log()).toContain("no prompt text passed the guard, not routed");
     expect(log()).not.toContain("090");
   });
 });

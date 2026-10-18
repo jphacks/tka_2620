@@ -435,13 +435,34 @@ describe("createMockApi", () => {
     expect((await outsider.myNotes()).notes).toEqual([]);
   });
 
-  it("names the prompt of a holder's question that reaches nobody, as route_question does", async () => {
+  it("creates no prompt for a holder's question that reaches nobody, as ask_question does", async () => {
     // a25 is the seat's only reachable holder, and an asker never reaches themselves.
     const senpai = createMockApi("a25", { latencyMs: 0 });
     const asked = await senpai.ask({ seat, question: mockQuestions.q04 });
     expect(asked).toMatchObject({ status: "abstained", routedTo: 0 });
-    expect(asked.status === "abstained" && asked.promptId).toBeTruthy();
+    expect(asked).not.toHaveProperty("promptId");
     expect((await senpai.inbox({ seat })).items).toEqual([]);
+    // Nothing waits for a25's question, so the newcomer's same question still starts the prompt a25 answers.
+    const newcomer = createMockApi("a26", { latencyMs: 0 });
+    expect(
+      await newcomer.ask({ seat, question: mockQuestions.q04 }),
+    ).toMatchObject({ promptId: mockIds.keyPrompt, routedTo: 1 });
+  });
+
+  it("abstains naming no prompt once every note an answer cited is withdrawn, as the answers trigger does", async () => {
+    const newcomer = createMockApi("a26", { latencyMs: 0 });
+    const answers: unknown[] = [];
+    const stop = newcomer.subscribe("answers", (row) => answers.push(row));
+    await newcomer.ask({ seat, question: mockQuestions.q01 });
+    await createMockApi("a25", { latencyMs: 0 }).withdraw("smash-2025-hokenjo");
+    await createMockApi("a24", { latencyMs: 0 }).withdraw("smash-2024-hokenjo");
+    await vi.waitFor(() => expect(answers).toHaveLength(2));
+    expect(AnswersRow.parse(answers[1]).payload).toEqual({
+      status: "abstained",
+      questionId: mockIds.q01,
+      routedTo: 0,
+    });
+    stop();
   });
 
   it("records when a25 first opens a slip, and lets nobody else", async () => {
