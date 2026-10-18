@@ -270,13 +270,14 @@ type AskResult =
   client with that token so RLS runs as the caller.
 - **Demo sign-in (seat pages):** Supabase's own email and password, one session per device (`lib/api.ts`: `signIn`,
   `signedIn`, `signOut`). The device's client keeps its session in localStorage and refreshes it itself, so a reload
-  or a closed tab stays signed in; a console pane keeps its own session under its own storage key. Only the demo
+  or a closed tab stays signed in; a console pane will keep its own under its own storage key (#89). Only the demo
   accounts sign in (`DemoAccount` and `DEMO_EMAIL` in `lib/contracts.ts`, the emails `scripts/seed.ts` creates). The
   demo password is typed on the device and goes to Supabase Auth only, never into client code or a `NEXT_PUBLIC_*`
   variable. Signing out ends this device's session only (`scope: "local"`; the default would also sign the demo phone
-  out). Nobody signs up: "Allow new users to sign up" is off in Supabase Auth, since the anon key is public
-  (`tests/sign-in.test.ts` checks it). `pnpm demo:reset` recreates the demo users, so every device signs in again
-  after a reset: `signedIn` checks a stored session with Supabase Auth and clears one it no longer knows.
+  out), and clears it from the device even offline. Nobody signs up: "Allow new users to sign up" is off in Supabase
+  Auth and email is the only sign-in method, since the anon key is public (`tests/sign-in.test.ts` checks both).
+  `pnpm demo:reset` recreates the demo users, so every device signs in again after a reset: `signedIn` checks a
+  stored session with Supabase Auth and clears one it no longer knows.
 - **Console panes:** each pane creates its own Supabase client signed in as its persona
   (`persistSession: false`), so three personas run side by side in one browser. The session comes from
   `POST /api/console/session`, which signs in with `DEMO_PASSWORD` on the server, so the password never reaches the
