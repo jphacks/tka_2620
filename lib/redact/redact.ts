@@ -390,17 +390,21 @@ const URL_PATTERN = new RegExp(
 );
 
 // Also kaikei@gmail and kaikei@example。com; and written to dodge scrapers, kaikei (at) example (dot) com or
-// kaikei アットマーク example.com, when the host has a dot.
-const EMAIL = /[\w.+-]+@\s?[\w-]+(?:[.。][\w-]+)*/g;
+// kaikei アットマーク example.com, when the host has a dot. Both start where a run of address characters starts: a
+// match from inside the run is the same address, and trying every position of a long run (a pasted key, a line of
+// 100,000 letters) takes seconds, now on the server too (/api/import).
+const EMAIL = /(?<![\w.+-])[\w.+-]+@\s?[\w-]+(?:[.。][\w-]+)*/g;
 const HIDDEN_EMAIL =
-  /[\w.+-]+\s*(?:@|\(at\)|\[at\]|<at>|アットマーク|あっと)\s*[\w-]+(?:\s*(?:[.。]|\(dot\)|\[dot\]|ドット)\s*[A-Za-z][\w-]*)+/gi;
+  /(?<![\w.+-])[\w.+-]+\s*(?:@|\(at\)|\[at\]|<at>|アットマーク|あっと)\s*[\w-]+(?:\s*(?:[.。]|\(dot\)|\[dot\]|ドット)\s*[A-Za-z][\w-]*)+/gi;
 
 // The value after the keyword: 学籍番号 21B12345, LINE ID: smash_kaikei, IDは smash2025, LINE: smash_kaikei,
-// インスタは smash_tennis, X: smash_tennis, アカウントは smash_official.
+// インスタは smash_tennis, X: smash_tennis, アカウントは smash_official. At most three spaces in each gap: open
+// gaps side by side are tried every way a run of spaces splits between them, at every position (2,000 spaces froze
+// the server's second pass, /api/import).
 const STUDENT_ID =
-  /(?<=(?:学籍番号|学生番号|学生証番号|学生証|学籍|student\s?(?:id|number|no\.?))\s*(?::|=|は|が)?\s*)(?=[A-Za-z0-9-]*\d)[A-Za-z0-9][A-Za-z0-9-]{3,15}(?![A-Za-z0-9-])/giu;
+  /(?<=(?:学籍番号|学生番号|学生証番号|学生証|学籍|student\s?(?:id|number|no\.?))\s{0,3}(?::|=|は|が)?\s{0,3})(?=[A-Za-z0-9-]*\d)[A-Za-z0-9][A-Za-z0-9-]{3,15}(?![A-Za-z0-9-])/giu;
 const LINE_ID =
-  /(?<=(?<![A-Za-z])(?:LINE\s?|ライン\s?)?ID\s*(?:は|が|を)?\s*:?\s*|(?:LINE|ライン)\s*:\s*|(?<![A-Za-z])X\s*(?::|は)\s*|(?:インスタ(?:グラム)?|instagram|insta|ツイッター|twitter|tiktok|ティックトック|threads|スレッズ|discord|ディスコ(?:ード)?|アカウント|垢)(?:の)?(?:アカウント)?(?:名)?\s*(?:は|:)?\s*)[\w.-]{3,32}(?![\w.-]|[年月日円人])/giu;
+  /(?<=(?<![A-Za-z])(?:LINE\s?|ライン\s?)?ID\s{0,3}(?:は|が|を)?\s{0,3}:?\s{0,3}|(?:LINE|ライン)\s{0,3}:\s{0,3}|(?<![A-Za-z])X\s{0,3}(?::|は)\s{0,3}|(?:インスタ(?:グラム)?|instagram|insta|ツイッター|twitter|tiktok|ティックトック|threads|スレッズ|discord|ディスコ(?:ード)?|アカウント|垢)(?:の)?(?:アカウント)?(?:名)?\s{0,3}(?:は|:)?\s{0,3})[\w.-]{3,32}(?![\w.-]|[年月日円人])/giu;
 
 // 4111 1111 1111 1111, 3782-822463-10005, or digits after カード番号.
 const CARD =
@@ -432,8 +436,10 @@ const BARE_ACCOUNT =
   /(?<![\d,.¥$-])\d{7}(?![\d,.]|\s?[円万人年月日時分件個枚回歳%])/gu;
 
 // 〒113-0033, and a street address: 東京都文京区本郷7-3-1, 本郷7丁目3番1号, メゾン本郷203号室. A ward or town alone stays.
+// At most three spaces after 郵便番号, as for the IDs above: 1,000 spaces in Japanese text took 0.2 s, and it grows
+// with the cube.
 const POSTAL =
-  /〒\s?\d{3}[-‐−ー]?\d{4}(?!\d)|(?<=郵便番号\s*:?\s*)\d{3}[-‐−]?\d{4}(?!\d)|(?<![\d-])\d{3}[-‐−]\d{4}(?![\d-])/gu;
+  /〒\s?\d{3}[-‐−ー]?\d{4}(?!\d)|(?<=郵便番号\s{0,3}:?\s{0,3})\d{3}[-‐−]?\d{4}(?!\d)|(?<![\d-])\d{3}[-‐−]\d{4}(?![\d-])/gu;
 const PLACE = String.raw`[\p{sc=Han}\p{sc=Katakana}々ヶー]`;
 const BLOCK = String.raw`\d{1,4}(?:丁目|番地|番|号|[-‐−])(?:\d{1,4}(?:丁目|番地|番|号|[-‐−])?){0,4}`;
 const ROOM = String.raw`(?:\s?${PLACE}{1,12}?\d{1,4}号室)?`;
@@ -544,7 +550,8 @@ const KANA_WORD =
   /^(?:かあ|とう)$|(?:みな|みんな|あか|おかあ|おとう|ばあ|じい|にい|ねえ|おじ|おば|だんな|いもうと|おとうと)$/u;
 const GREETING = /^(?:hi|hello|hey|thanks|thank|dear|mr|ms|mrs|dr|prof)\.?$/i;
 
-function isRole(word: string): boolean {
+// Also the output guard's test for a card (lib/engine/guard.ts), so 保健所の担当者さん or 保健所さん stays in a note.
+export function isRole(word: string): boolean {
   if (!/[部屋所室園]$/u.test(word)) return ROLE.test(word);
   return (
     PLACE_ROLE.test(word) || ([...word].length >= 3 && !SURNAME_END.test(word))

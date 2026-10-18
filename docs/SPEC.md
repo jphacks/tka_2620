@@ -192,6 +192,9 @@ through one path that keeps people out of the notes, at the start and at any tim
   学生課 notice (PDF), a new 申請書 (Word), a message from the festival committee (copy-paste) or a two-line text note.
 - The "missing" list compares the core checklist with all live notes plus the new cards, so it shrinks over the year;
   open items become handover prompts (`kind: gap`), and the handover skips topics a recent note already covers.
+  What the added text itself mentions but leaves out (a deadline without its date, a step it calls necessary but
+  doesn't explain) is always listed: 「保健所申請の締切が書かれていません」 is about that text, even when a live note has
+  the date.
 - Later, not this weekend: save from where people already talk without reading the whole group (a LINE bot that ignores
   everything except messages that mention it, 「@代々 残して」; a Slack message shortcut 「代々に残す」; the phone's share sheet for the
   installed web app on Android; forwarding an email to a seat address), and on-device OCR for scans and screenshots.
@@ -245,7 +248,7 @@ type AskResult =
 //   text: extracted in the browser and redacted there; the file itself is never sent; nothing is stored.
 //   redaction: { names, phones, emails, urls, ids, addresses, accounts, secrets, people } counts
 //   → { cards: (CardDraft & { source: "import" | "file" | "chat"; provenance?: string })[]; missing: { topic: string; reason: string; prompt: string }[];
-//       blocked: { title: string; reason: string }[]; duplicates: { card: number; noteId: string; title: string; byline: string; similarity: number }[] }
+//       blocked: { title: string; reason: "placeholder" | "secret" | "contact" | "name" }[]; duplicates: { card: number; noteId: string; title: string; byline: string; similarity: number }[] }
 // POST /api/notes/[id]/withdraw          → { withdrawnAt: string }
 // POST /api/console/session { persona: "a26" | "a25" | "x" } + header x-console-key → { accessToken: string; refreshToken: string }
 //   the console only: not_found unless the server's CONSOLE_SIGN_IN passphrase (16+ characters) matches x-console-key

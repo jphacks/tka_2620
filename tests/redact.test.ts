@@ -337,4 +337,23 @@ describe("redactText rules", () => {
     expect(text).toBe(input.normalize("NFKC"));
     expect(counts).toEqual(nothing);
   });
+
+  // /api/import runs this on the server too (#35): an email pattern that tried every position of a run took 16 s, and
+  // the ID and postal-code rules never finished on a run of spaces (in Japanese text for the postal code).
+  const spaces = " ".repeat(100_000);
+  it.each([
+    ["a run of letters", "a".repeat(100_000)],
+    ["letters and dots", "a.".repeat(50_000)],
+    ["digits", "1".repeat(100_000)],
+    ["a run of spaces", `a${spaces}a`],
+    ["a run of spaces in Japanese text", `あ${spaces}あ`],
+    ["a run of newlines", `あ${"\n".repeat(100_000)}あ`],
+    ["spaces after ID", `ID${spaces}abc1`],
+    ["spaces after 学籍番号", `学籍番号${spaces}A1234`],
+    ["spaces after 郵便番号", `郵便番号${spaces}1130033`],
+  ])("takes %s in one pass", (_case, input) => {
+    const started = performance.now();
+    redactText(input);
+    expect(performance.now() - started).toBeLessThan(1000);
+  });
 });

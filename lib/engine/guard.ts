@@ -1,8 +1,11 @@
 // The output guard (docs/SPEC.md → adding knowledge, step 8): a drafted card is checked again for contact details,
 // credentials and names before anyone can publish it. Heuristics on top of the model's own rules; a card that trips
-// one is blocked, never repaired. Drafting and publishing use it; import can run the same checks.
+// one is blocked, never repaired. Drafting, publishing and import (lib/engine/extract-notes.ts) use it.
+import type { BlockReason as ShownReason } from "@/lib/contracts";
+import { isRole } from "@/lib/redact/redact";
 
-export type BlockReason = "contact" | "secret" | "name";
+// What a blocked card says (lib/contracts.ts); placeholders are the import's own check.
+export type BlockReason = Exclude<ShownReason, "placeholder">;
 
 export function blockReason(text: string): BlockReason | undefined {
   const plain = normalize(text);
@@ -40,11 +43,12 @@ const PHONE = new RegExp(
 );
 const PHONE_DIGITS = /(?<!\d)(?:\+?810?\d{9,10}|0\d{9,10})(?!\d)/;
 
-// Emails (also kaikei@example。com and kaikei@gmail), @handles (with a letter in them: ＠500円 is a unit price),
-// phone numbers as written, as bare digits, or once up to three non-alphanumeric characters (or の, ー, and a colon
-// unless a time's two digits follow it) between digits are gone, and a number next to 電話 or TEL.
+// Emails (also kaikei@example。com and kaikei@gmail; from the start of the address, so a long run of letters takes
+// one pass, not one per letter), @handles (with a letter in them: ＠500円 is a unit price), phone numbers as written,
+// as bare digits, or once up to three non-alphanumeric characters (or の, ー, and a colon unless a time's two digits
+// follow it) between digits are gone, and a number next to 電話 or TEL.
 function hasContactDetails(plain: string): boolean {
-  if (/[\w.+-]+\s?@\s?[\w-]+/.test(plain)) return true;
+  if (/(?<![\w.+-])[\w.+-]+\s?@\s?[\w-]+/.test(plain)) return true;
   if (/(?<![\w.])@(?=[\w.]*[A-Za-z_])[\w.]{2,}/.test(plain)) return true;
   if (PHONE.test(plain) || PHONE_DIGITS.test(plain)) return true;
   const digits = plain.replace(
@@ -70,13 +74,26 @@ function nearValue(plain: string, keyword: RegExp): boolean {
   return false;
 }
 
-// A name before an honorific (山田さん, タナカ先輩, Tanakaくん). Roles, offices and groups before one are fine
-// (顧問の先生, 施設係さん, 業者さん, 皆さん, OBさん).
+// A name before an honorific (大野さん, タナカ先輩, Tanakaくん, 阿部さん). Roles, offices and groups before one are fine
+// (顧問の先生, 施設係さん, 業者さん, 皆さん, OBさん). Stricter than the redaction's list (lib/redact/redact.ts), which
+// keeps words readable: here a word passes only by these endings, as a whole person-role word (担当者, not
+// 加藤担当者), or by an institution's ending (市立図書館, 県立病院). Before 部, 所 or 室, the redaction's rule tells a
+// surname from a role (阿部, 田所 against 学生部, 保健所).
 const HONORIFIC =
   /([\p{sc=Han}\p{sc=Katakana}ーA-Za-z]{1,8})(?:さん|くん|君|ちゃん|氏|先輩|先生)/gu;
 const ROLE =
   /(?:係|課|局|所|部|会|店|社|協|室|担当|長|員|役|幹事|会計|書記|顧問|監督|コーチ|マネージャー|リーダー|主将|代表|前任|後任|先代|歴代|年度|窓口|事務|業者|大家|管理人|皆|客|後輩|同期|上級生|新入生|医|師|OB|OG)$/u;
+const PERSON_ROLE =
+  /^(?:担当者|責任者|代表者|保護者|関係者|主催者|参加者|申請者|出店者|利用者|医者|先方|相手|本人|新人|学生|留学生|院生|選手|スタッフ|メンバー|オーナー|ゲスト|キャプテン)$/u;
+const INSTITUTION =
+  /(?:旅館|会館|図書館|体育館|公民館|大使館|病院|医院|学校|高校|大学|大学院|応援団|劇団|楽団|球団|税務署|警察署|消防署|県庁|都庁|役場)$/u;
 
 function hasName(plain: string): boolean {
-  return [...plain.matchAll(HONORIFIC)].some(([, word]) => !ROLE.test(word));
+  return [...plain.matchAll(HONORIFIC)].some(([, word]) => !isCardRole(word));
+}
+
+function isCardRole(word: string): boolean {
+  if (PERSON_ROLE.test(word) || INSTITUTION.test(word)) return true;
+  if (!ROLE.test(word)) return false;
+  return /[部所室]$/u.test(word) ? isRole(word) : true;
 }
