@@ -17,7 +17,8 @@
         "public": "一般公開"
       },
       "abstain": "歴代の{seat}は誰も知りません。",
-      "routed": "去年の{seat}に届けました。"
+      "routed": "去年の{seat}に届けました。",
+      "roles": "部長・副部長・会計・副会計・顧問・学生課"
     },
     "exchange_route": {
       "seat": "留学ルート",
@@ -31,7 +32,8 @@
         "public": "一般公開"
       },
       "abstain": "このルートの先輩は誰も知りません。",
-      "routed": "前の留学生に届けました。"
+      "routed": "前の留学生に届けました。",
+      "roles": "前の留学生・派遣先の担当者・国際課・指導教員"
     },
     "lab_duty": {
       "seat": "担当",
@@ -45,7 +47,8 @@
         "public": "一般公開"
       },
       "abstain": "歴代の{seat}は誰も知りません。",
-      "routed": "前の{seat}に届けました。"
+      "routed": "前の{seat}に届けました。",
+      "roles": "教授・助教・技術職員・先輩・メーカーの担当者"
     }
   },
   "ask": {
@@ -169,12 +172,11 @@
     "askLeaver": "先輩に聞く",
     "tabDoc": "貼り付け",
     "tabChat": "トーク履歴",
-    "dropChat": "LINE や WhatsApp のトーク履歴（.txt）をここに置くか、Slack・X・Instagram からコピーして貼り付けてください",
+    "dropChat": "LINE のトーク履歴（.txt）をここに置いてください",
     "speakers": "話している人",
     "rolePick": "役割を選ぶ",
     "member": "メンバー{letter}",
     "hideMore": "ほかに隠す言葉",
-    "hidden": "名前 {names}件・電話番号 {phones}件・メール {emails}件・口座番号 {accounts}件・秘密 {secrets}件を隠しました",
     "preview": "送られる内容",
     "consent": "このトークのメンバーに、引き継ぎに使うことを伝えました",
     "sendRedacted": "この内容だけを送る",
@@ -193,7 +195,64 @@
     "duplicate": "似たメモがあります：{title}（{byline}）",
     "update": "更新する",
     "keepBoth": "別のメモとして残す",
-    "superseded": "{term}に更新"
+    "superseded": "{term}に更新",
+    "close": "閉じる",
+    "check": "送る内容を確認する",
+    "pasteChat": "Slack・X・Instagram などからコピーしたメッセージを貼り付けてください",
+    "reading": "読み込んでいます",
+    "fileReadText": "{name}を読み込みました",
+    "unreadable": "このファイルは読めませんでした。文字をコピーして貼り付けてください",
+    "unsupported": "PDF・Word（.docx）・テキスト（.txt・.md）のファイルを選んでください",
+    "notChat": "トーク履歴として読めませんでした。LINE の .txt か、コピーしたメッセージを使ってください",
+    "whatsapp": "WhatsApp のトーク履歴は、まだ読み込めません。必要なところを、名前を消してから「貼り付け」に入れてください",
+    "noSpeakers": "話している人を見つけられませんでした。資料として「貼り付け」から追加し、名前は「ほかに隠す言葉」に入れてください",
+    "toPaste": "貼り付けに切り替える",
+    "again": "やり直す",
+    "another": "別の資料を追加する",
+    "hidePending": "Enter を押すと、この言葉も隠します",
+    "notHidden": "{words} は隠せませんでした。前後の文字と一緒に入力してください",
+    "bars": {
+      "phone": "電話番号",
+      "email": "メール",
+      "url": "URL",
+      "urlHost": "URL: {host}",
+      "id": "ID",
+      "studentId": "学籍番号",
+      "address": "住所",
+      "account": "口座番号",
+      "card": "カード番号",
+      "secret": "秘密",
+      "name": "名前"
+    },
+    "unavailable": "追加の画面を開けませんでした。ページを開き直してください",
+    "rolesHint": "名前は、選んだ役割に置きかえて送ります",
+    "messageCount": "{count}件",
+    "rolesDone": "この役割で隠す",
+    "asDoc": "トークではなく資料として読む",
+    "changeRoles": "役割を選び直す",
+    "hideMoreHint": "「、」で区切って入力してください",
+    "hiddenList": "<list></list>を隠しました",
+    "hiddenNone": "隠すものは見つかりませんでした",
+    "listSeparator": "・",
+    "kinds": {
+      "names": "名前 <fig>{count}</fig>件",
+      "phones": "電話番号 <fig>{count}</fig>件",
+      "emails": "メール <fig>{count}</fig>件",
+      "accounts": "口座番号 <fig>{count}</fig>件",
+      "secrets": "秘密 <fig>{count}</fig>件",
+      "ids": "ID <fig>{count}</fig>件",
+      "addresses": "住所 <fig>{count}</fig>件",
+      "urls": "URL <fig>{count}</fig>件"
+    },
+    "used": "{total}件中{kept}件のメッセージを使います",
+    "useAll": "全部使う",
+    "useKept": "引き継ぎに関係しそうなものだけ使う",
+    "noneKept": "引き継ぎに関係しそうなメッセージは見つかりませんでした",
+    "tooLong": "長すぎます（10万文字まで）。分けて追加してください",
+    "sending": "送っています",
+    "unredacted": "電話番号かメールが残っていたため、送りませんでした。「ほかに隠す言葉」に入れてください",
+    "failed": "送れませんでした。もう一度お試しください",
+    "drafted": "メモの下書き {cards}件・書かれていないこと {missing}件"
   },
   "trust": {
     "nothing": "このページで見られるメモはありません",

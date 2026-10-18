@@ -17,7 +17,8 @@
         "public": "Public"
       },
       "abstain": "No {seat} before you knew this.",
-      "routed": "Sent to last year's {seat}."
+      "routed": "Sent to last year's {seat}.",
+      "roles": "President, Vice president, Treasurer, Deputy treasurer, Advisor, Student affairs office"
     },
     "exchange_route": {
       "seat": "exchange route",
@@ -31,7 +32,8 @@
         "public": "Public"
       },
       "abstain": "Nobody on this route knew this yet.",
-      "routed": "Sent to the previous exchange student."
+      "routed": "Sent to the previous exchange student.",
+      "roles": "Previous exchange student, Host university contact, International office, Supervisor"
     },
     "lab_duty": {
       "seat": "duty",
@@ -45,7 +47,8 @@
         "public": "Public"
       },
       "abstain": "No {seat} before you knew this.",
-      "routed": "Sent to the previous {seat}."
+      "routed": "Sent to the previous {seat}.",
+      "roles": "Professor, Assistant professor, Technician, Senior student, Vendor contact"
     }
   },
   "ask": {
@@ -169,12 +172,11 @@
     "askLeaver": "Ask the leaver",
     "tabDoc": "Paste",
     "tabChat": "Chat history",
-    "dropChat": "Drop a LINE or WhatsApp chat export (.txt) here, or paste messages copied from Slack, X or Instagram",
+    "dropChat": "Drop a LINE chat export (.txt) here",
     "speakers": "People in this chat",
     "rolePick": "Choose a role",
     "member": "Member {letter}",
     "hideMore": "Other words to hide",
-    "hidden": "Hidden: {names} names, {phones} phone numbers, {emails} emails, {accounts} account numbers, {secrets} secrets",
     "preview": "What will be sent",
     "consent": "I told the people in this chat that it will be used for the handover",
     "sendRedacted": "Send only this",
@@ -193,7 +195,64 @@
     "duplicate": "A similar note exists: {title} ({byline})",
     "update": "Update it",
     "keepBoth": "Keep as a separate note",
-    "superseded": "Updated in {term}"
+    "superseded": "Updated in {term}",
+    "close": "Close",
+    "check": "Check what will be sent",
+    "pasteChat": "Paste messages you copied from Slack, X, Instagram or elsewhere",
+    "reading": "Reading",
+    "fileReadText": "Read {name}",
+    "unreadable": "This file couldn't be read. Copy the text and paste it instead",
+    "unsupported": "Choose a PDF, Word (.docx) or text (.txt, .md) file",
+    "notChat": "This couldn't be read as a chat. Use a LINE .txt export or messages you copied",
+    "whatsapp": "WhatsApp chats can't be read yet. Remove the names from the parts you need and paste them under \"Paste\"",
+    "noSpeakers": "No one speaking was found. Add it as a document under \"Paste\" and put any names in \"Other words to hide\"",
+    "toPaste": "Switch to Paste",
+    "again": "Start over",
+    "another": "Add another document",
+    "hidePending": "Press Enter to hide these words too",
+    "notHidden": "Couldn't hide {words}. Type them with the characters around them",
+    "bars": {
+      "phone": "Phone",
+      "email": "Email",
+      "url": "URL",
+      "urlHost": "URL: {host}",
+      "id": "ID",
+      "studentId": "Student ID",
+      "address": "Address",
+      "account": "Account no.",
+      "card": "Card no.",
+      "secret": "Secret",
+      "name": "Name"
+    },
+    "unavailable": "The add panel couldn't open. Reload the page",
+    "rolesHint": "Each name is replaced by the role you choose",
+    "messageCount": "{count, plural, one {# message} other {# messages}}",
+    "rolesDone": "Hide names behind these roles",
+    "asDoc": "Not a chat: read it as a document",
+    "changeRoles": "Change the roles",
+    "hideMoreHint": "Separate words with commas",
+    "hiddenList": "Hidden: <list></list>",
+    "hiddenNone": "Nothing needed hiding",
+    "listSeparator": ", ",
+    "kinds": {
+      "names": "{count, plural, one {<fig>#</fig> name} other {<fig>#</fig> names}}",
+      "phones": "{count, plural, one {<fig>#</fig> phone number} other {<fig>#</fig> phone numbers}}",
+      "emails": "{count, plural, one {<fig>#</fig> email} other {<fig>#</fig> emails}}",
+      "accounts": "{count, plural, one {<fig>#</fig> account number} other {<fig>#</fig> account numbers}}",
+      "secrets": "{count, plural, one {<fig>#</fig> secret} other {<fig>#</fig> secrets}}",
+      "ids": "{count, plural, one {<fig>#</fig> ID} other {<fig>#</fig> IDs}}",
+      "addresses": "{count, plural, one {<fig>#</fig> address} other {<fig>#</fig> addresses}}",
+      "urls": "{count, plural, one {<fig>#</fig> URL} other {<fig>#</fig> URLs}}"
+    },
+    "used": "{kept} of {total, plural, one {# message} other {# messages}} will be sent",
+    "useAll": "Use them all",
+    "useKept": "Use only what looks like handover knowledge",
+    "noneKept": "No message looked like handover knowledge",
+    "tooLong": "This is too long (up to 100,000 characters). Add it in parts",
+    "sending": "Sending",
+    "unredacted": "A phone number or email was still in the text, so nothing was sent. Add it to \"Other words to hide\"",
+    "failed": "Couldn't send. Please try again",
+    "drafted": "{cards, plural, one {# draft note} other {# draft notes}}, {missing, plural, one {# thing missing} other {# things missing}}"
   },
   "trust": {
     "nothing": "There are no notes you can see here",

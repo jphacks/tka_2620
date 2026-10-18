@@ -131,6 +131,25 @@ body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(
 
 /* Drop area and planner */
 .dd-drop { border: 1.5px dashed var(--ink-2); border-radius: var(--r-slip); padding: var(--s-5) var(--s-4); text-align: center; display: grid; gap: var(--s-1); justify-items: center; }
+.dd-drop.is-over { border-color: var(--blue); background: var(--blue-wash); } /* a file is being dragged over the page */
+
+/* 「＋ 追加」 (AddPanel): index tabs on the slip's top edge, form fields, speaker rows and the preview of what is sent */
+.dd-itabs { display: flex; gap: var(--s-1); padding: 0 var(--s-4); border-bottom: 1px solid var(--rule); }
+.dd-itab { flex: 1; min-height: 44px; margin-bottom: -1px; padding: 0 var(--s-1); border: 1px solid var(--rule); border-bottom: 0; border-radius: var(--r-button) var(--r-button) 0 0; background: var(--paper); color: var(--ink-2);
+  font-family: var(--font-ui); font-size: 16px; font-weight: 700; letter-spacing: .04em; font-feature-settings: "palt"; cursor: pointer; }
+.dd-itab[aria-selected="true"] { background: var(--sheet); color: var(--blue); border-bottom: 1px solid var(--sheet); }
+/* 16px text: iOS zooms into a smaller field on focus */
+.dd-input { box-sizing: border-box; width: 100%; min-height: 44px; padding: var(--s-2) var(--s-3); font: inherit; font-size: 16px; color: var(--ink); background: var(--sheet); border: 1px solid var(--ink-2); border-radius: var(--r-button); }
+textarea.dd-input { min-height: 160px; resize: vertical; }
+.dd-check { display: flex; gap: var(--s-2); align-items: flex-start; min-height: 44px; cursor: pointer; }
+.dd-check input { accent-color: var(--blue); width: 20px; height: 20px; margin: 2px 0 0; flex: none; }
+.dd-roles { list-style: none; margin: 0; padding: 0; display: grid; }
+.dd-roles label { display: flex; flex-wrap: wrap; gap: var(--s-2) var(--s-3); align-items: center; justify-content: space-between; min-height: 52px; padding: var(--s-1) 0; border-bottom: 1px solid var(--rule); }
+.dd-roles .dd-select { min-height: 44px; min-width: 160px; }
+/* Lines that hold a file name or a long count list: break between phrases, and anywhere rather than overflow a phone */
+.dd-phrase { word-break: auto-phrase; overflow-wrap: anywhere; }
+.dd-roles-name { overflow-wrap: anywhere; }
+.dd-preview { max-height: 320px; overflow: auto; padding: var(--s-3); border: 1px solid var(--rule); border-radius: var(--r-slip); background: var(--paper); white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.8; }
 .dd-date { display: inline-grid; place-items: center; min-width: 72px; height: 32px; border: 1px solid var(--ink); border-radius: var(--r-slip); font-family: var(--font-figures); font-variant-numeric: tabular-nums; font-size: 16px; }
 
 /* Withdrawal (自分のメモ): the two red lines draw left to right, then the entry collapses and leaves */
