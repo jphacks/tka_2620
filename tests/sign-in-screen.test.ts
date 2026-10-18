@@ -158,4 +158,11 @@ describe("the login screen's source", () => {
       );
     }
   });
+
+  it("wires the console so only its latest step acts, and a pane slot already empty counts as signed out", () => {
+    // components/console-sign-in.ts tests the steps; this pins how ConsoleSignIn calls them (no DOM harness here).
+    const text = source("ConsoleSignIn.tsx");
+    expect(text.match(/const mine = \+\+latest\.current/g)).toHaveLength(3);
+    expect(text).toContain("initialSignedOut: true");
+  });
 });
