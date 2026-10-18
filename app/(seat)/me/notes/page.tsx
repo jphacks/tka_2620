@@ -13,7 +13,7 @@ export default async function MyNotesPage({
         className={`dd-pad${seat ? " dd-with-verbs" : ""}`}
         style={{ maxWidth: "640px", marginInline: "auto" }}
       >
-        {/* On mocks as a25; on real data as this tab's or this device's user (components/useSeatApi.ts). */}
+        {/* On mocks as a25; on real data as the account signed in on this device, or the login screen in place. */}
         <MyNotesPanel seat={seat} />
       </main>
       {seat && <VerbTabs seat={seat} current="myNotes" />}

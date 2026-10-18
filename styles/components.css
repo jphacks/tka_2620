@@ -210,6 +210,16 @@ a.dd-tab { display: grid; place-items: center; text-decoration: none; }
 .dd-fade-in { animation: dd-fade-in var(--t-quick, 160ms) ease-out both; }
 @keyframes dd-fade-in { from { opacity: 0; } to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .dd-fade-in { animation: none !important; } }
+/* The ask field as an outlined box with rounded corners (Nico's call; docs/DESIGN.md → AskField), as tall as 「聞く」
+   beside it, with the standard focus ring. On a 320px phone the padding narrows so the placeholder still fits whole;
+   an ellipsis is the safety net. */
+.dd-ask { align-items: stretch; }
+.dd-ask input { min-height: 44px; box-sizing: border-box; border: 1.5px solid var(--blue); border-radius: var(--r-button); padding: 0 var(--s-3); background: var(--sheet); text-overflow: ellipsis; }
+.dd-ask input:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; border-width: 1.5px; }
+@media (max-width: 340px) {
+  .dd-ask input { padding-inline: var(--s-1); }
+  .dd-ask .dd-btn { padding-inline: var(--s-3); }
+}
 /* The search field heads a filter, across its whole width */
 .dd-filter-search { grid-column: 1 / -1; display: grid; gap: var(--s-1); }
 

@@ -104,7 +104,7 @@ Use Japanese notebook marks, not coloured chips or emoji. Each mark is followed 
   holds. UI areas (headers, buttons, forms) have no lines.
 - **Shape follows the object, not one radius for everything:**
   page 0 · slip (inbox, import panel) 2px · key tag 10px with a 10px punched hole · button 6px ·
-  voice button round · ask field none (a writing line).
+  voice button round · ask field 6px (an outlined box).
 - **Elevation**: none, except slips, which sit on the page with a 1px `--rule` border and a 0 2px 0 offset
   in `--rule` (a paper edge, not a blur shadow).
 - Tap targets at least 44px; the voice button 80px.
@@ -139,8 +139,9 @@ Use Japanese notebook marks, not coloured chips or emoji. Each mark is followed 
   verb tabs. Checking the session and signing out show a calm caption (「ログインを確かめています」,
   「ログアウトしています」); no network shows a calm line with 「もう一度ためす」. Signed in, the page ends with
   「2025年度 会計でログインしています」 and 「切り替える」, which signs out this device only.
-- **`AskField`**: a single writing line in `--blue` with the placeholder in Klee One
-  (「先輩たちに聞いてみましょう」) and a blue 「聞く」 button. Not a chat box.
+- **`AskField`**: an outlined box, 1.5px `--blue` with 6px corners on `--sheet` (Nico's call; it was a writing line),
+  as tall as the blue 「聞く」 button beside it, with the placeholder in Klee One (「先輩たちに聞いてみましょう」). Not a chat
+  box: no bubble, no send arrow.
 - **`AnswerEntry`**: the question repeated in blue UI text, then the answer in Klee One on the ruled grid. Each
   sentence ends with a mini stamp (「25」). Tapping a stamp opens the source note. Deadline phrases carry the
   highlighter (`--marker` behind the text, slightly taller than the x-height, no rounded ends).
