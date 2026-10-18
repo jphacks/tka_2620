@@ -49,8 +49,7 @@ type Problem =
   | "unreadable"
   | "unsupported"
   | "notChat"
-  | "noSpeakers"
-  | "whatsapp";
+  | "noSpeakers";
 
 // Problems that pasting the text by hand gets around: the notice offers 「貼り付けに切り替える」. Not for a chat with
 // nobody speaking: as a doc its names would stay, so the person goes there knowingly, by the notice's words.
