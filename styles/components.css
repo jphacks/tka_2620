@@ -59,11 +59,12 @@ body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(
 /* Slip: the only raised object */
 .dd-slip { background: var(--sheet); border: 1px solid var(--rule); border-radius: var(--r-slip); box-shadow: var(--edge); }
 
-/* Writing line (AskField) */
+/* Writing line (AskField, and the password in SignIn) */
 .dd-ask { display: flex; align-items: end; gap: var(--s-3); }
-.dd-ask input { flex: 1; min-width: 0; min-height: 44px; border: 0; border-bottom: 2px solid var(--blue); background: transparent; color: var(--ink); font-family: var(--font-hand); font-size: 20px; padding: 0 var(--s-1); border-radius: 0; }
-.dd-ask input::placeholder { color: var(--ink-2); }
-.dd-ask input:focus-visible { outline: none; border-bottom-width: 3px; }
+.dd-ask input, .dd-line { flex: 1; min-width: 0; min-height: 44px; border: 0; border-bottom: 2px solid var(--blue); background: transparent; color: var(--ink); font-family: var(--font-hand); font-size: 20px; padding: 0 var(--s-1); border-radius: 0; }
+.dd-ask input::placeholder, .dd-line::placeholder { color: var(--ink-2); }
+.dd-ask input:focus-visible, .dd-line:focus-visible { outline: none; border-bottom-width: 3px; }
+.dd-line { box-sizing: border-box; width: 100%; }
 
 /* Answer */
 .dd-q { color: var(--blue); font-weight: 700; margin: 0 0 var(--s-2); }
@@ -120,6 +121,21 @@ a.dd-tab { display: grid; place-items: center; text-decoration: none; }
    the page scrolls to (a focused field, an answer that just arrived) stops above them */
 .dd-with-verbs { padding-bottom: calc(52px + var(--s-6) + env(safe-area-inset-bottom)); }
 :root:has(.dd-verbs) { scroll-padding-bottom: calc(52px + var(--s-4) + env(safe-area-inset-bottom)); }
+
+/* SignIn: the demo-account switcher, a UI area with no ruled lines. Each account a 44px choice, the chosen one in the
+   viewer's pen; the row carries the focus ring, not the radio inside it */
+.dd-signin { display: grid; gap: var(--s-5); }
+.dd-choices { display: grid; gap: var(--s-2); min-width: 0; margin: 0; padding: 0; border: 0; }
+.dd-choices legend { padding: 0; margin-bottom: var(--s-2); font-weight: 700; }
+.dd-choice { display: flex; align-items: center; gap: var(--s-3); min-height: 44px; padding: var(--s-1) var(--s-3); box-sizing: border-box; border: 1.5px solid var(--rule); border-radius: var(--r-button); background: var(--sheet); cursor: pointer; }
+.dd-choice input { accent-color: var(--blue); width: 18px; height: 18px; margin: 0; flex: none; }
+.dd-choice input:focus-visible { outline: none; }
+.dd-choice:has(input:checked) { border-color: var(--blue); background: var(--blue-wash); color: var(--blue); font-weight: 700; }
+.dd-choice:has(input:focus-visible) { outline: 2px solid var(--blue); outline-offset: 2px; }
+.dd-btn-wide { width: 100%; }
+/* Signed in: which account this device is, and 切り替える */
+.dd-who { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s-2) var(--s-3); padding-top: var(--s-4); border-top: 1px solid var(--rule); }
+.dd-who p { margin: 0; color: var(--ink-2); }
 
 /* UpcomingList: a planner column, each row the boxed date, the title and the mini stamp of whose note it is */
 .dd-planner { list-style: none; margin: 0; padding: 0; display: grid; }

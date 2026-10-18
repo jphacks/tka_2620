@@ -11,8 +11,8 @@ export default async function SeatPage({ params }: PageProps<"/s/[seat]">) {
         className="dd-pad dd-with-verbs"
         style={{ maxWidth: "640px", marginInline: "auto" }}
       >
-        {/* On mocks as a26; on real data as the persona in #key=…&as=… (components/SeatSignIn.tsx).
-            聞く: the key tag, the lineage and the deadlines coming up, then the ask field. */}
+        {/* On mocks as a26; on real data as the account signed in on this device, or the login screen in place
+            (components/SeatSignIn.tsx). 聞く: the key tag, the lineage and the deadlines coming up, then the ask field. */}
         {USE_MOCKS ? (
           <SeatHome slug={seat} />
         ) : (

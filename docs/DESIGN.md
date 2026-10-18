@@ -117,6 +117,13 @@ Use Japanese notebook marks, not coloured chips or emoji. Each mark is followed 
   labels 「24 会計」, 「25 会計」, then a dashed blank tag 「あなた」 for the viewer. Horizontal scroll on phones.
 - **`VerbTabs`**: 聞く · 残す · 自分のメモ as notebook index tabs: on phones they sit at the bottom edge; the active
   tab is `--sheet` with blue text and joins the page, inactive tabs are `--paper` with `--ink-2` text.
+- **`SignIn`**: what a signed-out seat page shows in place (the URL stays the seat link, so an NFC tap still lands
+  on the seat). A UI area with no ruled lines: 「ログイン」, then the five demo accounts as 44px choices, never by
+  name: a holder by the label pack's byline (「2026年度 会計」), the other two by their group or school
+  (「軽音サークルの部員」, 「やまて大学の学生」). The chosen one is in `--blue` on `--blue-wash`. Below them, one password
+  field as a writing line like `AskField`, and a full-width primary 「ログインする」. A wrong password gets a calm
+  `--ink-2` line that says what to do, never red. Signed in, the page ends with 「2025年度 会計でログインしています」
+  and 「切り替える」, which signs out this device only.
 - **`AskField`**: a single writing line in `--blue` with the placeholder in Klee One
   (「先輩たちに聞いてみましょう」) and a blue 「聞く」 button. Not a chat box.
 - **`AnswerEntry`**: the question repeated in blue UI text, then the answer in Klee One on the ruled grid. Each

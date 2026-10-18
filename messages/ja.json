@@ -112,10 +112,24 @@
     "upcoming": "これからの締切",
     "you": "あなた",
     "youAt": "あなた（{term}）",
-    "upcomingDate": "{date} {weekday}",
-    "signingIn": "ログインしています",
-    "signInOff": "このサーバーではログインできません。発表用のPCで CONSOLE_SIGN_IN に合言葉（16文字以上）を設定し、このページを #key=合言葉&as=a26（または a25）をつけて開いてください。",
-    "signInFailed": "ログインできませんでした。DEMO_PASSWORD を確かめて、開き直してください。"
+    "upcomingDate": "{date} {weekday}"
+  },
+  "signIn": {
+    "title": "ログイン",
+    "lead": "デモ用のアカウントを選んで、パスワードを入れてください。",
+    "accounts": "アカウント",
+    "member": "{group}の部員",
+    "student": "{institution}の学生",
+    "password": "パスワード",
+    "submit": "ログインする",
+    "submitting": "ログインしています",
+    "wrongPassword": "パスワードが違います。もう一度入れてください。",
+    "unavailable": "いまはログインできません。通信を確かめて、もう一度押してください。",
+    "checking": "ログインを確かめています",
+    "offline": "ログインを確かめられませんでした。通信を確かめて、もう一度ためしてください。",
+    "retry": "もう一度ためす",
+    "signedInAs": "{account}でログインしています",
+    "switch": "切り替える"
   },
   "kinds": {
     "deadline": "締切",
