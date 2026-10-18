@@ -25,18 +25,24 @@ export function SeatHome({
 }) {
   const t = useTranslations("guide");
   const [view, setView] = useState<SeatView>();
-  // The handover guide opens here, under the deadlines, instead of on its own page: one screen less (Nico's call).
+  // The handover guide opens here, below the ask panel, instead of on its own page: one screen less (Nico's call).
   const [guideOpen, setGuideOpen] = useState(false);
   const guideApi = useMemo(() => api ?? createMockApi("a26"), [api]);
   // The seat didn't load: the panel shows anyway, with its error and retry.
   const [seatFailed, setSeatFailed] = useState(false);
   const onSeatFailed = useCallback(() => setSeatFailed(true), []);
   const ready = view !== undefined || seatFailed;
-  // Opened, the guide takes focus (and comes into view), so a keyboard or screen reader lands on it, not the page top.
+  // Opened, the guide takes focus (and its title comes into view), so a keyboard or screen reader lands on it, not the
+  // page top. Once loaded, its top moves up to the top of the screen: under a long answer history, focus alone leaves
+  // only the title showing, just above the verb tabs, and while loading the page isn't tall enough to scroll that far.
   const guide = useRef<HTMLElement>(null);
   useEffect(() => {
     if (guideOpen) guide.current?.focus();
   }, [guideOpen]);
+  const guideReady = useCallback(
+    () => guide.current?.scrollIntoView({ block: "start" }),
+    [],
+  );
   return (
     <div className="dd-col dd-seat-home" style={{ gap: "var(--s-6)" }}>
       {view && (
@@ -80,7 +86,7 @@ export function SeatHome({
           className="dd-guide-inline"
           aria-label={t("titlePlain")}
         >
-          <Guide slug={slug} api={guideApi} inline />
+          <Guide slug={slug} api={guideApi} inline onReady={guideReady} />
         </section>
       )}
     </div>

@@ -149,10 +149,11 @@ Use Japanese notebook marks, not coloured chips or emoji. Each mark is followed 
   highlighter (`--marker` behind the text, slightly taller than the x-height, no rounded ends).
   A rule change is a red-pen margin note: a red bracket left of the sentence and 「2025年に変更」 in red UI text right
   after its stamp, on the same line.
-- **AskPanel's status line**: one always-present line under the field. 「先輩たちのメモを探しています」 shows while an answer is on
-  its way (the only sign that 聞く is working); the outcome (an answer, 「誰も知りません。…に届けました」, 「いま、…が答えました」)
-  is read out to a screen reader but not shown again, since the entry says it. The field appears once, in place: 聞く keeps
-  the panel unseen until the seat has loaded. A load that fails offers 「もう一度ためす」 (`RetryLine`).
+- **AskPanel's status line**: one always-present line for a screen reader, never shown: 「先輩たちのメモを探しています」, then
+  the outcome (an answer, 「誰も知りません。…に届けました」, 「いま、…が答えました」). On screen the searching line sits under the
+  new question, in `--ink-2`, where the answer will be (the only sign that 聞く is working), and the answer takes its place, so
+  nothing jumps; the new entry comes into view as it is added. The field appears once, in place: 聞く keeps the panel
+  unseen until the seat has loaded. A load that fails offers 「もう一度ためす」 (`RetryLine`).
 - **`AbstainEntry`** (空欄): the blank line, 「歴代の会計は誰も知りません」 in `--ink-2`, and a blue status line
   「去年の会計に届けました」. Calm; never red, never an error icon.
 - **`LiveStamp`**: when the live answer arrives, the new `AnswerEntry` appears and its date stamp lands,
@@ -192,8 +193,9 @@ Use Japanese notebook marks, not coloured chips or emoji. Each mark is followed 
        questions in blue
     4. 「あなたの質問と答え」 as `AnswerEntry`s, whose stamps open their notes
   - **Who wrote it:** people appear only as bylines (「2025年度 会計」).
-  - **Inline on 聞く:** 「引き継ぎ書を開く」 opens the same guide in place under the deadlines (no screen change),
-    「引き継ぎ書を閉じる」 folds it; printing from there puts only the guide on paper. `/s/[seat]/guide` stays for /me.
+  - **Inline on 聞く:** 「引き継ぎ書を開く」 opens the same guide in place below the ask panel (no screen change) and scrolls
+    its top into view, 「引き継ぎ書を閉じる」 folds it; printing from there puts only the guide on paper. `/s/[seat]/guide`
+    stays for /me.
 - **`WithdrawMeter`**: figures face, 39px on the console; counts in `--red` from the click, freezes in `--ink`
   when the last pane drops the note: 「0.8秒」.
 - **`LeakCounter`**: 「漏れ 0 / 50 回」, the 0 in `--green`.

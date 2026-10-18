@@ -66,15 +66,18 @@ export function HandoverGuide({ slug }: { slug: string }) {
   );
 }
 
-// The guide itself, for the signed-in client: its own page (/s/[seat]/guide) or, inline, under the deadlines on 聞く.
+// The guide itself, for the signed-in client: its own page (/s/[seat]/guide) or, inline, below the ask panel on 聞く.
 export function Guide({
   slug,
   api,
   inline = false,
+  onReady,
 }: {
   slug: string;
   api: Api;
   inline?: boolean;
+  /** The guide has loaded and shows in full: 聞く scrolls its top into view then, once the page is tall enough. */
+  onReady?: () => void;
 }) {
   const Title = inline ? "h2" : "h1";
   const t = useTranslations();
@@ -102,6 +105,10 @@ export function Guide({
       alive = false;
     };
   }, [api, slug]);
+  const ready = view !== undefined && guide !== undefined;
+  useEffect(() => {
+    if (ready) onReady?.();
+  }, [ready, onReady]);
 
   if (failed) {
     return (
