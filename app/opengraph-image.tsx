@@ -1,5 +1,5 @@
 import { ImageResponse } from "next/og";
-import { AppMark } from "@/app/app-mark";
+import { AppMark, INK, PAPER } from "@/app/app-mark";
 
 // The picture in a link preview (LINE, Slack, X): the key-tag mark and the name in Latin letters, which the default
 // font draws; the page's title and description carry the Japanese.
@@ -17,7 +17,7 @@ export default function OpenGraphImage() {
         alignItems: "center",
         justifyContent: "center",
         gap: 48,
-        background: "#F9FAFB",
+        background: PAPER,
       }}
     >
       <AppMark size={360} />
@@ -26,7 +26,7 @@ export default function OpenGraphImage() {
           display: "flex",
           fontSize: 112,
           fontWeight: 700,
-          color: "#1D2433",
+          color: INK,
           letterSpacing: 4,
         }}
       >

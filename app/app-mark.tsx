@@ -1,9 +1,9 @@
 // Daidai's mark for icons and link previews (app/icon.tsx, app/apple-icon.tsx, app/opengraph-image.tsx): the club-room key
 // tag of docs/DESIGN.md (a sheet with an ink edge, the punched hole, the ring through it) with the notebook's ruled lines
 // in the viewer's blue. Shapes only, so next/og draws it without a font. The colours repeat styles/tokens.css (light).
-const PAPER = "#F9FAFB";
+export const PAPER = "#F9FAFB";
 const SHEET = "#FFFFFF";
-const INK = "#1D2433";
+export const INK = "#1D2433";
 const INK_2 = "#566074";
 const BLUE = "#2141B8";
 
@@ -15,10 +15,12 @@ export function AppMark({
   size: number;
   padded?: boolean;
 }) {
-  const w = size * (padded ? 0.7 : 0.84);
+  // The tag and the ring's half outside it span 1.25 tag widths: 88% of the square padded, 95% for the 32px favicon.
+  const w = size * (padded ? 0.7 : 0.76);
   const h = w * 0.66;
   const stroke = Math.max(2, Math.round(size / 26));
   const ring = h * 0.62;
+  const overhang = ring * 0.62; // the ring's part left of the tag
   const hole = h * 0.28;
   const holeEdge = Math.max(2, Math.round(stroke * 0.6));
   return (
@@ -38,14 +40,14 @@ export function AppMark({
           display: "flex",
           width: w,
           height: h,
-          marginLeft: w * 0.1,
+          marginLeft: overhang, // so the tag and its ring, not the tag alone, sit in the middle
         }}
       >
         {/* the key ring, half of it outside the tag */}
         <div
           style={{
             position: "absolute",
-            left: -ring * 0.62,
+            left: -overhang,
             top: (h - ring) / 2,
             width: ring,
             height: ring,
