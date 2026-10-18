@@ -237,15 +237,17 @@ export function CardReview({
           onPublish(
             cards.map((card, index) => {
               const choice = choices[index] ?? choiceOf(card);
+              // A setting that is off shows no control, so it publishes nothing either: no expiry the author never
+              // saw (a deadline note would leave answers right after its date), never critical.
               return {
                 ...card,
                 scope: choice.scope,
                 critical: seat.settings.groupOwnsCriticalNotes
                   ? choice.critical
-                  : card.critical,
+                  : false,
                 valid_until: seat.settings.noteExpiry
                   ? choice.validUntil
-                  : card.valid_until,
+                  : undefined,
               };
             }),
           )
