@@ -7,9 +7,9 @@
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import { AddPanel } from "@/components/AddPanel";
-import { AskPanel } from "@/components/AskPanel";
 import { consoleKey } from "@/components/ConsoleSignIn";
 import { InboxPanel } from "@/components/InboxPanel";
+import { SeatHome } from "@/components/SeatHome";
 import { signInConsolePane } from "@/lib/api";
 import { type Api, ApiError, ConsolePersona } from "@/lib/contracts";
 
@@ -87,7 +87,7 @@ export function SeatSignIn({
   }
   // The one-device shortcuts play the other person on mocks; on real data the other person is real.
   return panel === "ask" ? (
-    <AskPanel slug={slug} api={api} mockShortcuts={false} />
+    <SeatHome slug={slug} api={api} mockShortcuts={false} />
   ) : (
     <div className="dd-col" style={{ gap: "var(--s-7)" }}>
       <InboxPanel slug={slug} api={api} mockShortcuts={false} />

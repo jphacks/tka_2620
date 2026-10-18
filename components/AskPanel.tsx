@@ -19,11 +19,14 @@ export function AskPanel({
   slug,
   mockShortcuts = true,
   api: given,
+  onSeat,
 }: {
   slug: string;
   mockShortcuts?: boolean;
   /** The signed-in newcomer's client (a console pane's); mocks as a26 when left out. */
   api?: Api;
+  /** The seat view once it loads, for a page that shows the seat too (SeatHome); the console needs none. */
+  onSeat?: (view: SeatView) => void;
 }) {
   const t = useTranslations();
   const api = useMemo(() => given ?? createMockApi("a26"), [given]);
@@ -36,8 +39,14 @@ export function AskPanel({
   const busy = asked.some((entry) => !entry.result);
 
   useEffect(() => {
-    api.seat(slug).then(setSeatView, () => setFailed("seat"));
-  }, [api, slug]);
+    api.seat(slug).then(
+      (view) => {
+        setSeatView(view);
+        onSeat?.(view);
+      },
+      () => setFailed("seat"),
+    );
+  }, [api, slug, onSeat]);
 
   // The asker's latest answer replaces the entry: the live answer, then any re-answer after a withdrawal
   // (fewer sentences, or the blank line again).
