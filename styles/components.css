@@ -152,6 +152,15 @@ textarea.dd-input { min-height: 160px; resize: vertical; }
 .dd-preview { max-height: 320px; overflow: auto; padding: var(--s-3); border: 1px solid var(--rule); border-radius: var(--r-slip); background: var(--paper); white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.8; }
 .dd-date { display: inline-grid; place-items: center; min-width: 72px; height: 32px; border: 1px solid var(--ink); border-radius: var(--r-slip); font-family: var(--font-figures); font-variant-numeric: tabular-nums; font-size: 16px; }
 
+/* Import review (ImportReview): a drafted NoteEntry with its date stamp at the bottom right, the red-pen DuplicateHint
+   (inside .dd-margin's red bracket) with its two choices, and MissingList's blank lines */
+.dd-entry { display: grid; gap: var(--s-2); padding: var(--s-4); }
+.dd-entry-foot { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--s-3); }
+.dd-hint { margin: 0; color: var(--red); font-weight: 700; }
+.dd-btn[aria-pressed="true"] { background: var(--blue-wash); }
+.dd-missing { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s-4); }
+.dd-blank { display: flex; align-items: center; justify-content: flex-end; height: var(--s-6); }
+
 /* Withdrawal (自分のメモ): the two red lines draw left to right, then the entry collapses and leaves */
 .dd-cross { position: relative; }
 .dd-cross::after { content: ""; position: absolute; inset: 0; pointer-events: none;
