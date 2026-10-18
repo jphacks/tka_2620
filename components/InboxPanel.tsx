@@ -2,7 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { type AnswerMode, InboxSlip } from "@/components/InboxSlip";
+import { InboxSlip } from "@/components/InboxSlip";
 import { VoiceAnswer } from "@/components/VoiceAnswer";
 import type { Api, InboxItem } from "@/lib/contracts";
 import { createMockApi, mockNewcomerAsks } from "@/lib/mocks";
@@ -19,7 +19,6 @@ const newestFirst = (a: InboxItem, b: InboxItem) =>
 // and closes the published card by itself, so 自分のメモ is back in view for the withdrawal.
 export function InboxPanel({
   slug,
-  onAnswer,
   mockShortcuts = true,
   closeAfterPublish = false,
   onPublished,
@@ -27,7 +26,6 @@ export function InboxPanel({
   api: given,
 }: {
   slug: string;
-  onAnswer?: (item: InboxItem, mode: AnswerMode) => void;
   mockShortcuts?: boolean;
   closeAfterPublish?: boolean;
   /** An answer was published here (the handover prompts below read their list again). */
@@ -43,11 +41,9 @@ export function InboxPanel({
   const [arrived, setArrived] = useState<ReadonlySet<string>>(new Set());
   const [asking, setAsking] = useState(false);
   const [failed, setFailed] = useState(false);
-  // The slip being answered, with the mode the person tapped (声で答える / 文字で答える).
-  const [answering, setAnswering] = useState<{
-    item: InboxItem;
-    mode: AnswerMode;
-  }>();
+  // Slips answered here, kept in view with the published card until 閉じる (or, on the console, a few seconds), though
+  // the inbox no longer lists them.
+  const [kept, setKept] = useState<ReadonlyMap<string, InboxItem>>(new Map());
   const known = useRef<Set<string> | undefined>(undefined);
 
   // The first load shows what is already waiting; anything new after that arrives.
@@ -82,6 +78,22 @@ export function InboxPanel({
     load();
   });
 
+  const release = (promptId: string) =>
+    setKept((current) => {
+      const next = new Map(current);
+      next.delete(promptId);
+      return next;
+    });
+  // The inbox as listed, plus the slips answered here that are still open on their card.
+  const shown =
+    items &&
+    [
+      ...items,
+      ...[...kept.values()].filter(
+        (old) => !items.some((item) => item.promptId === old.promptId),
+      ),
+    ].sort(newestFirst);
+
   async function newcomerAsks() {
     setAsking(true);
     try {
@@ -101,18 +113,33 @@ export function InboxPanel({
         {t("inbox.title")}
       </h2>
       <div className="dd-col" style={{ gap: "var(--s-5)" }} aria-live="polite">
-        {items?.map((item) => (
+        {shown?.map((item) => (
           <InboxSlip
             key={item.promptId}
             item={item}
             arriving={arrived.has(item.promptId)}
-            onAnswer={(next, mode) => {
-              setAnswering({ item: next, mode });
-              onAnswer?.(next, mode);
-            }}
-          />
+          >
+            {/* Written on the slip; publishing shows the card here and refreshes the inbox. */}
+            <VoiceAnswer
+              item={item}
+              seat={slug}
+              api={api}
+              onPublished={() => {
+                setKept((current) => new Map(current).set(item.promptId, item));
+                load();
+                onPublished?.();
+                if (closeAfterPublish) {
+                  setTimeout(
+                    () => release(item.promptId),
+                    CLOSE_AFTER_PUBLISH_MS,
+                  );
+                }
+              }}
+              onClose={() => release(item.promptId)}
+            />
+          </InboxSlip>
         ))}
-        {items?.length === 0 && (
+        {shown?.length === 0 && (
           <p style={{ margin: 0, color: "var(--ink-2)" }}>{t("inbox.empty")}</p>
         )}
         {failed && (
@@ -121,32 +148,8 @@ export function InboxPanel({
           </p>
         )}
       </div>
-      {/* 声で/文字で答える opens here; publishing shows the card and refreshes the inbox. */}
-      {answering && (
-        <VoiceAnswer
-          key={answering.item.promptId}
-          item={answering.item}
-          seat={slug}
-          mode={answering.mode}
-          api={api}
-          onPublished={() => {
-            load();
-            onPublished?.();
-            if (!closeAfterPublish) return;
-            const { promptId } = answering.item;
-            setTimeout(
-              () =>
-                setAnswering((current) =>
-                  current?.item.promptId === promptId ? undefined : current,
-                ),
-              CLOSE_AFTER_PUBLISH_MS,
-            );
-          }}
-          onClose={() => setAnswering(undefined)}
-        />
-      )}
       {/* Plays the newcomer asking q04 in this tab (lib/mocks.ts), so the loop works on one phone. */}
-      {mockShortcuts && items?.length === 0 && (
+      {mockShortcuts && shown?.length === 0 && (
         <button
           type="button"
           className="dd-link"

@@ -1,7 +1,7 @@
 "use client";
 // 残す's handover prompts (docs/SPEC.md → F6; #43): up to three questions for the leaver, ranked demand → gap →
-// required → core by GET /api/handover/prompts, each with why it is asked. 声で答える / 文字で答える opens VoiceAnswer
-// for that prompt; its answer is drafted into cards (POST /api/handover/draft, at most one follow-up), checked in
+// required → core by GET /api/handover/prompts, each with why it is asked. Each prompt carries VoiceAnswer's textbox
+// with the mic inside it, so the answer starts with a tap; 下書きを作る drafts it into cards (POST /api/handover/draft, at most one follow-up), checked in
 // CardReview with a scope per card, and published naming the prompt (POST /api/handover/publish). An answered prompt
 // stays in the list as 「公開しました」 with the scopes it went out at, so three in a row read as done. A newcomer's
 // question routed here (prompt_routes) reads the list again; the prompts already shown keep their places, and after the
@@ -18,7 +18,6 @@ import {
 import { CardReview } from "@/components/CardReview";
 import { DateStamp } from "@/components/DateStamp";
 import { mergePrompts } from "@/components/handover";
-import type { AnswerMode } from "@/components/InboxSlip";
 import { VoiceAnswer } from "@/components/VoiceAnswer";
 import type {
   Api,
@@ -39,11 +38,10 @@ const TROUBLE = {
   publish: "voice.failed",
 } as const;
 
-// The prompt being answered: first the answer, then its drafted cards.
+// The prompt being drafted: the answer, then its drafted cards once they arrive.
 type Open = {
   prompt: HandoverPrompt;
-  mode: AnswerMode;
-  answer?: string;
+  answer: string;
   draft?: DraftResponse;
 };
 
@@ -124,18 +122,22 @@ export function HandoverPrompts({
     node?.focus({ preventScroll: true });
   }, []);
 
-  async function draft(answer: string, reply?: string) {
-    if (!open) return;
+  // The first draft of a prompt's answer, or the reply round to its follow-up (reply).
+  async function draft(prompt: HandoverPrompt, answer: string, reply?: string) {
+    const followup = reply ? open?.draft?.followup : undefined;
+    const current: Open =
+      open?.prompt.id === prompt.id ? open : { prompt, answer };
+    setOpen(current);
     setBusy(true);
     setTrouble(undefined);
     try {
       const next = await api.draft({
         seat: slug,
-        promptId: open.prompt.id,
+        promptId: prompt.id,
         answer,
         ...(reply &&
-          open.draft?.followup && {
-            followup: { question: open.draft.followup.question, answer: reply },
+          followup && {
+            followup: { question: followup.question, answer: reply },
           }),
       });
       // Every card was held back (a name, contact details or a PIN): nothing to review. The answer stays in its field,
@@ -146,7 +148,7 @@ export function HandoverPrompts({
       }
       // The reply round never asks again (F6.3).
       setOpen({
-        ...open,
+        ...current,
         answer,
         draft: reply ? { cards: next.cards } : next,
       });
@@ -264,60 +266,17 @@ export function HandoverPrompts({
                     <DateStamp seat={seat} termLabel={termLabel} land />
                   )}
                 </div>
-              ) : answering ? null : (
-                // One prompt at a time: the others wait until this one is published or closed with やめる, so a tap
-                // never throws away an answer or its drafted cards.
-                <div className="dd-row" style={{ gap: "var(--s-3)" }}>
-                  <button
-                    type="button"
-                    className="dd-btn dd-btn-primary"
-                    style={{ flex: 1, minHeight: "52px" }}
-                    disabled={busy || open !== undefined}
-                    onClick={() => {
-                      setTrouble(undefined);
-                      setOpen({ prompt, mode: "voice" });
-                    }}
-                  >
-                    {t("inbox.answerByVoice")}
-                  </button>
-                  <button
-                    type="button"
-                    className="dd-btn"
-                    style={{ flex: 1, minHeight: "52px" }}
-                    disabled={busy || open !== undefined}
-                    onClick={() => {
-                      setTrouble(undefined);
-                      setOpen({ prompt, mode: "text" });
-                    }}
-                  >
-                    {t("inbox.answerByText")}
-                  </button>
-                </div>
-              )}
-              {answering && open && (
+              ) : answering && open.draft ? (
                 <div className="dd-col" style={{ gap: "var(--s-4)" }}>
-                  {open.draft ? (
-                    <CardReview
-                      seat={seat}
-                      cards={open.draft.cards}
-                      followup={open.draft.followup}
-                      api={api}
-                      busy={busy}
-                      onReply={(reply) => draft(open.answer ?? "", reply)}
-                      onPublish={publish}
-                    />
-                  ) : (
-                    <VoiceAnswer
-                      key={`${prompt.id}-${open.mode}`}
-                      item={{ promptId: prompt.id }}
-                      seat={slug}
-                      mode={open.mode}
-                      api={api}
-                      drafting={busy}
-                      onDraft={(answer) => draft(answer)}
-                      headingLevel={3}
-                    />
-                  )}
+                  <CardReview
+                    seat={seat}
+                    cards={open.draft.cards}
+                    followup={open.draft.followup}
+                    api={api}
+                    busy={busy}
+                    onReply={(reply) => draft(prompt, open.answer, reply)}
+                    onPublish={publish}
+                  />
                   {trouble && (
                     <p className="dd-cap" style={{ margin: 0 }}>
                       {t(TROUBLE[trouble])}
@@ -332,6 +291,24 @@ export function HandoverPrompts({
                   >
                     {t("handover.cancel")}
                   </button>
+                </div>
+              ) : (
+                // Written on the prompt. One draft at a time: while another prompt's cards are open, this field still
+                // takes text but 下書きを作る waits, so a tap never throws away an answer or its drafted cards.
+                <div className="dd-col" style={{ gap: "var(--s-3)" }}>
+                  <VoiceAnswer
+                    item={{ promptId: prompt.id }}
+                    seat={slug}
+                    api={api}
+                    drafting={busy && answering}
+                    locked={open !== undefined && !answering}
+                    onDraft={(answer) => draft(prompt, answer)}
+                  />
+                  {answering && trouble && (
+                    <p className="dd-cap" style={{ margin: 0 }}>
+                      {t(TROUBLE[trouble])}
+                    </p>
+                  )}
                 </div>
               )}
             </article>

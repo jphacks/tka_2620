@@ -298,7 +298,9 @@
     "publishing": "公開しています…",
     "published": "公開しました",
     "close": "閉じる",
-    "failed": "公開できませんでした。通信を確かめて、もう一度お試しください。"
+    "failed": "公開できませんでした。通信を確かめて、もう一度お試しください。",
+    "answerLabel": "答え",
+    "inlinePlaceholder": "答えを書くか、マイクで話す"
   },
   "live": {
     "answered": "いま、{byline}が答えました",

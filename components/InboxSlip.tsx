@@ -1,20 +1,22 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+import type { ReactNode } from "react";
 import type { InboxItem } from "@/lib/contracts";
 
 export type AnswerMode = "voice" | "text";
 
 // 伝言メモ (docs/DESIGN.md → InboxSlip): a newcomer's question on the predecessor's phone, like a slip from an
-// office message pad. The asker shows by seat and term (askedBy), never by name.
+// office message pad. The asker shows by seat and term (askedBy), never by name. The answer is written on the slip
+// itself (children: VoiceAnswer's textbox with the mic inside it), so there is nothing to open first.
 export function InboxSlip({
   item,
   arriving = false,
-  onAnswer,
+  children,
 }: {
   item: InboxItem;
   arriving?: boolean; // just arrived: slides down 8px into place
-  onAnswer?: (item: InboxItem, mode: AnswerMode) => void; // F3.3 (#5) opens the answer
+  children?: ReactNode; // F3.3 (#5): the answer
 }) {
   const t = useTranslations("inbox");
   return (
@@ -37,24 +39,7 @@ export function InboxSlip({
           fig: (chunks) => <span className="dd-fig">{chunks}</span>,
         })}
       </p>
-      <div className="dd-row" style={{ marginTop: "var(--s-4)" }}>
-        <button
-          type="button"
-          className="dd-btn dd-btn-primary"
-          style={{ flex: 1, minHeight: "52px" }}
-          onClick={() => onAnswer?.(item, "voice")}
-        >
-          {t("answerByVoice")}
-        </button>
-        <button
-          type="button"
-          className="dd-btn"
-          style={{ flex: 1, minHeight: "52px" }}
-          onClick={() => onAnswer?.(item, "text")}
-        >
-          {t("answerByText")}
-        </button>
-      </div>
+      {children && <div style={{ marginTop: "var(--s-4)" }}>{children}</div>}
     </article>
   );
 }
