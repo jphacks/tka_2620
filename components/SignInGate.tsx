@@ -105,7 +105,8 @@ export function SignInGate({
       );
     case "signedIn":
       return (
-        <div className="dd-col" style={{ gap: "var(--s-7)" }}>
+        // fades in (.dd-fade-in) when the switcher or the check gives way to the account's page
+        <div className="dd-col dd-fade-in" style={{ gap: "var(--s-7)" }}>
           {children(session.signed)}
           <SignedInAs
             account={session.signed.account}

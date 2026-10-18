@@ -8,6 +8,7 @@ import {
   guideFileName,
   guideMarkdown,
   type MarkdownWords,
+  matches,
   nextDue,
   sortNotes,
 } from "@/components/guide";
@@ -83,6 +84,19 @@ describe("handover guide: filter, sort, group", () => {
         sort: "newest",
       }),
     ).toEqual([]);
+  });
+
+  it("searches title, body and byline, every word, whatever the width or case", () => {
+    const f = (query: string) =>
+      filterNotes(notes, { kind: ALL, byline: ALL, sort: "newest", query }).map(
+        (n) => n.id,
+      );
+    expect(f("保健所")).toEqual(["a", "b"]);
+    expect(f("2024年度")).toEqual(["a", "c"]);
+    expect(f("保健所 2025")).toEqual(["b"]);
+    expect(f("  ")).toHaveLength(5);
+    expect(matches("ＡＢＣ", "abc の手順")).toBe(true);
+    expect(matches("合宿", "部費の締切")).toBe(false);
   });
 
   it("puts a yearly deadline at its next occurrence on or after today", () => {
