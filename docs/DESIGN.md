@@ -133,8 +133,9 @@ Use Japanese notebook marks, not coloured chips or emoji. Each mark is followed 
   on the seat). A UI area with no ruled lines: 「ログイン」 and a one-sentence lead in `--ink-2`, then 「アカウント」 and the
   five demo accounts as 44px choices, never by name: a holder by the label pack's byline (「2026年度 会計」), the other
   two by their group or school (「軽音サークルの部員」, 「やまて大学の学生」). Hover and the chosen one are `--blue-wash`;
-  the chosen one also gets a `--blue` border and bold blue text. Below them, one password field as a writing line like
-  `AskField`, but in the UI face (the password is the app's word, not a predecessor's) and with the usual focus ring,
+  the chosen one also gets a `--blue` border and bold blue text. Below them, one password field as a writing line (a
+  2px `--blue` underline, no box) in the UI face (the password is the app's word, not a predecessor's) with the usual
+  focus ring,
   then a full-width primary 「ログインする」, live as soon as an account is chosen. A wrong password, or no answer from
   the server, gets a calm `--ink-2` line under the button that says what to do, never red; it scrolls clear of the
   verb tabs. Checking the session and signing out show a calm caption (「ログインを確かめています」,
@@ -195,8 +196,8 @@ Use Japanese notebook marks, not coloured chips or emoji. Each mark is followed 
 - **`PersonaPane`** (console): a plain rounded rectangle in `--sheet`, 390 wide and up to 844 tall (shorter on a laptop
   whose window leaves less room, so the whole proof stays on one screen; the pane scrolls inside), with a 1px `--rule`
   border and the persona above it in UI text: 新しい会計 · 去年の会計 · 部外者. No device chrome. Below about 1270px
-  the three panes scroll sideways instead of wrapping. Signed out (real data), the console keeps its title where the
-  proof puts it and, where the first pane goes, a 390px column like `SignIn` (the full width on a phone): a
+  the three panes scroll sideways instead of wrapping. Signed out (real data), the console keeps its title at the
+  proof's x and, where the first pane goes, a 390px column like `SignIn` (the full width on a phone): a
   one-sentence lead naming the three, one password field (the writing line in the UI face) and a full-width primary
   「3人でログインする」; no page scroll at 1920. It is all three or none: when one can't sign in, nobody is signed in,
   and a calm `--ink-2` line says so and what to do. The checking and signing-out captions and the offline line with
