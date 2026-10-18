@@ -749,7 +749,10 @@ async function inbox(session: Session, context: Context): Promise<void> {
       ),
     );
   }
-  for (const promptId of context.world.prompts.keys()) {
+  // Questions wait only on demand prompts (0003): a core, gap or required prompt has none, so probing one would count
+  // an attempt that can't find anything.
+  for (const [promptId, prompt] of context.world.prompts) {
+    if (prompt.kind !== "demand") continue;
     await attempt(
       session,
       "inbox",
@@ -866,58 +869,75 @@ async function oracles(session: Session, context: Context): Promise<void> {
     );
   }
 
-  // Draft and seen with a prompt that isn't routed to this viewer (for a26, the prompt its own question started).
-  // Never one routed to it: that would draft with Sonnet or mark its slip seen.
-  const promptId = [...world.prompts].find(
+  // Draft and seen, each with a prompt this viewer may not use, and never one routed to it: that would draft with
+  // Sonnet or mark its slip seen.
+  // - Draft reads the prompt as the caller (0003's prompts policy). For a holder of the seat that means a demand prompt
+  //   that isn't routed to it (for a26, the prompt its own question started). Core, gap and required prompts are for
+  //   every holder (F6), so a holder drafting one is the design, not a leak.
+  // - Seen marks the caller's own route, so it's any prompt there that isn't routed to it, core prompts included.
+  // For anyone else, any prompt at the seat.
+  const seatId = context.seats.get(SEAT);
+  const holder =
+    session.userId !== undefined &&
+    seatId !== undefined &&
+    (world.seatsHeld.get(session.userId)?.has(seatId) ?? false);
+  const unrouted = [...world.prompts].filter(
     ([id, prompt]) =>
-      prompt.seatId === context.seats.get(SEAT) &&
-      !world.routes.has(`${id} ${session.userId}`),
+      prompt.seatId === seatId && !world.routes.has(`${id} ${session.userId}`),
+  );
+  const forDraft = unrouted.find(
+    ([, prompt]) => !holder || prompt.kind === "demand",
   )?.[0];
-  if (promptId) {
-    const routes: [string, (id: string) => unknown][] = [
-      [
-        "/api/handover/draft",
-        (id) => ({ seat: SEAT, promptId: id, answer: PROBE_TEXT }),
-      ],
-      ["/api/inbox/seen", (id) => ({ promptId: id })],
-    ];
-    for (const [path, body] of routes) {
-      const none = await http(session, "POST", path, body(MADE_UP_UUID));
-      await attempt(
-        session,
-        "oracles",
-        `POST ${path} a made-up prompt`,
-        async () => {
-          expectReply(none, session.token ? [404] : [401]);
-          return [];
-        },
-      );
-      await attempt(
-        session,
-        "oracles",
-        `POST ${path} prompt ${promptId}`,
-        async () => {
-          const reply = await http(session, "POST", path, body(promptId));
-          if (reply.status === 200)
-            return [
+  if (holder && !forDraft) {
+    console.log(
+      `  ${session.key}: no demand prompt at ${SEAT} that isn't routed to it, so draft has no prompt it may not read`,
+    );
+  }
+  const probes: [string, (id: string) => unknown, string, string?][] = [
+    [
+      "/api/handover/draft",
+      (id) => ({ seat: SEAT, promptId: id, answer: PROBE_TEXT }),
+      "a prompt it may not read",
+      forDraft,
+    ],
+    [
+      "/api/inbox/seen",
+      (id) => ({ promptId: id }),
+      "a prompt not routed to it",
+      unrouted[0]?.[0],
+    ],
+  ];
+  for (const [path, body, what, promptId] of probes) {
+    if (!promptId) continue;
+    const none = await http(session, "POST", path, body(MADE_UP_UUID));
+    await attempt(
+      session,
+      "oracles",
+      `POST ${path} a made-up prompt`,
+      async () => {
+        expectReply(none, session.token ? [404] : [401]);
+        return [];
+      },
+    );
+    await attempt(
+      session,
+      "oracles",
+      `POST ${path} prompt ${promptId}`,
+      async () => {
+        const reply = await http(session, "POST", path, body(promptId));
+        if (reply.status === 200)
+          return [{ reason: `${path} works on ${what}`, ref: promptId }];
+        expectReply(reply, session.token ? [404] : [401]);
+        return isDeepStrictEqual(reply, none)
+          ? []
+          : [
               {
-                reason: `${path} works on a prompt not routed to it`,
+                reason: `answers differently for ${what} than for none`,
                 ref: promptId,
               },
             ];
-          expectReply(reply, session.token ? [404] : [401]);
-          return isDeepStrictEqual(reply, none)
-            ? []
-            : [
-                {
-                  reason:
-                    "answers differently for a prompt not routed to it than for none",
-                  ref: promptId,
-                },
-              ];
-        },
-      );
-    }
+      },
+    );
   }
 
   // The console's sign-in route hands out a25's and a26's sessions: never without the passphrase.
