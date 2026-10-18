@@ -123,7 +123,7 @@ describe("handover guide: filter, sort, group", () => {
 describe("handover guide: Markdown export", () => {
   it("escapes links, images, HTML and structure in a predecessor's words", () => {
     expect(escapeMarkdown("[ここ](https://example.com)")).toBe(
-      "\\[ここ\\](https://example.com)",
+      "\\[ここ\\](https\\://example.com)",
     );
     expect(escapeMarkdown("<img src=x onerror=alert(1)>")).toBe(
       "\\<img src=x onerror=alert(1)\\>",
@@ -135,6 +135,15 @@ describe("handover guide: Markdown export", () => {
       "\\*\\*太字\\*\\* と \\`code\\`",
     );
     expect(escapeMarkdown("10/20まで、2,000円")).toBe("10/20まで、2,000円");
+  });
+
+  it("keeps bare URLs, www. addresses, emails and underlines from turning into links or headings", () => {
+    expect(escapeMarkdown("詳しくは https://evil.example を見る")).toBe(
+      "詳しくは https\\://evil.example を見る",
+    );
+    expect(escapeMarkdown("www.example.jp")).toBe("www\\.example.jp");
+    expect(escapeMarkdown("kaikei@example.com")).toBe("kaikei\\@example.com");
+    expect(escapeMarkdown("見出し\n===")).toBe("見出し\n\\===");
   });
 
   it("writes the guide with its date, rules, sections, open items and answers", () => {

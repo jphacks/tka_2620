@@ -98,15 +98,19 @@ export function groupByKind(
 }
 
 // Note text is a predecessor's words, not Markdown: anything that would turn into a link, an image, HTML or structure
-// in a Markdown viewer is escaped, so the export shows exactly what the page shows.
+// in a Markdown viewer is escaped, so the export shows exactly what the page shows. That includes the links viewers make
+// on their own from a bare URL, a www. address or an email (the escaped character splits the match), and a line of
+// = or - under text, which would make it a heading.
 export function escapeMarkdown(text: string): string {
   return text
     .replace(/\r\n?/g, "\n")
-    .replace(/[\\`*_[\]<>|~]/g, (char) => `\\${char}`)
+    .replace(/[\\`*_[\]<>|~@]/g, (char) => `\\${char}`)
+    .replace(/:\/\//g, "\\://")
+    .replace(/\b(www)\./gi, "$1\\.")
     .split("\n")
     .map((line) =>
       line
-        .replace(/^(\s*)([#>+-])/, "$1\\$2")
+        .replace(/^(\s*)([#>+=-])/, "$1\\$2")
         .replace(/^(\s*\d+)([.)])/, "$1\\$2"),
     )
     .join("\n");
@@ -129,7 +133,7 @@ export type MarkdownWords = {
   openNote?: string; // why the list is empty or unchecked
   askedHeading: string;
   asked: { question: string; sentences: string[] }[]; // each sentence already ends with its byline
-  source: string; // where the latest version lives
+  source: string; // where the latest version lives (the app's own words and address, written as is)
 };
 
 export function guideMarkdown(words: MarkdownWords): string {
@@ -176,7 +180,8 @@ export function guideMarkdown(words: MarkdownWords): string {
       lines.push("");
     }
   }
-  lines.push("---", "", escapeMarkdown(words.source), "");
+  // The page's own address, so the reader can find the latest version: ours, not a predecessor's words, and meant to be a link.
+  lines.push("---", "", words.source, "");
   return lines.join("\n");
 }
 
