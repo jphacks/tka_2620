@@ -116,7 +116,9 @@ Use Japanese notebook marks, not coloured chips or emoji. Each mark is followed 
 - **`LineageRail`** (歴代の札): one small key tag per term, oldest left, newest right, vertical Yusei Magic
   labels 「24 会計」, 「25 会計」, then a dashed blank tag 「あなた」 for the viewer. Horizontal scroll on phones.
 - **`VerbTabs`**: 聞く · 残す · 自分のメモ as notebook index tabs: on phones they sit at the bottom edge; the active
-  tab is `--sheet` with blue text and joins the page, inactive tabs are `--paper` with `--ink-2` text.
+  tab is `--sheet` with blue text and joins the page, inactive tabs are `--paper` with `--ink-2` text. The bar is
+  translucent (the paper at 72%, the chosen tab at 88%, no blur), so the page shows faintly as it scrolls under it;
+  opaque under `prefers-reduced-transparency`. A pressed tab shows `--blue-wash` at once.
 - **`SeatBar`**: a quiet row above every seat page, right-aligned in the page's 640px column, never printed. Three
   44px items: the language switch (the other language named in itself, 「English」 / 「日本語」, as a blue text button),
   the theme switch (**`DisplayToggles`**: a 6px blue-outlined icon button, the moon on the notebook and the sun on the
@@ -200,7 +202,9 @@ One signature moment, everything else functional.
 - **Double line** (withdraw, update): two red lines draw left to right, 220ms, then the entry collapses (200ms).
 - **Listening**: one ring pulses from the voice button every 1.2s while recording.
 - **Inbox arrival**: the slip slides 8px down into place (160ms) and the phone vibrates where supported.
-- No fade-and-slide on page load, no hover lifts, no confetti, no bouncing.
+- **Page change** (a verb tab, 「あなた」, the guide link; Nico's call): the new page's content fades in, opacity only, 160ms
+  (`PageTurn`), never on the first load. After sign-in the account's page fades in the same way (`.dd-fade-in`).
+- No fade or slide on the first page load, no slides at all, no hover lifts, no confetti, no bouncing.
 - `prefers-reduced-motion`: every motion becomes an instant state change; the stamp simply appears.
 
 ## Copy voice

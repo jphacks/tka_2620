@@ -194,6 +194,25 @@ a.dd-tab { display: grid; place-items: center; text-decoration: none; }
   .dd-guide { gap: var(--s-5) !important; }
 }
 
+/* The verb tabs let the page show through faintly as it scrolls under them: the paper at 72% (the chosen tab at 88%),
+   no blur (docs/DESIGN.md → Don'ts). Opaque for anyone who asks for less transparency, and where color-mix() is missing
+   (the declarations above stay). A pressed tab answers at once with the wash. */
+.dd-verbs { background: color-mix(in srgb, var(--paper) 72%, transparent); }
+.dd-verbs .dd-tab { background: transparent; }
+.dd-verbs .dd-tab[aria-current="page"] { background: color-mix(in srgb, var(--sheet) 88%, transparent); }
+.dd-verbs .dd-tab:active { background: var(--blue-wash); }
+@media (prefers-reduced-transparency: reduce) {
+  .dd-verbs { background: var(--paper); }
+  .dd-verbs .dd-tab { background: var(--paper); }
+  .dd-verbs .dd-tab[aria-current="page"] { background: var(--sheet); }
+}
+/* What an account may see arrives with a short fade after sign-in (SignInGate); opacity only, 160ms */
+.dd-fade-in { animation: dd-fade-in var(--t-quick, 160ms) ease-out both; }
+@keyframes dd-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .dd-fade-in { animation: none !important; } }
+/* The search field heads a filter, across its whole width */
+.dd-filter-search { grid-column: 1 / -1; display: grid; gap: var(--s-1); }
+
 /* A row's lone main action (VoiceAnswer's 公開する): the full width on a phone, in the thumb's reach; from 600px its own
    width, since a 592px button reads as a banner. Overrides the inline flex: 1, which the two-button rows keep. */
 @media (min-width: 600px) {
