@@ -9,9 +9,10 @@
   if you want a real voice.
 - Evidence as of 10/18: `docs/EVIDENCE.md` logs one interviewee and no November pilot yet. Fill the 〇 in the last row
   only from logged entries, or drop that sentence.
-- The screen links open the laptop's server. On real data, add `#key=<passphrase>&as=a26` to the seat page and
-  `#key=<passphrase>&as=a25` to the handover page (on Ishibashi's phone, through the laptop's LAN address, not
-  localhost); `/console` takes `#key=<passphrase>`. Never write the passphrase here.
+- The screen links open the laptop's server. On real data, sign in on the screen once, before the pitch: the seat
+  page as 「2026年度 会計」, the handover page on Ishibashi's phone as 「2025年度 会計」 (through the laptop's Funnel
+  address, not localhost), and `/console` with the demo password (all three panes at once). Each stays signed in;
+  after `pnpm demo:reset` sign in again. Never write the password here.
 
 | Time | Screen | Kagehiro (日本語) | Nico | Ishibashi |
 |---|---|---|---|---|

@@ -269,8 +269,6 @@ type AskResult =
 //   → { cards: (CardDraft & { source: "import" | "file" | "chat"; provenance?: string })[]; missing: { topic: string; reason: string; prompt: string }[];
 //       blocked: { title: string; reason: "placeholder" | "secret" | "contact" | "name" }[]; duplicates: { card: number; noteId: string; title: string; byline: string; similarity: number }[] }
 // POST /api/notes/[id]/withdraw          → { withdrawnAt: string }
-// POST /api/console/session { persona: "a26" | "a25" | "x" } + header x-console-key → { accessToken: string; refreshToken: string }
-//   the console only: not_found unless the server's CONSOLE_SIGN_IN passphrase (16+ characters) matches x-console-key
 // GET  /api/me/notes                     → { notes: { id: string; seat: string; title: string; scope: Scope; status: "live" | "withdrawn"; lang: Lang }[] }
 //   seat: the slug of the seat the note was written at (its scope label uses that seat's words)
 // GET  /api/notes/[id]                   → { id: string; kind: NoteKind; title: string; body: string; deadlineDate?: string; lang: Lang; byline: string }
@@ -287,7 +285,7 @@ type AskResult =
   client with that token so RLS runs as the caller.
 - **Demo sign-in (seat pages):** Supabase's own email and password, one session per device (`lib/api.ts`: `signIn`,
   `signedIn`, `signOut`). The device's client keeps its session in localStorage and refreshes it itself, so a reload
-  or a closed tab stays signed in; a console pane will keep its own under its own storage key (#89). Only the demo
+  or a closed tab stays signed in; a console pane keeps its own under its own storage key. Only the demo
   accounts sign in (`DemoAccount` and `DEMO_EMAIL` in `lib/contracts.ts`, the emails `scripts/seed.ts` creates). The
   demo password is typed on the device and goes to Supabase Auth only, never into client code or a `NEXT_PUBLIC_*`
   variable. Signing out ends this device's session only (`scope: "local"`; the default would also sign the demo phone
@@ -295,15 +293,14 @@ type AskResult =
   Auth and email is the only sign-in method, since the anon key is public (`tests/sign-in.test.ts` checks both).
   `pnpm demo:reset` recreates the demo users, so every device signs in again after a reset: `signedIn` checks a
   stored session with Supabase Auth and clears one it no longer knows.
-- **Console panes:** each pane creates its own Supabase client signed in as its persona
-  (`persistSession: false`), so three personas run side by side in one browser. The session comes from
-  `POST /api/console/session`, which signs in with `DEMO_PASSWORD` on the server, so the password never reaches the
-  browser. The route exists only where the server-only env `CONSOLE_SIGN_IN` holds a passphrase (16+ characters, the
-  presenting laptop alone), and only for requests carrying it: open the console as `/console#key=<passphrase>` (the
-  fragment never reaches a server, and the page takes it out of the address bar). `next dev` listens on every
-  interface and the repo is public, so the passphrase, not the network, keeps the venue Wi-Fi out.
-  `lib/api.ts` is the real client behind each pane. Reset on the real database is `pnpm demo:reset` in a terminal,
-  then a reload (the service-role key stays out of the app); the console's リセット button is for mocks.
+- **Console panes:** a26, a25 and x each run on their own Supabase client and session, under their own storage key
+  (`daidai-console-a26`, `-a25`, `-x`; `components/console-sign-in.ts`), so three personas run side by side in one
+  browser, apart from the device's own session. Signed out, `/console` shows one password field and 「3人でログインする」
+  where the panes go: the demo password, typed once, signs in all three (`lib/api.ts` → `signIn` per pane), and a
+  reload keeps them. All three or none: if one pane can't sign in, the others are signed out again and the console
+  says so calmly. 「ログアウト」 signs the three panes out on this device only. Reset on the real database is
+  `pnpm demo:reset` in a terminal (the service-role key stays out of the app), then a reload and the password once
+  more, since the reset recreates the demo users; the console's リセット button is for mocks.
 - **Realtime:** clients subscribe to `answers`, `prompt_routes`, `notes` (status changes) and `events` (meter); nothing polls.
   Only inserts and updates are sent: Realtime can't check a deleted row against RLS, so deletes never go out (0005).
 - **Publishing for a routed prompt** re-runs every waiting question linked to it (`questions.prompt_id`) and writes an `answers` row per asker.
