@@ -99,6 +99,7 @@ body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(
 .dd-ltag::before { content: ""; position: absolute; top: 8px; left: 50%; width: 10px; height: 10px; margin-left: -5px; border-radius: var(--r-round); border: 1.5px solid var(--ink-2); box-sizing: border-box; background: var(--paper); }
 .dd-ltag-label { writing-mode: vertical-rl; font-family: var(--font-marker); font-size: 16px; line-height: 18px; letter-spacing: .08em; }
 .dd-ltag-label .tcy { text-combine-upright: all; }
+.dd-ltag-label .tcy.dd-fig { font-weight: 700; } /* figures as on the date stamp's year band, as heavy as the marker */
 .dd-ltag.is-current { border-color: var(--ink); }
 .dd-ltag.is-you { border: 1.5px dashed var(--blue); background: transparent; color: var(--blue); }
 .dd-ltag.is-you .dd-ltag-label { font-family: var(--font-ui); font-weight: 700; font-size: 13px; }
@@ -127,7 +128,9 @@ a.dd-tab { display: grid; place-items: center; text-decoration: none; }
 /* the date clear of its box, and the seed title still on one line at 390px */
 .dd-planner .dd-date { padding-inline: var(--s-1); }
 .dd-planner .dd-mini { margin-inline: 0; }
-span.dd-mini { cursor: default; } /* a stamp that only says whose note it is; the tappable ones are buttons */
+/* a stamp that only says whose note it is: no pointer and no 44px hit area (the tappable ones are buttons) */
+span.dd-mini { cursor: default; }
+span.dd-mini::after { content: none; }
 
 /* Inbox slip (伝言メモ) */
 .dd-inbox { max-width: 360px; padding: var(--s-4); border-top: 1px dashed var(--ink-2); }
