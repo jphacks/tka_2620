@@ -217,7 +217,8 @@ html { overscroll-behavior-y: none; }
 
 /* Handover guide (引き継ぎ書, /s/[seat]/guide): the header, the export buttons and the filter (never printed), the notes
    as NoteEntry slips, and what isn't written yet as blank lines (空欄) with a dashed stamp outline at the end */
-.dd-guide-title { font-size: var(--text-l); line-height: 1.3; }
+/* A page's h1 (残す, 自分のメモ, あなた) and the guide's title: one size above the sections' 20px headings */
+.dd-page-title, .dd-guide-title { font-size: var(--text-l); line-height: 1.3; }
 .dd-guide-rules { margin: 0; }
 .dd-guide-link { justify-self: start; display: inline-flex; align-items: center; min-height: 44px; font-weight: 700; }
 .dd-guide-body { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
@@ -322,7 +323,7 @@ span.dd-mini { cursor: default; }
 span.dd-mini::after { content: none; }
 
 /* Inbox slip (伝言メモ) */
-.dd-inbox { max-width: 360px; padding: var(--s-4); border-top: 1px dashed var(--ink-2); }
+.dd-inbox { padding: var(--s-4); border-top: 1px dashed var(--ink-2); }
 .dd-field { display: grid; grid-template-columns: 56px 1fr; align-items: end; gap: var(--s-2); border-bottom: 1px solid var(--rule); padding: var(--s-1) 0; }
 .dd-field dt { font-size: 13px; color: var(--ink-2); }
 .dd-field dd { margin: 0; font-weight: 700; overflow-wrap: anywhere; }
@@ -336,8 +337,6 @@ span.dd-mini::after { content: none; }
 /* A verb page's heading with the seat it's for (残す): the h1, then one caption line kept even while it loads */
 .dd-page-head { display: grid; gap: var(--s-1); }
 .dd-page-head .dd-cap { margin: 0; min-height: 20px; }
-/* The answer box shows focus with DESIGN.md's ring (2px blue, 2px off), not only a border change */
-.dd-answer:focus-within { outline: 2px solid var(--blue); outline-offset: 2px; }
 
 /* Voice */
 .dd-voice { position: relative; width: 80px; height: 80px; border-radius: var(--r-round); border: 0; background: var(--blue); color: var(--sheet); display: grid; place-items: center; cursor: pointer; flex: none; }
@@ -351,9 +350,11 @@ span.dd-mini::after { content: none; }
 /* The answer box (inbox slips, handover prompts): the ruled hand field across the whole textbox, the microphone laid
    over it at the bottom right (on the sheet, so text running under it stays out of the way), filled --blue with the
    pulsing ring while listening. The field grows with the answer. */
-.dd-answer { position: relative; border: 1px solid var(--ink-2); border-radius: var(--r-button); background: var(--sheet);
-  min-height: 48px; box-sizing: border-box; padding: 7px var(--s-3); }
-.dd-answer:focus-within { border-color: var(--blue); box-shadow: 0 0 0 1px var(--blue); }
+/* The box is the field's label, so a tap anywhere on it, padding included, lands in the field. Focus shows as the blue
+   border and DESIGN.md's ring (2px blue, 2px off): one frame. */
+.dd-answer { display: block; position: relative; border: 1px solid var(--ink-2); border-radius: var(--r-button); background: var(--sheet);
+  min-height: 48px; box-sizing: border-box; padding: 7px var(--s-3); cursor: text; }
+.dd-answer:focus-within { border-color: var(--blue); outline: 2px solid var(--blue); outline-offset: 2px; }
 .dd-answer .dd-voice-text { display: block; min-height: var(--s-6); field-sizing: content; resize: none; background-color: transparent; }
 .dd-answer .dd-voice-text:focus { outline: none; } /* the box shows focus */
 .dd-mic { position: absolute; right: 3px; bottom: 3px; width: 40px; height: 40px; border-radius: var(--r-round); border: 0;

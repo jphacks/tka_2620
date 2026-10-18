@@ -111,12 +111,13 @@ function MyNotesList({ api, seat }: { api: Api; seat?: string }) {
     const gone = notes?.find((note) => note.id === noteId);
     setNotes((previous) => previous?.filter((note) => note.id !== noteId));
     setWithdrawing(undefined);
-    // The entry and its button are gone: focus goes to the page's heading, and a screen reader hears what happened.
+    // The entry and its button are gone: focus goes to the page's heading, and a screen reader hears what happened. The
+    // page doesn't scroll up to it: the notes below the withdrawn one stay where the eye is.
     if (gone) setWithdrawn(gone.title);
     const heading = document.querySelector<HTMLElement>("main h1, main h2");
     if (heading) {
       heading.tabIndex = -1; // focusable by script only, not a Tab stop
-      heading.focus();
+      heading.focus({ preventScroll: true });
     }
   }
 

@@ -166,15 +166,19 @@ Use Japanese notebook marks, not coloured chips or emoji. Each mark is followed 
   Header 「後輩から質問が届きました」, a 「から」 field with 「2026年度 会計」, the question in Klee One 20px,
   「〇人が質問しました」, and the answer written on the slip itself (`VoiceAnswer`), so nothing has to open first.
 - **残す's page** (`HandoverColumn`): an h1 「残す」 with the seat it's for (「テニスサークル Smashの会計の席」), then the
-  inbox, the handover prompts and 「＋ 追加」. A newcomer's question shows once, on its slip (the prompts leave out what the
-  inbox holds); a new one is read out in one line (「後輩から質問が届きました（2026年度 会計）：…」), and the inbox reads
-  itself again when the phone wakes or comes back online. Each answer box is described by its question, keeps its draft
-  when its drafted cards are put away (やめる), and dictates in the question's (or the page's) language. 「＋ 追加」 shows
-  only to the seat's holders; others read why. 自分のメモ's heading is the page's h1.
+  inbox, the handover prompts and 「＋ 追加」. They appear together, in place, once the seat, the inbox and the prompts have
+  been read (a 「読み込んでいます」 caption until then), so nothing slides under a finger. A newcomer's question shows once,
+  on its slip (the prompts leave out what the inbox holds); a new one is read out in one line
+  (「後輩から質問が届きました（2026年度 会計）：…」), and the inbox reads itself again when the phone wakes or comes back
+  online. Each answer box is described by its question, keeps its draft when its drafted cards are put away (やめる), and
+  dictates in the question's (or the page's) language. 「＋ 追加」 shows only to the seat's holders; others read why.
+  A page's h1 (残す, 自分のメモ, あなた) is `--text-l`, one step above its 20px section headings.
 - **`VoiceAnswer`**: a textbox (1px `--ink-2`, `--blue` while focused) holding the answer in Klee One on ruled lines,
   growing with it and using its full width, with a round 40px microphone laid over it at the bottom right: `--blue` icon, filled `--blue` while
-  listening with one ring pulsing outward in `--blue-wash`. Tap the box to type or the mic to speak; 「公開する」 appears
-  below with the first word. The same box sits on each handover prompt, where the button says 「下書きを作る」.
+  listening with one ring pulsing outward in `--blue-wash`. Focused, the border turns `--blue` inside the usual 2px ring.
+  Tap anywhere on the box to type (it is the field's label) or the mic to speak; 「公開する」 appears below with the first
+  word and stays clear of the verb tabs as the answer grows. The same box sits on each handover prompt, where the button
+  says 「下書きを作る」.
 - **`NoteEntry`**: a note as a notebook entry: kind mark and title (UI bold), body (Klee One), date stamp
   bottom-right, scope in small UI text (「次の会計だけ」). Deadline notes show the date in figures with the highlighter.
 - **`UpcomingList`**: a planner column: boxed date in figures (「10/20 火」), title, mini stamp. Dates within 7 days
