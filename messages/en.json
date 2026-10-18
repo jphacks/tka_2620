@@ -296,7 +296,8 @@
       "txt": "Text file",
       "md": "Text file",
       "text": "Pasted text"
-    }
+    },
+    "askWhat": "What you'll ask: {prompt}"
   },
   "trust": {
     "nothing": "There are no notes you can see here",

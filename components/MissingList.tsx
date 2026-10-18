@@ -64,6 +64,15 @@ export function MissingList({
               <p className="dd-cap dd-phrase" lang={lang} style={{ margin: 0 }}>
                 {item.reason}
               </p>
+              {/* The exact question every holder of the seat will read, shown before it is sent: blue, the viewer's own. */}
+              <p
+                id={`${headingId}-${index}`}
+                className="dd-phrase"
+                lang={lang}
+                style={{ margin: 0, color: "var(--blue)" }}
+              >
+                {t("import.askWhat", { prompt: item.prompt })}
+              </p>
               {state === "asked" ? (
                 <output
                   className="dd-phrase"
@@ -77,6 +86,7 @@ export function MissingList({
                   className="dd-btn"
                   style={{ justifySelf: "start" }}
                   disabled={state === "asking"}
+                  aria-describedby={`${headingId}-${index}`}
                   onClick={() => ask(index)}
                 >
                   {t(
