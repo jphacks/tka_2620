@@ -29,25 +29,31 @@ export function ScopeRings({
 }) {
   const t = useTranslations();
   const name = useId();
-  // The count per scope, read once each; the last one stays while the next loads.
+  // The count per scope, read once each. While the chosen ring's count loads none shows: the last ring's would be
+  // another ring's readers, and the first change (from successor, the narrowest) would understate who can read.
   const [counts, setCounts] = useState<Partial<Record<Scope, number>>>({});
   const [shown, setShown] = useState<number>();
+  const [reading, setReading] = useState(false);
 
   useEffect(() => {
     const known = counts[value];
     if (known !== undefined) {
       setShown(known);
+      setReading(false);
       return;
     }
+    setShown(undefined);
+    setReading(true);
     let alive = true;
     api.readers({ seat: seat.slug, scope: value }).then(
       ({ count }) => {
         if (!alive) return;
         setCounts((current) => ({ ...current, [value]: count }));
         setShown(count);
+        setReading(false);
       },
       () => {
-        if (alive) setShown(undefined); // no number rather than a wrong one
+        if (alive) setReading(false); // no number rather than a wrong one
       },
     );
     return () => {
@@ -90,7 +96,7 @@ export function ScopeRings({
           </label>
         ))}
       </fieldset>
-      <output className="dd-fig" aria-live="polite">
+      <output className="dd-fig" aria-live="polite" aria-busy={reading}>
         {shown !== undefined && t("handover.readers", { n: shown })}
       </output>
     </div>
