@@ -101,6 +101,25 @@ export function VoiceAnswer({
   const intoView = useCallback((node: HTMLElement | null) => {
     node?.scrollIntoView({ block: "nearest" });
   }, []);
+  // 公開する also stays in view as the answer wraps onto another line and pushes it down (a 320px phone): the field
+  // growing scrolls the page just enough, and only then.
+  const publishButton = useRef<HTMLButtonElement | null>(null);
+  const showPublish = useCallback(
+    (node: HTMLButtonElement | null) => {
+      publishButton.current = node;
+      intoView(node);
+    },
+    [intoView],
+  );
+  useEffect(() => {
+    const box = field.current;
+    if (!box || typeof ResizeObserver === "undefined") return;
+    const grown = new ResizeObserver(() =>
+      publishButton.current?.scrollIntoView({ block: "nearest" }),
+    );
+    grown.observe(box);
+    return () => grown.disconnect();
+  }, []);
 
   const dictation = useMemo(
     () =>
@@ -208,12 +227,12 @@ export function VoiceAnswer({
     );
   }
 
-  // The answer field is a textbox with the microphone inside it at the right: tap the box to type, or the mic to speak
-  // (and again to stop). The button appears with the first word, and comes into view then: on a phone it can sit under
-  // the verb tabs.
+  // The answer field is a textbox with the microphone inside it at the right: tap the box to type (it is the field's
+  // label, so its padding takes the tap too), or the mic to speak (and again to stop). The button appears with the first
+  // word, and comes into view then: on a phone it can sit under the verb tabs.
   return (
     <section key="form" className="dd-col" style={{ gap: "var(--s-3)" }}>
-      <div className="dd-answer">
+      <label className="dd-answer" htmlFor={fieldId}>
         <textarea
           id={fieldId}
           ref={field}
@@ -238,7 +257,7 @@ export function VoiceAnswer({
         >
           <Mic size={22} aria-hidden="true" />
         </button>
-      </div>
+      </label>
       {listening && (
         <output className="dd-cap" style={{ color: "var(--ink-2)" }}>
           {t("inbox.listening")}
@@ -251,7 +270,7 @@ export function VoiceAnswer({
       )}
       {text.trim() && (
         <button
-          ref={intoView}
+          ref={showPublish}
           type="button"
           className="dd-btn dd-btn-primary"
           style={{ minHeight: "52px" }}
