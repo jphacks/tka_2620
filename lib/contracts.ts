@@ -238,7 +238,9 @@ export type PublishCard = z.infer<typeof PublishCard>;
 
 export const PublishRequest = z.object({
   seat: SeatSlug,
-  promptId: Uuid.optional(), // a routed demand prompt re-answers every question waiting on it
+  // The prompt the cards answer: a routed demand prompt re-answers every question waiting on it; a gap, required or core
+  // prompt isn't asked of its author again (notes.prompt_id, 0011). Send it for every handover prompt, not only demand.
+  promptId: Uuid.optional(),
   cards: z.array(PublishCard).min(1),
 });
 export type PublishRequest = z.infer<typeof PublishRequest>;
