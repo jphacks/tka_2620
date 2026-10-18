@@ -47,7 +47,7 @@ export function MyNotes({
       aria-label={t("verbs.myNotes")}
     >
       {headingLevel === 1 ? (
-        <h1 className="dd-h">{t("verbs.myNotes")}</h1>
+        <h1 className="dd-h dd-page-title">{t("verbs.myNotes")}</h1>
       ) : (
         <h2 className="dd-h">{t("verbs.myNotes")}</h2>
       )}
