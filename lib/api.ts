@@ -191,6 +191,7 @@ function sessionStore(): SupportedStorage {
 
 // One client per storage key: two clients on one key would race over its session (supabase-js warns about that).
 const clients = new Map<string, SupabaseClient>();
+const AUTH_TIMEOUT_MS = 10_000;
 
 function sessionClient(storageKey: string): SupabaseClient {
   const known = clients.get(storageKey);
@@ -206,6 +207,20 @@ function sessionClient(storageKey: string): SupabaseClient {
       detectSessionInUrl: false,
       storage: sessionStore(),
       storageKey,
+    },
+    // This client only talks to Auth. A stalled network (venue Wi-Fi) gives up after 10 s instead of hanging, so
+    // signIn and signedIn answer unavailable and signOut still clears the device. A phone too old for
+    // AbortSignal.timeout (iOS before 16) simply waits, rather than failing every sign-in.
+    global: {
+      fetch: (input, init) =>
+        fetch(input, {
+          ...init,
+          signal:
+            init?.signal ??
+            (typeof AbortSignal.timeout === "function"
+              ? AbortSignal.timeout(AUTH_TIMEOUT_MS)
+              : undefined),
+        }),
     },
   });
   clients.set(storageKey, db);
@@ -223,7 +238,7 @@ function refused(error: unknown): boolean {
   );
 }
 
-export type SignedIn = { account: DemoAccount; api: Api };
+export type SignedIn = { account: DemoAccount; userId: string; api: Api };
 
 // Signs this device (or the pane under storageKey) in as a demo account. The password goes to Supabase Auth and
 // nowhere else. A password Auth turns down is unauthorized, so the screen can ask again; offline, a rate limit or
@@ -241,7 +256,8 @@ export async function signIn(
   if (error || !data.session) {
     throw new ApiClientError(refused(error) ? "unauthorized" : "unavailable");
   }
-  return { account, api: createApi(db, data.session.user.id) };
+  const userId = data.session.user.id;
+  return { account, userId, api: createApi(db, userId) };
 }
 
 // The session this device (or pane) already has, checked with Supabase Auth: the routes verify a token on their own,
@@ -269,7 +285,25 @@ export async function signedIn(
     await signOut(storageKey);
     return undefined;
   }
-  return { account, api: createApi(db, user.id) };
+  return { account, userId: user.id, api: createApi(db, user.id) };
+}
+
+// Calls back with the user of this device's (or pane's) session whenever it changes, in this tab or another one:
+// undefined once signed out. A screen showing one account's data uses it to stop showing it. The first call is the
+// session as it is when subscribing, so a change between the screen's check and this subscription isn't missed; an
+// initial "no session" is left out, because supabase-js also reports that when it merely can't reach Auth.
+// Returns the unsubscribe.
+export function onSessionChange(
+  onChange: (userId: string | undefined) => void,
+  storageKey = DEVICE,
+): () => void {
+  const { data } = sessionClient(storageKey).auth.onAuthStateChange(
+    (event, session) => {
+      if (event === "INITIAL_SESSION" && !session) return;
+      onChange(session?.user.id);
+    },
+  );
+  return () => data.subscription.unsubscribe();
 }
 
 // Signs this device (or pane) out, and nothing else: the default scope would end the account's sessions on every

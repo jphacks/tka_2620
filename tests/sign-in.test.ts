@@ -20,7 +20,13 @@ import {
 } from "vitest";
 import { GET as inboxRoute } from "@/app/api/inbox/route";
 import { GET as seatRoute } from "@/app/api/seats/[slug]/route";
-import { createApi, signedIn, signIn, signOut } from "@/lib/api";
+import {
+  createApi,
+  onSessionChange,
+  signedIn,
+  signIn,
+  signOut,
+} from "@/lib/api";
 import { DEMO_EMAIL, DemoAccount } from "@/lib/contracts";
 
 // The inbox words askedBy with the label pack, which needs Next; these tests check who it answers, not the words.
@@ -334,6 +340,37 @@ describe("signIn, signedIn and signOut (Auth stubbed)", () => {
     expect(rows).toEqual([row, row]);
     stop();
     expect(authChange).toBeUndefined();
+  });
+
+  it("tells a screen when the device's session changes: someone else signs in, or it signs out", async () => {
+    stubFetch({
+      "POST /auth/v1/token": async (request) =>
+        Response.json(
+          (await request.json()).email === DEMO_EMAIL.a26 ? a26 : a25,
+        ),
+      "POST /auth/v1/logout": () => new Response(null, { status: 204 }),
+    });
+    const first = await signIn("a25", "typed-password", "unit-watch");
+    expect(first.userId).toBe(A25_ID);
+    const seen: (string | undefined)[] = [];
+    const stop = onSessionChange((userId) => seen.push(userId), "unit-watch");
+    // First the session as it is on subscribing, so nothing between a screen's check and its subscription is missed.
+    await vi.waitFor(() => expect(seen).toEqual([A25_ID]));
+    await signIn("a26", "typed-password", "unit-watch");
+    await signOut("unit-watch");
+    stop();
+    await signIn("a25", "typed-password", "unit-watch");
+    // Nothing after it unsubscribed.
+    expect(seen).toEqual([A25_ID, A26_ID, undefined]);
+  });
+
+  it("leaves out an initial 'no session', which supabase-js also reports when it can't reach Auth", async () => {
+    stubFetch({});
+    const seen: (string | undefined)[] = [];
+    const stop = onSessionChange((userId) => seen.push(userId), "unit-none");
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    stop();
+    expect(seen).toEqual([]);
   });
 });
 

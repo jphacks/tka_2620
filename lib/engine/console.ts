@@ -4,15 +4,16 @@
 //
 // Off unless the server running the console sets CONSOLE_SIGN_IN to a passphrase of at least 16 characters (the
 // presenter's laptop only, never a hosted deployment; generate it, e.g. `openssl rand -hex 16`, never words). The seat
-// pages sign in the same way (components/SeatSignIn.tsx), and the demo phone reaches them through Tailscale Funnel,
-// which puts this route on the public internet: run Funnel only for the demo and `pnpm demo:reset` after it, and
-// remember the passphrase opens all three personas. Off, the route answers not_found, as if it didn't exist. On,
-// a request must also carry that passphrase in x-console-key, or it gets not_found too. The passphrase is the
-// boundary, not the network: `next dev` listens on every interface, the repo is public, and at a hackathon anyone on
-// the venue Wi-Fi could otherwise take the three demo accounts mid-demo. The console reads it from its URL fragment
-// (/console#key=…), which never reaches a server or a log. The custom header means a page on another site needs a
-// preflight it doesn't get (no CORS headers), and the answer is never cached. The accounts hold synthetic seed data
-// only; `pnpm demo:reset` recreates them, which also ends every session handed out.
+// pages no longer use it: they sign in with the demo password on the device (components/SignInGate.tsx), so for them
+// the demo password is the only boundary. Tailscale Funnel for the demo phone still puts this route on the public
+// internet: run Funnel only for the demo and `pnpm demo:reset` after it, and remember the passphrase opens all three
+// personas. Off, the route answers not_found, as if it didn't exist. On, a request must also carry that passphrase in
+// x-console-key, or it gets not_found too. For the console, the passphrase is the boundary, not the network: `next dev`
+// listens on every interface, the repo is public, and at a hackathon anyone on the venue Wi-Fi could otherwise take the
+// three demo accounts mid-demo. The console reads it from its URL fragment (/console#key=…), which never reaches a
+// server or a log. The custom header means a page on another site needs a preflight it doesn't get (no CORS headers),
+// and the answer is never cached. The accounts hold synthetic seed data only; `pnpm demo:reset` recreates them, which
+// also ends every session handed out.
 import { timingSafeEqual } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import {

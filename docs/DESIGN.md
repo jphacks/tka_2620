@@ -126,6 +126,17 @@ Use Japanese notebook marks, not coloured chips or emoji. Each mark is followed 
 - **Profile** (`/me`): who you are at the seat, never by name. Your dashed tag 「26 会計」 beside your byline
   (「2026年度 会計」, 20px bold), the group and institution, 「この席の3代目です」, and your notes here with the way to
   自分のメモ. Identity only: nothing to set.
+- **`SignIn`**: what a signed-out seat page shows in place (the URL stays the seat link, so an NFC tap still lands
+  on the seat). A UI area with no ruled lines: 「ログイン」 and a one-sentence lead in `--ink-2`, then 「アカウント」 and the
+  five demo accounts as 44px choices, never by name: a holder by the label pack's byline (「2026年度 会計」), the other
+  two by their group or school (「軽音サークルの部員」, 「やまて大学の学生」). Hover and the chosen one are `--blue-wash`;
+  the chosen one also gets a `--blue` border and bold blue text. Below them, one password field as a writing line like
+  `AskField`, but in the UI face (the password is the app's word, not a predecessor's) and with the usual focus ring,
+  then a full-width primary 「ログインする」, live as soon as an account is chosen. A wrong password, or no answer from
+  the server, gets a calm `--ink-2` line under the button that says what to do, never red; it scrolls clear of the
+  verb tabs. Checking the session and signing out show a calm caption (「ログインを確かめています」,
+  「ログアウトしています」); no network shows a calm line with 「もう一度ためす」. Signed in, the page ends with
+  「2025年度 会計でログインしています」 and 「切り替える」, which signs out this device only.
 - **`AskField`**: a single writing line in `--blue` with the placeholder in Klee One
   (「先輩たちに聞いてみましょう」) and a blue 「聞く」 button. Not a chat box.
 - **`AnswerEntry`**: the question repeated in blue UI text, then the answer in Klee One on the ruled grid. Each

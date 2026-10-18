@@ -13,8 +13,9 @@ export default async function HandoverPage({
         className="dd-pad dd-with-verbs"
         style={{ maxWidth: "640px", marginInline: "auto" }}
       >
-        {/* On mocks as a25; on real data as the persona in #key=…&as=… (components/SeatSignIn.tsx).
-            残す: newcomers' questions, the handover prompts, then 「＋ 追加」 for text, files and chats. */}
+        {/* On mocks as a25; on real data as the account signed in on this device, or the login screen in place
+            (components/SeatSignIn.tsx). 残す: newcomers' questions, the handover prompts, then 「＋ 追加」 for text,
+            files and chats. */}
         {USE_MOCKS ? (
           <HandoverColumn slug={seat} />
         ) : (
