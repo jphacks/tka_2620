@@ -16,6 +16,7 @@ import {
   Uuid,
 } from "@/lib/contracts";
 import { embed } from "@/lib/embed";
+import { tokyoToday } from "@/lib/engine/notes";
 import { closeEnough, FoundNote, SEARCH_K } from "@/lib/engine/retrieve";
 import {
   ApiFailure,
@@ -34,7 +35,10 @@ export const PROMPT_COUNT = 3; // SPEC → F6: three prompts
 // each 「先輩に聞く」 adds one gap prompt.
 const OPEN_PROMPTS = 100;
 
-export type PromptsDeps = { embed: (texts: string[]) => Promise<number[][]> };
+export type PromptsDeps = {
+  embed: (texts: string[]) => Promise<number[][]>;
+  today?: string; // Tokyo's date, YYYY-MM-DD: an answer past its valid_until counts no more
+};
 
 export async function handlePrompts(request: Request): Promise<Response> {
   const token = bearerToken(request);
@@ -133,6 +137,7 @@ export async function promptsAsCaller(
     seatId: seat.data.id,
     term,
     promptIds: openRows.data.map((row) => row.id),
+    today: deps.today ?? tokyoToday(),
   });
 
   const prompts = await choosePrompts(
@@ -152,11 +157,12 @@ export async function promptsAsCaller(
 }
 
 // The prompts the caller already answered through the handover, or a later holder did in a note they can read: a live
-// note of the seat that names the prompt (notes.prompt_id, 0011), from the caller's latest term or later. As the caller,
-// so the notes policy decides which notes count. Withdrawing the note brings the prompt back.
+// note of the seat that names the prompt (notes.prompt_id, 0011), from the caller's latest term or later, and not past
+// its valid_until (Tokyo's date, as search_notes, 0004). As the caller, so the notes policy decides which notes count.
+// Withdrawing the note, or its expiry, brings the prompt back.
 async function answeredPrompts(
   client: SupabaseClient,
-  input: { seatId: string; term: number; promptIds: string[] },
+  input: { seatId: string; term: number; promptIds: string[]; today: string },
 ): Promise<Set<string>> {
   if (input.promptIds.length === 0) return new Set();
   const { data, error } = await client
@@ -165,6 +171,7 @@ async function answeredPrompts(
     .eq("seat_id", input.seatId)
     .eq("status", "live")
     .gte("term_order", input.term)
+    .or(`valid_until.is.null,valid_until.gte.${input.today}`)
     .in("prompt_id", input.promptIds);
   if (error) throw dbFailure(error);
   const rows = z.array(z.object({ prompt_id: Uuid })).safeParse(data ?? []);

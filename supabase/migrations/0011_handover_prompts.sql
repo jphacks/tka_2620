@@ -6,7 +6,9 @@
 --   scope_readers()   how many people besides the caller could read a note the caller publishes at the seat with a scope
 --
 -- lib/engine/prompts.ts ranks a holder's prompts demand → gap → required → core, and by seq within a kind. Rows that exist
--- before this migration are numbered in their physical order, which is still the order they were inserted in.
+-- before this migration are numbered in their physical order, which is still the order they were inserted in. seq is
+-- one counter for every seat, so a holder who compares the seq of two prompts they read learns how many prompts were
+-- added in between, anywhere: a count, never which seat or what text. The API never returns it.
 
 alter table public.prompts add column seq bigint generated always as identity;
 
@@ -19,6 +21,23 @@ alter table public.notes add column prompt_id uuid references public.prompts (id
 create index notes_prompt_id_idx on public.notes (prompt_id);
 
 grant insert (prompt_id) on public.notes to authenticated;
+
+-- 0003's insert check, plus: a note names only a gap, required or core prompt of its own seat that the publisher may
+-- read (the subquery runs under the prompts policy). Row security is checked before the foreign key, so a prompt that
+-- doesn't exist and one the publisher can't read are refused alike, and the refusal never tells whether it exists.
+alter policy "notes: holders publish into their own terms"
+on public.notes
+with check (
+  author_user_id = (select auth.uid())
+  and private.may_sign(seat_id, term_order, byline)
+  and (
+    prompt_id is null
+    or exists (
+      select 1 from public.prompts p
+      where p.id = notes.prompt_id and p.seat_id = notes.seat_id and p.kind <> 'demand'
+    )
+  )
+);
 
 -- The scope picker's 「{n}人が読めます」. The rings are other people's memberships, which nobody reads directly (0003: your
 -- own rows only), so a security definer function counts them, and answers with a number, never who. It counts with the

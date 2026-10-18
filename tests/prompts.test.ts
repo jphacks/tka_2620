@@ -284,7 +284,11 @@ describe("promptsAsCaller", () => {
     return {
       ...stub,
       embedded,
-      run: () => promptsAsCaller(stub.client, "smash-kaikei", { embed }),
+      run: () =>
+        promptsAsCaller(stub.client, "smash-kaikei", {
+          embed,
+          today: "2026-10-18",
+        }),
     };
   }
 
@@ -341,6 +345,8 @@ describe("promptsAsCaller", () => {
         ["eq", "seat_id", SMASH_KAIKEI],
         ["eq", "status", "live"],
         ["gte", "term_order", 2025],
+        // An answer past its valid_until (Tokyo's date) counts no more.
+        ["or", "valid_until.is.null,valid_until.gte.2026-10-18"],
         ["in", "prompt_id", [uuid(20), uuid(21), uuid(22), uuid(23)]],
       ]),
     );
