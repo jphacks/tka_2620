@@ -29,27 +29,20 @@ export function ScopeRings({
 }) {
   const t = useTranslations();
   const name = useId();
-  // The count per scope, read once each. While the chosen ring's count loads none shows: the last ring's would be
-  // another ring's readers, and the first change (from successor, the narrowest) would understate who can read.
+  // The count per scope, read once each. Only the chosen ring's own count shows, taken from it while rendering, so
+  // not even one frame says another ring's readers (the first change, from successor, would understate them).
   const [counts, setCounts] = useState<Partial<Record<Scope, number>>>({});
-  const [shown, setShown] = useState<number>();
   const [reading, setReading] = useState(false);
+  const shown = counts[value];
 
   useEffect(() => {
-    const known = counts[value];
-    if (known !== undefined) {
-      setShown(known);
-      setReading(false);
-      return;
-    }
-    setShown(undefined);
+    if (counts[value] !== undefined) return;
     setReading(true);
     let alive = true;
     api.readers({ seat: seat.slug, scope: value }).then(
       ({ count }) => {
         if (!alive) return;
         setCounts((current) => ({ ...current, [value]: count }));
-        setShown(count);
         setReading(false);
       },
       () => {
@@ -96,7 +89,11 @@ export function ScopeRings({
           </label>
         ))}
       </fieldset>
-      <output className="dd-fig" aria-live="polite" aria-busy={reading}>
+      <output
+        className="dd-fig"
+        aria-live="polite"
+        aria-busy={reading && shown === undefined}
+      >
         {shown !== undefined && t("handover.readers", { n: shown })}
       </output>
     </div>
