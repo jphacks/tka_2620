@@ -169,7 +169,7 @@
     "notStored": "The original document or file is not stored",
     "missingTitle": "What's missing",
     "missingItem": "No {topic} in the doc",
-    "askLeaver": "Ask the leaver",
+    "askLeaver": "Ask your predecessors",
     "tabDoc": "Paste",
     "tabChat": "Chat history",
     "dropChat": "Drop a LINE or WhatsApp chat export (.txt) here",
@@ -251,7 +251,54 @@
     "sending": "Sending",
     "unredacted": "A phone number or email was still in the text, so nothing was sent. Add it to \"Other words to hide\"",
     "failed": "Couldn't send. Please try again",
-    "drafted": "{cards, plural, one {# draft note} other {# draft notes}}, {missing, plural, one {# thing missing} other {# things missing}}"
+    "drafted": "{cards, plural, one {# draft note} other {# draft notes}}, {missing, plural, one {# thing missing} other {# things missing}}",
+    "draftsTitle": "Draft notes",
+    "edit": "Edit",
+    "editDone": "Done editing",
+    "drop": "Leave out",
+    "restore": "Put back",
+    "dropped": "“{title}” won't be published",
+    "fieldTitle": "Title",
+    "fieldBody": "Note",
+    "fieldDate": "Deadline date",
+    "problem": {
+      "title": "Add a title (up to 100 characters)",
+      "body": "Add what the note says (up to 2,000 characters)",
+      "date": "Add the deadline's date",
+      "guard": "It still holds a name, contact details or a secret. Remove it with “Edit”"
+    },
+    "publishCount": "Publish {count, plural, one {# note} other {# notes}}",
+    "publishing": "Publishing",
+    "published": "{count, plural, one {Published # note} other {Published # notes}}",
+    "publishFailed": "Couldn't publish. Check your connection and try again",
+    "publishUnredacted": "Not published: a name or contact details were left. Remove them with “Edit” and try again",
+    "hold": {
+      "empty": "No notes to publish",
+      "problem": "A note needs editing first",
+      "choose": "Choose whether to update the similar note or keep this as a separate note",
+      "twice": "Two notes can't update the same note. Keep one of them as a separate note"
+    },
+    "keptBoth": "It will stay a separate note",
+    "blockedReason": {
+      "placeholder": "Not drafted: it held something that was hidden",
+      "secret": "Not drafted: it held a secret such as a PIN",
+      "contact": "Not drafted: it held contact details",
+      "name": "Not drafted: it held a name"
+    },
+    "asked": "Added to the questions for your predecessors",
+    "askFailed": "Couldn't add it to the questions. Please try again",
+    "from": {
+      "line": "LINE group",
+      "whatsapp": "WhatsApp group",
+      "paste": "Copied messages",
+      "pdf": "PDF",
+      "docx": "Word",
+      "txt": "Text file",
+      "md": "Text file",
+      "text": "Pasted text"
+    },
+    "askWhat": "What you'll ask: {prompt}",
+    "updateScope": "It will be published to the same readers as the note it updates: {scope}"
   },
   "trust": {
     "nothing": "There are no notes you can see here",

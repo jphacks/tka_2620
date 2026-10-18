@@ -257,6 +257,20 @@ export type HandoverPrompt = z.infer<typeof HandoverPrompt>;
 export const PromptsResponse = z.object({ prompts: z.array(HandoverPrompt) });
 export type PromptsResponse = z.infer<typeof PromptsResponse>;
 
+// POST /api/handover/prompts ------------------------------------------------------------
+
+// 「先輩に聞く」 on the import review (F5.7): what an added text leaves out (a missing item's prompt) becomes a gap prompt of
+// the seat, read by its holders among the handover prompts. The route refuses text with a name, contact details, a
+// secret or a placeholder (unredacted); the same open text again is the same prompt.
+export const GapRequest = z.object({
+  seat: SeatSlug,
+  text: z.string().trim().min(1).max(500),
+});
+export type GapRequest = z.infer<typeof GapRequest>;
+
+export const GapResponse = z.object({ promptId: Uuid });
+export type GapResponse = z.infer<typeof GapResponse>;
+
 // GET /api/handover/readers?seat=&scope= ------------------------------------------------
 
 export const ReadersQuery = z.object({ seat: SeatSlug, scope: Scope });
@@ -547,6 +561,7 @@ export type Api = {
   draft(request: DraftRequest): Promise<DraftResponse>; // POST /api/handover/draft
   publish(request: PublishRequest): Promise<PublishResponse>; // POST /api/handover/publish
   prompts(query: SeatQuery): Promise<PromptsResponse>; // GET /api/handover/prompts?seat=
+  gap(request: GapRequest): Promise<GapResponse>; // POST /api/handover/prompts
   readers(query: ReadersQuery): Promise<ReadersResponse>; // GET /api/handover/readers?seat=&scope=
   import(request: ImportRequest): Promise<ImportResponse>; // POST /api/import
   withdraw(noteId: string): Promise<WithdrawResponse>; // POST /api/notes/[id]/withdraw
