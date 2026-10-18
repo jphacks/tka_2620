@@ -135,11 +135,13 @@ const hiddenText = (counts: RedactionCounts) =>
     .map((kind) => `${kind} ${counts[kind]}`)
     .join(", ") || "nothing";
 
-// The run so far: problems by count, every canary seen outside the browser by its line in the canary file, and the
-// samples measured. Kept outside main(), so a run that stops halfway still reports a canary it saw.
+// The run so far: problems by count, every canary seen outside the browser by its line in the canary file, every text
+// sent (no later request, log or read may hold a piece of one), and the samples measured. Kept outside main(), so a run
+// that stops halfway still reports a canary it saw.
 class Run {
   problems = 0;
   readonly left = new Set<number>();
+  readonly sentTexts: string[] = [];
   chats = 0;
   files = 0;
   readonly hidden = Object.fromEntries(
@@ -317,10 +319,10 @@ function replay(
 
 // A window in which nothing may leave: while the device reads the files, between two requests, after the last one.
 function silent(window: Window, when: string, run: Run): void {
-  const { sent, network, sockets } = window;
-  if (sent.length + network + sockets === 0) return;
+  const { sent, network, sockets, connected } = window;
+  if (sent.length + network + sockets + connected === 0) return;
   run.problem(
-    `${when}: ${plural(sent.length, "request")} recorded, ${plural(network, "request")} and ${plural(sockets, "connection")} on the network; nothing should leave then`,
+    `${when}: ${plural(sent.length, "request")} recorded, ${plural(network, "request")} and ${plural(sockets, "socket")} on the network; nothing should leave then`,
   );
   const found = foundLines(joined(sent.flatMap(carried)));
   for (const line of found) run.left.add(line);
@@ -328,7 +330,7 @@ function silent(window: Window, when: string, run: Run): void {
 }
 
 // A window whose requests are the check's own (signing in, the sweep): reads and sign-in calls to the shared project
-// only, and no request around fetch.
+// only, no request around fetch, and no piece of a text sent earlier.
 function own(
   window: Window,
   when: string,
@@ -348,11 +350,18 @@ function own(
   }
   if (
     window.network !== window.sent.length ||
-    window.sockets > window.network
+    window.sockets !== window.connected
   ) {
     run.problem(
-      `${when}: ${plural(window.network, "request")} and ${plural(window.sockets, "connection")} on the network, ${window.sent.length} recorded`,
+      `${when}: ${plural(window.network, "request")} and ${plural(window.sockets, "socket")} (${window.connected} by fetch) on the network, ${window.sent.length} recorded`,
     );
+  }
+  const text = quoted(
+    joined(window.sent.flatMap(carried)),
+    pieces(run.sentTexts),
+  );
+  if (text > 0) {
+    run.problem(`${when}: ${plural(text, "piece")} of a text sent earlier`);
   }
 }
 
@@ -368,10 +377,10 @@ async function check(
     canaries: string[];
     where: (url: string) => Destination;
     run: Run;
-    sentTexts: string[];
   },
 ): Promise<Measured> {
-  const { tap, api, canaries, where, run, sentTexts } = context;
+  const { tap, api, canaries, where, run } = context;
+  const sentTexts = run.sentTexts;
   const say = run.say;
   const label = item.keepAll
     ? "with 「全部使う」"
@@ -439,9 +448,9 @@ async function check(
       `${plural(window.network, "request")} reached the network, ${server.length} went through the recorder`,
     );
   }
-  if (window.sockets > window.network) {
+  if (window.sockets !== window.connected) {
     run.problem(
-      `${plural(window.sockets, "connection")} for ${plural(window.network, "request")}: something went around fetch`,
+      `${plural(window.sockets, "socket")} opened, ${window.connected} by fetch: something went around it`,
     );
   }
   const unread = server.filter((call) => call.unverifiable);
@@ -534,7 +543,8 @@ async function check(
   if (answer.ok && records.length === 0) {
     run.problem("no record_import: the import's counts weren't recorded");
   }
-  const toDatabase = quoted(all(database), pieces(texts));
+  // This request's texts and every earlier one's: a late request may carry an earlier sample.
+  const toDatabase = quoted(all(database), pieces([...sentTexts, ...texts]));
   if (toDatabase > 0) {
     run.problem(
       `${plural(toDatabase, "piece")} of the text went to the database`,
@@ -680,7 +690,6 @@ async function main(tap: Tap, run: Run): Promise<boolean> {
   );
 
   let complete = true;
-  const sentTexts: string[] = [];
   const seconds: number[] = [];
   for (const sample of added) {
     if (stopping) {
@@ -732,9 +741,8 @@ async function main(tap: Tap, run: Run): Promise<boolean> {
         canaries,
         where,
         run,
-        sentTexts,
       });
-      sentTexts.push(...result.texts);
+      run.sentTexts.push(...result.texts);
       if (!result.measured) measured = false;
       if (result.seconds !== undefined) seconds.push(result.seconds);
     }
@@ -752,7 +760,7 @@ async function main(tap: Tap, run: Run): Promise<boolean> {
   say("");
   const after = tap.next("reading the database");
   silent(after, "after the last request", run);
-  replay(after, sentTexts, run);
+  replay(after, run.sentTexts, run);
   if (!stopping) {
     await sweep(
       createClient(url, serviceKey, {
@@ -765,7 +773,7 @@ async function main(tap: Tap, run: Run): Promise<boolean> {
   }
   const reading = tap.next("end");
   own(reading, "reading the database", run, where, false);
-  replay(reading, sentTexts, run);
+  replay(reading, run.sentTexts, run);
 
   const sorted = [...seconds].sort((a, b) => a - b);
   const median = sorted[Math.floor(sorted.length / 2)];
@@ -815,8 +823,13 @@ try {
 } finally {
   const last = tap.restore();
   const output = last.output.replace(`${last.marker}\n`, "").trimEnd();
-  // A run that stopped halfway can't vouch for what it printed last: withheld. Otherwise it is checked like a log.
-  if (!finished || foundLines(output).length > 0) {
+  // Checked like a log: a canary there left the browser, and a canary or a piece of the text fails the run. A run that
+  // stopped halfway can't vouch for what it printed last either. Such output is withheld.
+  const found = foundLines(output);
+  const text = quoted(output, pieces(run.sentTexts));
+  for (const line of found) run.left.add(line);
+  if (found.length > 0 || text > 0) passed = false;
+  if (!finished || found.length > 0 || text > 0) {
     if (output)
       console.log(`  (${output.length} characters of output withheld)`);
   } else if (output) {

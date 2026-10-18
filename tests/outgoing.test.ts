@@ -128,6 +128,7 @@ describe("installTap: everything that leaves the process", () => {
       found(joined(window.sent.flatMap(({ body }) => decoded(body)))),
     ).toBe(2);
     expect(window.network).toBe(2);
+    expect(window.sockets).toBe(window.connected); // every socket is one fetch opened
   });
 
   it("hands the browser's call to the route and keeps the answer it gave", async () => {
@@ -169,20 +170,31 @@ describe("installTap: everything that leaves the process", () => {
     expect(found(joined(carried(call)))).toBe(1);
   });
 
-  it("counts a raw connection, which no fetch made", async () => {
-    const port = Number(new URL(await listen()).port);
+  // fetch reuses its connections, so there are fewer sockets than requests: a raw one hides among them unless every
+  // socket is matched with a connection fetch made.
+  it("tells a raw connection from fetch's own, next to fetch", async () => {
+    const base = await listen();
     tap = installTap();
     tap.next("send");
+    for (const path of ["/one", "/two", "/three"]) {
+      await (
+        await fetch(`${base}${path}`, { method: "POST", body: "x" })
+      ).text();
+    }
     await new Promise<void>((resolve) => {
-      const socket = net.connect(port, "127.0.0.1", () => {
-        socket.destroy();
-        resolve();
-      });
+      const socket = net.connect(
+        Number(new URL(base).port),
+        "127.0.0.1",
+        () => {
+          socket.destroy();
+          resolve();
+        },
+      );
     });
     const window = tap.next("after");
-    expect([window.sent.length, window.network, window.sockets]).toEqual([
-      0, 0, 1,
-    ]);
+    expect([window.sent.length, window.network]).toEqual([3, 3]);
+    expect(window.sockets).toBeLessThanOrEqual(window.network); // so counting requests can't see it
+    expect(window.sockets).toBe(window.connected + 1);
   });
 
   it("counts a request that went around fetch", async () => {

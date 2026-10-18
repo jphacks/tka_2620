@@ -4,9 +4,9 @@
 // - fetch: the browser's calls to an API route (lib/api.ts calls a relative /api/… path) are recorded and handed to
 //   the route handler in this process, with the answer it gave; every other request (the model, the database, the
 //   embeddings) is recorded with its headers and body before it goes out.
-// - the network itself: node:diagnostics_channel counts every request undici (fetch) or the http module makes, and
-//   every socket opened, so a request that went around the fetch wrapper (another client, a raw socket, http2) shows
-//   up as more than was recorded.
+// - the network itself: node:diagnostics_channel counts every request undici (fetch) or the http module makes, every
+//   socket opened and every connection undici made, so a request that went around the fetch wrapper (another client,
+//   a raw socket, http2) shows up as more than was recorded, or as a socket fetch didn't open.
 // - stdout and stderr: everything written (console.* included) is kept, and the check prints it only after reading
 //   it; the check's own lines go through say().
 // Windows split the run: next(label) ends the current one and starts the next, so each request the check sends has
@@ -40,7 +40,8 @@ export type Window = {
   label: string;
   sent: Outgoing[];
   network: number; // requests that reached undici or the http module, recorded or not
-  sockets: number; // connections opened; a fetch opens one at most, and reuses it
+  sockets: number; // sockets opened, by anyone
+  connected: number; // of those, the connections undici (fetch) made: it reuses them, so this isn't one per request
   output: string; // everything written to stdout and stderr, the marker included
   marker: string; // the line next() printed through console.log, to prove that console output is caught
 };
@@ -66,6 +67,7 @@ export function installTap(): Tap {
     sent: [],
     network: 0,
     sockets: 0,
+    connected: 0,
     output: "",
     marker: "",
   };
@@ -96,9 +98,13 @@ export function installTap(): Tap {
   const socket = () => {
     current.sockets += 1;
   };
+  const connection = () => {
+    current.connected += 1;
+  };
   diagnostics.subscribe("undici:request:create", request);
   diagnostics.subscribe("http.client.request.start", request);
   diagnostics.subscribe("net.client.socket", socket);
+  diagnostics.subscribe("undici:client:connected", connection);
 
   const capture = ((chunk: unknown, encoding?: unknown, done?: unknown) => {
     current.output +=
@@ -120,6 +126,7 @@ export function installTap(): Tap {
       sent: [],
       network: 0,
       sockets: 0,
+      connected: 0,
       output: "",
       marker: `[tap ${windows}: ${label}]`,
     };
@@ -147,6 +154,7 @@ export function installTap(): Tap {
       diagnostics.unsubscribe("undici:request:create", request);
       diagnostics.unsubscribe("http.client.request.start", request);
       diagnostics.unsubscribe("net.client.socket", socket);
+      diagnostics.unsubscribe("undici:client:connected", connection);
       process.stdout.write = writes.out;
       process.stderr.write = writes.err;
       return current;
