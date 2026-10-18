@@ -13,6 +13,7 @@ import {
   LINE_MS,
   type WithdrawPhase,
 } from "@/components/NoteEntry";
+import { RetryLine } from "@/components/RetryLine";
 import { SignInGate } from "@/components/SignInGate";
 import { type Api, type MyNote, Scope } from "@/lib/contracts";
 import { createMockApi, USE_MOCKS } from "@/lib/mocks";
@@ -62,9 +63,11 @@ function MyNotesList({ api, seat }: { api: Api; seat?: string }) {
   // The seat the page came from (?seat=) first; every seat of the author's notes is one choice away.
   const [atSeat, setAtSeat] = useState<string>(seat ?? ALL);
   const [order, setOrder] = useState<Order>("newest");
+  const [loadTry, setLoadTry] = useState(0); // the retry button reads the notes again
   const [withdrawn, setWithdrawn] = useState<string>();
   const [query, setQuery] = useState("");
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: loadTry is the retry button's way to read the notes again
   useEffect(() => {
     let alive = true;
     api
@@ -81,7 +84,7 @@ function MyNotesList({ api, seat }: { api: Api; seat?: string }) {
     return () => {
       alive = false;
     };
-  }, [api]);
+  }, [api, loadTry]);
 
   // A status change from another pane (the console) marks the note withdrawn here too.
   useRealtime(api, "notes", (row) => {
@@ -122,9 +125,13 @@ function MyNotesList({ api, seat }: { api: Api; seat?: string }) {
 
   if (failed) {
     return (
-      <p className="dd-cap" style={{ margin: 0 }}>
-        {t("myNotes.failed")}
-      </p>
+      <RetryLine
+        message={t("myNotes.failed")}
+        onRetry={() => {
+          setFailed(false);
+          setLoadTry((n) => n + 1);
+        }}
+      />
     );
   }
   if (!seats || !notes) return null;

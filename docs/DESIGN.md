@@ -153,6 +153,11 @@ Use Japanese notebook marks, not coloured chips or emoji. Each mark is followed 
   its way (the only sign that 聞く is working); the outcome (an answer, 「誰も知りません。…に届けました」, 「いま、…が答えました」)
   is read out to a screen reader but not shown again, since the entry says it. The field appears once, in place: 聞く keeps
   the panel unseen until the seat has loaded. A load that fails offers 「もう一度ためす」 (`RetryLine`).
+- **First steps** on 聞く: someone who hasn't asked anything at the seat yet sees 「たとえば」 and three questions others ask at
+  this kind of seat (the label pack's `seatTypes.<type>.examples`) as blue text buttons in the hand; a tap puts one in the
+  field to read or change, never sends it. Gone after the first question; never on the console.
+- **A load that fails** offers 「もう一度ためす」 (`RetryLine`) everywhere a page or section reads data: the seat, the inbox,
+  the handover prompts, 自分のメモ, /me and the guide.
 - **「これまでの質問」** on 聞く: the asker's earlier questions at the seat (GET /api/seats/[slug]/asked), under this session's,
   answered ones as `AnswerEntry`, the rest with 「まだ答えはありません。答えが届くと、ここに出ます。」. An answer that came
   while the tab was closed carries 「新しい答え」 in blue UI text (13px, bold) once per device, and the status line says

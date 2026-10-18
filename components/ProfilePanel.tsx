@@ -7,6 +7,7 @@
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useEffect, useMemo, useState } from "react";
+import { RetryLine } from "@/components/RetryLine";
 import { stampRole } from "@/components/review";
 import { SignInGate } from "@/components/SignInGate";
 import { tagLabel } from "@/components/seat-page";
@@ -42,7 +43,9 @@ function Profile({
   const [view, setView] = useState<SeatView>();
   const [notes, setNotes] = useState<MyNote[]>();
   const [failed, setFailed] = useState(false);
+  const [loadTry, setLoadTry] = useState(0); // the retry button reads again
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: loadTry is the retry button's way to read again
   useEffect(() => {
     if (!slug) return;
     let alive = true;
@@ -59,7 +62,7 @@ function Profile({
     return () => {
       alive = false;
     };
-  }, [api, slug]);
+  }, [api, slug, loadTry]);
 
   const title = (
     <h1 className="dd-h" style={{ fontSize: "var(--text-l)", lineHeight: 1.3 }}>
@@ -74,7 +77,20 @@ function Profile({
   );
 
   if (!slug) return calm(t("profile.noSeat"));
-  if (failed) return calm(t("profile.failed"));
+  if (failed) {
+    return (
+      <section className="dd-col" style={{ gap: "var(--s-4)" }}>
+        {title}
+        <RetryLine
+          message={t("profile.failed")}
+          onRetry={() => {
+            setFailed(false);
+            setLoadTry((n) => n + 1);
+          }}
+        />
+      </section>
+    );
+  }
   if (!view || !notes) {
     return (
       <section className="dd-col" style={{ gap: "var(--s-4)" }}>
