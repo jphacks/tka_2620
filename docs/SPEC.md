@@ -211,6 +211,9 @@ through one path that keeps people out of the notes, at the start and at any tim
 ## Routes
 - `/s/[seat]`: seat page (lineage, upcoming deadlines, 聞く)
 - `/s/[seat]/handover`: 残す — newcomers' questions (live inbox), handover prompts, 「＋ 追加」 (text, files, chats)
+- `/s/[seat]/guide`: the handover guide 引き継ぎ書 (notes the viewer may read, what isn't written yet, the viewer's
+  own questions; print / PDF and Markdown export in the browser)
+- `/me`: who you are at the seat (seat and term)
 - `/me/notes`: 自分のメモ (scope and withdrawal)
 - `/console`: three persona panes (a26 newcomer, a25 last year's treasurer, x outsider), meter, leak counter, reset
 - Seat routes live in the route group `app/(seat)/` (the URL has no `(seat)` segment).
@@ -263,6 +266,10 @@ type AskResult =
 //   seat: the slug of the seat the note was written at (its scope label uses that seat's words)
 // GET  /api/notes/[id]                   → { id: string; kind: NoteKind; title: string; body: string; deadlineDate?: string; lang: Lang; byline: string }
 //   the source a citation's stamp opens: one live note the caller may read (RLS); otherwise not_found
+// GET  /api/seats/[slug]/guide           → { notes: { id: string; kind: NoteKind; title: string; body: string; deadlineDate?: string; byline: string; termOrder: number; lang: Lang }[];
+//       open: { id: string; text: string; reason: "gap" | "required" | "core" }[]; openChecked: boolean; asked: { questionId: string; text: string; lang: Lang; askedAt: string; answer?: AskResult }[] }
+//   the handover guide (引き継ぎ書), as the caller (RLS): the seat's live, current notes they may read; for a holder, the prompts no note they read names
+//   or covers (openChecked false: the check failed, open is empty); their own questions, newest first, each answer ("answered", no live) checked again
 // Any error                              → { error: "invalid_request" | "unauthorized" | "forbidden" | "not_found" | "unredacted" | "unavailable" }
 // Realtime `notes` → { id, status }; `events` → { id, kind, payload: Record<string, number>, created_at }
 ```

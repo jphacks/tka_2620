@@ -146,7 +146,7 @@ export async function promptsAsCaller(
       openRows.data.filter((row) => !answered.has(row.id)),
     ),
     (batch) =>
-      coveredByRecentNotes(client, {
+      coveredByNotes(client, {
         seat: { id: seat.data.id, slug },
         term,
         prompts: batch,
@@ -159,18 +159,22 @@ export async function promptsAsCaller(
 // The prompts the caller already answered through the handover, or a later holder did in a note they can read: a live
 // note of the seat that names the prompt (notes.prompt_id, 0011), from the caller's latest term or later, and not past
 // its valid_until (Tokyo's date, as search_notes, 0004). As the caller, so the notes policy decides which notes count.
-// Withdrawing the note, or its expiry, brings the prompt back.
-async function answeredPrompts(
+// Withdrawing the note, or its expiry, brings the prompt back. Without a term, a note of any term counts: the handover
+// guide (lib/engine/guide.ts) lists what nobody has written yet, not what this holder is still to be asked.
+export async function answeredPrompts(
   client: SupabaseClient,
-  input: { seatId: string; term: number; promptIds: string[]; today: string },
+  input: { seatId: string; term?: number; promptIds: string[]; today: string },
 ): Promise<Set<string>> {
   if (input.promptIds.length === 0) return new Set();
-  const { data, error } = await client
+  const live = client
     .from("notes")
     .select("prompt_id")
     .eq("seat_id", input.seatId)
-    .eq("status", "live")
-    .gte("term_order", input.term)
+    .eq("status", "live");
+  const { data, error } = await (input.term === undefined
+    ? live
+    : live.gte("term_order", input.term)
+  )
     .or(`valid_until.is.null,valid_until.gte.${input.today}`)
     .in("prompt_id", input.promptIds);
   if (error) throw dbFailure(error);
@@ -180,6 +184,14 @@ async function answeredPrompts(
 }
 
 const RANK = PromptKind.options; // demand, gap, required, core
+
+// Prompts by kind in rank order, each kind in the order it was added (seq).
+export function byRank(
+  a: { kind: PromptKind; seq: number },
+  b: { kind: PromptKind; seq: number },
+): number {
+  return RANK.indexOf(a.kind) - RANK.indexOf(b.kind) || a.seq - b.seq;
+}
 
 // Demand prompts by how many newcomers asked, the longest waiting first among equals; then gap, required and core
 // prompts, each kind in the order it was added.
@@ -201,18 +213,14 @@ export function rankPrompts(
         askCount: row.ask_count,
       }),
     );
-  const others = open
-    .toSorted(
-      (a, b) => RANK.indexOf(a.kind) - RANK.indexOf(b.kind) || a.seq - b.seq,
-    )
-    .map(
-      (row): HandoverPrompt => ({
-        id: row.id,
-        text: row.text,
-        reason: row.kind,
-        askCount: row.ask_count,
-      }),
-    );
+  const others = open.toSorted(byRank).map(
+    (row): HandoverPrompt => ({
+      id: row.id,
+      text: row.text,
+      reason: row.kind,
+      askCount: row.ask_count,
+    }),
+  );
   return [...asked, ...others];
 }
 
@@ -253,14 +261,14 @@ export async function choosePrompts(
 
 type CoverInput = {
   seat: { id: string; slug: string };
-  term: number; // the caller's latest term at the seat
-  prompts: HandoverPrompt[];
+  term?: number; // the caller's latest term at the seat; without one, a note of any term covers (coversPrompt)
+  prompts: { text: string }[];
   embed: (texts: string[]) => Promise<number[][]>;
 };
 
 // Each prompt asked as a question, with search_notes (0004) as the caller: the notes policy decides which notes can
-// cover anything, so a note the caller can't read never hides a prompt.
-async function coveredByRecentNotes(
+// cover anything, so a note the caller can't read never hides a prompt. One embedding call for all of them.
+export async function coveredByNotes(
   client: SupabaseClient,
   input: CoverInput,
 ): Promise<boolean[]> {
@@ -296,12 +304,14 @@ async function coveredByRecentNotes(
 //   the old handover's missing item 「模擬店の保健所申請の締切はいつですか？」 scores 0.774 against the 2024 deadline note, so
 //   the 2025 note comes along at 0.596: covered for a25, still asked of a26, who holds 2026.
 //   「口座の代表者を変えるとき、銀行に何を持っていけばいいですか？」 reaches 0.557 at most: never covered.
+// Without a term, any of the seat's notes that would answer it covers it: the handover guide (lib/engine/guide.ts) lists
+// what isn't written at all, so an older predecessor's note counts there.
 export function coversPrompt(
   found: FoundNote[],
   seatId: string,
-  term: number,
+  term?: number,
 ): boolean {
   return closeEnough(found.filter((note) => note.seat_id === seatId)).some(
-    (note) => note.term_order >= term,
+    (note) => term === undefined || note.term_order >= term,
   );
 }
