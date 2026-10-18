@@ -6,7 +6,7 @@
 import { generateText, type LanguageModel, Output } from "ai";
 import { sonnetOptions, untrusted } from "@/lib/ai";
 import { AnswerOutput, type AnswerSentence, type Lang } from "@/lib/contracts";
-import type { FoundNote } from "@/lib/engine/retrieve";
+import type { FoundNote, ReplacedNote } from "@/lib/engine/retrieve";
 import { type RuleChange, ruleChange } from "@/lib/engine/rule-change";
 
 const INSTRUCTIONS = `You answer a newcomer's question about a seat (a role in a group, like a club's treasurer) from the notes that holders of seats left for the people after them.
@@ -32,6 +32,7 @@ export type AnswerInput = {
   question: string;
   notes: FoundNote[]; // findNotes() for the asker: the only notes a sentence may cite
   seatId: string; // the seat asked: the rule-change flag follows only its lineage
+  replaced?: ReplacedNote[]; // the deadlines these notes replaced: the flag's history, never shown to the model
 };
 
 // The checked answer, or undefined when the question abstains.
@@ -81,7 +82,7 @@ export async function answerFromNotes(
     ];
   });
   if (checked.length === 0) return undefined;
-  const change = ruleChange(input.notes, checked, input.seatId);
+  const change = ruleChange(input.notes, checked, input.seatId, input.replaced);
   return {
     sentences: checked,
     ...(change && { ruleChange: change }),

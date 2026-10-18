@@ -40,6 +40,8 @@ type Stub = {
   routes?: Reply[]; // or one reply per call, in order
   seatError?: { code: string } | null;
   searchError?: { code: string } | null;
+  replaced?: unknown[]; // superseded_deadlines' rows: none by default
+  replacedError?: { code: string } | null;
   routeError?: { code: string } | null;
   inserted?: Record<string, Record<string, unknown>[]>; // rows by table
   called?: string[]; // database functions, in order
@@ -87,6 +89,9 @@ function stubClient(stub: Stub): SupabaseClient {
       args[name] = [...(args[name] ?? []), values];
       if (name === "search_notes") {
         return { data: stub.found ?? [], error: stub.searchError ?? null };
+      }
+      if (name === "superseded_deadlines") {
+        return { data: stub.replaced ?? [], error: stub.replacedError ?? null };
       }
       if (name === "open_demand_prompts") {
         return { data: stub.open ?? [], error: stub.openError ?? null };
@@ -215,7 +220,89 @@ describe("askAsCaller", () => {
       ],
       answers: [{ question_id: QUESTION_ID, payload: result }],
     });
-    expect(stub.called).toEqual(["search_notes"]);
+    // The history is read for the seat's own deadline notes only, not the 学祭実行委員会's note.
+    expect(stub.called).toEqual(["search_notes", "superseded_deadlines"]);
+    expect(stub.args?.superseded_deadlines).toEqual([
+      { note_ids: ["smash-2024-hokenjo", "smash-2025-hokenjo"] },
+    ]);
+  });
+
+  describe("after 「更新する」 replaced the 2025 note (F5.6)", () => {
+    const [hokenjo2024, gakusai2025, hokenjo2025] = q01Notes;
+    const notice2026 = {
+      ...hokenjo2025,
+      id: "notice-2026",
+      term_order: 2026,
+      term_label: "2026",
+      byline: "2026年度 会計",
+      title: "保健所への臨時営業届",
+      body: "臨時営業届は学生課窓口に提出する。今年度から締切は学祭の4週間前になった。",
+      deadline_date: "2026-10-19",
+      similarity: 0.581,
+    };
+    const found = [hokenjo2024, gakusai2025, notice2026];
+    const replaced = [
+      {
+        id: "smash-2025-hokenjo",
+        seat_id: SMASH_KAIKEI,
+        term_order: 2025,
+        term_label: "2025",
+        deadline_date: "2025-10-20",
+        superseded_by: "notice-2026",
+      },
+    ];
+    // The answer cites the 2026 note alone, as it may when the 2024 note says nothing the 2026 one doesn't.
+    const reply: AnswerOutput = {
+      answerable: true,
+      sentences: [
+        {
+          text: "臨時営業届は学祭の4週間前までに学生課窓口へ出します。",
+          note_ids: ["notice-2026"],
+        },
+      ],
+      language: "ja",
+    };
+
+    it("cites the 2026 note and flags the change against the note it replaced", async () => {
+      const stub: Stub = { seat: { id: SMASH_KAIKEI }, found, replaced };
+      const result = await askAsCaller(
+        stubClient(stub),
+        "asker-1",
+        q01,
+        replying(reply),
+      );
+      expect(result).toMatchObject({
+        status: "answered",
+        sentences: [
+          { citations: [{ noteId: "notice-2026", termLabel: "2026" }] },
+        ],
+        ruleChange: { termLabel: "2026", summary: "10/20 → 10/19" },
+      });
+      expect(stub.args?.superseded_deadlines).toEqual([
+        { note_ids: ["smash-2024-hokenjo", "notice-2026"] },
+      ]);
+    });
+
+    it("answers without that history when it can't be read, and logs a code only", async () => {
+      const log = vi.spyOn(console, "error").mockImplementation(() => {});
+      const stub: Stub = {
+        seat: { id: SMASH_KAIKEI },
+        found,
+        replacedError: { code: "PGRST202" }, // 0010 not applied yet
+      };
+      const result = await askAsCaller(
+        stubClient(stub),
+        "asker-1",
+        q01,
+        replying(reply),
+      );
+      expect(result).toMatchObject({ status: "answered" });
+      expect(result).not.toHaveProperty("ruleChange");
+      expect(log).toHaveBeenCalledWith(
+        "POST /api/ask: replaced deadlines failed: unavailable (ApiFailure)",
+      );
+      expect(JSON.stringify(log.mock.calls)).not.toContain("保健所");
+    });
   });
 
   it("replies with the answer as stored: one whose note was withdrawn while it was asked comes back without it", async () => {
