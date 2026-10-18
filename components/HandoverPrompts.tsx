@@ -4,7 +4,8 @@
 // for that prompt; its answer is drafted into cards (POST /api/handover/draft, at most one follow-up), checked in
 // CardReview with a scope per card, and published naming the prompt (POST /api/handover/publish). An answered prompt
 // stays in the list as 「公開しました」 with the scopes it went out at, so three in a row read as done. A newcomer's
-// question routed here (prompt_routes) reads the list again; the prompts already shown keep their places.
+// question routed here (prompt_routes) reads the list again; the prompts already shown keep their places, and after the
+// first answer only newcomers' questions join them.
 import { useTranslations } from "next-intl";
 import {
   useCallback,
@@ -105,7 +106,14 @@ export function HandoverPrompts({
           prompt.id === opened.current,
       );
       const known = new Set(kept.map((prompt) => prompt.id));
-      return [...kept, ...next.filter((prompt) => !known.has(prompt.id))];
+      // Only a newcomer's question joins below: each publish has the server list the next gap or core prompt, which
+      // waits for the next visit, so the three answered read as done.
+      return [
+        ...kept,
+        ...next.filter(
+          (prompt) => !known.has(prompt.id) && prompt.reason === "demand",
+        ),
+      ];
     });
   }, [api, slug, published]);
 
