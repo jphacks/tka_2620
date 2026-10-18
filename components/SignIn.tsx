@@ -8,7 +8,7 @@
 // form only after it has checked the device's session, so the form never exists before hydration and a native submit
 // could never carry the password.
 import { useTranslations } from "next-intl";
-import { type FormEvent, useId, useRef, useState } from "react";
+import { type FormEvent, useEffect, useId, useRef, useState } from "react";
 import { accountLabel, signInFailure } from "@/components/sign-in";
 import { type SignedIn, signIn } from "@/lib/api";
 import { DemoAccount } from "@/lib/contracts";
@@ -21,9 +21,15 @@ export function SignIn({
   const t = useTranslations();
   const title = useId();
   const field = useRef<HTMLInputElement>(null);
+  const message = useRef<HTMLParagraphElement>(null);
   const [account, setAccount] = useState<DemoAccount>();
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<"wrongPassword" | "unavailable">();
+
+  // The line that says what to do sits under the button: on a short phone it would start under the fixed verb tabs.
+  useEffect(() => {
+    if (failure) message.current?.scrollIntoView({ block: "nearest" });
+  }, [failure]);
 
   // The button waits for an account only: a password the browser fills in may never tell the page it's there.
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -53,7 +59,9 @@ export function SignIn({
         <h1 id={title} className="dd-h">
           {t("signIn.title")}
         </h1>
-        <p style={{ margin: 0, color: "var(--ink-2)" }}>{t("signIn.lead")}</p>
+        <p className="dd-phrase" style={{ margin: 0, color: "var(--ink-2)" }}>
+          {t("signIn.lead")}
+        </p>
       </div>
       <fieldset className="dd-choices">
         <legend className="dd-label">{t("signIn.accounts")}</legend>
@@ -90,7 +98,11 @@ export function SignIn({
         {t(busy ? "signIn.submitting" : "signIn.submit")}
       </button>
       {failure && (
-        <p role="alert" style={{ margin: 0, color: "var(--ink-2)" }}>
+        <p
+          ref={message}
+          role="alert"
+          style={{ margin: 0, color: "var(--ink-2)" }}
+        >
           {t(`signIn.${failure}`)}
         </p>
       )}

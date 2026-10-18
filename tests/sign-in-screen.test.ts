@@ -37,8 +37,8 @@ describe("accountLabel", () => {
       "2026 会計",
       "2025 会計",
       "2024 会計",
-      "A member of 軽音サークル",
-      "A student at やまて大学",
+      "軽音サークル member",
+      "やまて大学 student",
     ]);
   });
 
