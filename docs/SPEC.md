@@ -241,7 +241,8 @@ type AskResult =
 // GET  /api/inbox?seat=                  → { items: { promptId: string; question: string; askedBy: string; askCount: number; askedAt: string; lang: Lang }[] }
 // Realtime `prompt_routes` (recipient)   → a new inbox item (the row has no question text: refetch the inbox)
 // POST /api/inbox/seen { promptId }      → { seenAt: string }   (the slip was opened; the first open counts)
-// POST /api/handover/draft { seat, promptId, answer }  → { cards: CardDraft[]; followup?: { missing: "date" | "contact" | "threshold"; question: string } }
+// POST /api/handover/draft { seat, promptId, answer, followup?: { question: string; answer: string } }  → { cards: CardDraft[]; followup?: { missing: "date" | "contact" | "threshold"; question: string } }
+//   followup in the request: the reply round, with the one follow-up the first draft asked and the reply; it never gets another
 // POST /api/handover/publish { seat, promptId?, cards: (CardDraft & { scope: Scope; supersedes?: string; provenance?: string; source?: "import" | "file" | "chat" })[] } → { noteIds: string[]; reanswered: string[] }
 //   source: only for added cards (import is stateless); the server sets handover or live for the others
 // GET  /api/handover/prompts?seat=       → { prompts: { id: string; text: string; reason: "demand" | "gap" | "required" | "core"; askCount: number }[] }
@@ -320,7 +321,9 @@ missing number is never shown as 0.
   a `missing` item. For chats: extract only knowledge about the seat (deadlines, procedures, offices or roles to
   contact, rules, pitfalls); refer to people only by role; skip health, relationships, gossip, judgements about people
   and money owed by individuals; keep placeholders like `[電話番号]` out of cards and say where to find the contact instead.
-- **Follow-up (Haiku):** input = prompt + answer. Output: `{ needs_followup: boolean, missing?: "date" | "contact" | "threshold", question?: string }`. At most one per answer.
+- **Follow-up (Haiku):** input = prompt + answer. Output: `{ needs_followup: boolean, missing?: "date" | "contact" | "threshold", question?: string }`. At most one per answer:
+  the reply goes back with the next draft (`followup` in the request), which drafts from the answer plus the reply and
+  never asks again. Until then, a deadline the answer gives no date for is drafted as another kind of card.
 - **Dedupe and classification (Haiku):** merge similar demand prompts; reframe questions about individuals to the seat.
   Two calls side by side, so another holder's prompt text never reaches the wording. Match: input = the new question +
   the seat's open, listed demand prompts in `<prompt id=…>` tags, output `{ duplicate_of: string | null }` (the prompt

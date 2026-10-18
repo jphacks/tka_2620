@@ -354,11 +354,12 @@ export const mockDraftRequest: DraftRequest = {
 
 export const mockDraft: DraftResponse = { cards: [mockLiveCard] };
 
-// An answer without a date gets one follow-up (F6).
+// An answer without a date gets one follow-up (F6). Until a reply gives the date, the deadline is a rule of thumb, so
+// the card can be published as it is when the predecessor skips the question.
 export const mockDraftWithFollowup: DraftResponse = {
   cards: [
     {
-      kind: "deadline",
+      kind: "rule_of_thumb",
       title: "保健所申請の締切",
       body: "学祭の前までに学生課に出す。",
       suggested_scope: "successor",
@@ -368,6 +369,29 @@ export const mockDraftWithFollowup: DraftResponse = {
     },
   ],
   followup: { missing: "date", question: "締切は何月何日でしたか？" },
+};
+
+// The reply round: the same answer with the follow-up and the reply, which gives the date. It never asks again.
+export const mockDraftFollowupRequest: DraftRequest = {
+  seat: SEAT,
+  promptId: mockIds.corePrompt,
+  answer: "学祭の前までに学生課に出す。",
+  followup: { question: "締切は何月何日でしたか？", answer: "10月20日です。" },
+};
+
+export const mockDraftAfterFollowup: DraftResponse = {
+  cards: [
+    {
+      kind: "deadline",
+      title: "保健所申請の締切",
+      body: "10月20日までに学生課に出す。",
+      deadline_date: "2026-10-20",
+      suggested_scope: "successor",
+      critical: false,
+      lang: "ja",
+      flags: noFlags,
+    },
+  ],
 };
 
 export const mockPublishRequest: PublishRequest = {
@@ -1067,9 +1091,12 @@ export function createMockApi(
     },
 
     async draft(request) {
-      const { answer } = DraftRequest.parse(request);
+      const { answer, followup } = DraftRequest.parse(request);
       if (answer.includes("予備")) return reply(mockDraft);
-      if (answer.includes("学祭の前")) return reply(mockDraftWithFollowup);
+      // One follow-up per answer: the reply round gets the dated card and no second question.
+      if (answer.includes("学祭の前")) {
+        return reply(followup ? mockDraftAfterFollowup : mockDraftWithFollowup);
+      }
       const card: CardDraft = {
         kind: "rule_of_thumb",
         title: answer.split(/[。.!?！？\n]/)[0].slice(0, 20),

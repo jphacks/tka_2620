@@ -47,6 +47,8 @@ import {
   mockAnswerGasshuku,
   mockAnswersRow,
   mockDraft,
+  mockDraftAfterFollowup,
+  mockDraftFollowupRequest,
   mockDraftRequest,
   mockDraftWithFollowup,
   mockEventsRow,
@@ -113,6 +115,8 @@ const fixtures: [string, z.ZodType, unknown][] = [
   ["DraftRequest", DraftRequest, mockDraftRequest],
   ["DraftResponse", DraftResponse, mockDraft],
   ["DraftResponse with a follow-up", DraftResponse, mockDraftWithFollowup],
+  ["DraftRequest in the reply round", DraftRequest, mockDraftFollowupRequest],
+  ["DraftResponse after a follow-up", DraftResponse, mockDraftAfterFollowup],
   ["PublishRequest", PublishRequest, mockPublishRequest],
   ["PublishResponse", PublishResponse, mockPublish],
   ["LiveAnswer", LiveAnswer, mockLiveAnswer],
@@ -435,6 +439,16 @@ describe("createMockApi", () => {
     await expect(
       newcomer.seen({ promptId: asked.promptId }),
     ).rejects.toMatchObject({ error: "not_found" });
+  });
+
+  it("asks one follow-up for an answer without a date, and none in the reply round", async () => {
+    const senpai = createMockApi("a25", { latencyMs: 0 });
+    expect(
+      await senpai.draft({ ...mockDraftFollowupRequest, followup: undefined }),
+    ).toEqual(mockDraftWithFollowup);
+    expect(await senpai.draft(mockDraftFollowupRequest)).toEqual(
+      mockDraftAfterFollowup,
+    );
   });
 
   it("opens a cited note only within the persona's scope, and not once it's withdrawn", async () => {
