@@ -6,6 +6,7 @@ import { AbstainEntry } from "@/components/AbstainEntry";
 import { AnswerEntry } from "@/components/AnswerEntry";
 import { AskField } from "@/components/AskField";
 import { LiveStamp } from "@/components/LiveStamp";
+import { RetryLine } from "@/components/RetryLine";
 import type { Api, AskResult, SeatView } from "@/lib/contracts";
 import { createMockApi, mockIds, mockPredecessorAnswers } from "@/lib/mocks";
 import { useRealtime } from "@/lib/realtime";
@@ -20,6 +21,7 @@ export function AskPanel({
   mockShortcuts = true,
   api: given,
   onSeat,
+  onSeatFailed,
 }: {
   slug: string;
   mockShortcuts?: boolean;
@@ -27,6 +29,8 @@ export function AskPanel({
   api?: Api;
   /** The seat view once it loads, for a page that shows the seat too (SeatHome); the console needs none. */
   onSeat?: (view: SeatView) => void;
+  /** The seat didn't load: the page shows this panel anyway, with its retry. */
+  onSeatFailed?: () => void;
 }) {
   const t = useTranslations();
   const api = useMemo(() => given ?? createMockApi("a26"), [given]);
@@ -37,16 +41,22 @@ export function AskPanel({
   // didn't go out (it leaves the list, and the field is free again).
   const [failed, setFailed] = useState<"seat" | "ask">();
   const busy = asked.some((entry) => !entry.result);
+  const [seatTry, setSeatTry] = useState(0);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: seatTry is the retry button's way to read the seat again
   useEffect(() => {
     api.seat(slug).then(
       (view) => {
+        setFailed(undefined);
         setSeatView(view);
         onSeat?.(view);
       },
-      () => setFailed("seat"),
+      () => {
+        setFailed("seat");
+        onSeatFailed?.();
+      },
     );
-  }, [api, slug, onSeat]);
+  }, [api, slug, onSeat, onSeatFailed, seatTry]);
 
   // The newest entry comes into view when its result lands or changes: on a phone, the seat's header above and the
   // verb tabs below can leave 「誰も知りません」 or the live answer, stamp and all, landing out of sight. Nothing moves
@@ -91,6 +101,27 @@ export function AskPanel({
     );
   }
 
+  // The newest question's state in words: searching, an answer from the notes, nobody knew (and whether it reached last
+  // year's holder), or the live answer that just landed.
+  const newestEntry = asked[0];
+  const searching = newestEntry !== undefined && !newestEntry.result;
+  const status = (() => {
+    if (!newestEntry) return "";
+    const result = newestEntry.result;
+    if (!result) return t("ask.searching");
+    if (result.status === "answered") {
+      return result.live
+        ? t("live.answered", { byline: result.live.byline })
+        : t("ask.found");
+    }
+    if (!seatView) return "";
+    const { seatType, name } = seatView.seat;
+    const nobody = t(`seatTypes.${seatType}.abstain`, { seat: name });
+    return result.routedTo > 0
+      ? `${nobody}${t(`seatTypes.${seatType}.routed`, { seat: name })}`
+      : nobody;
+  })();
+
   async function predecessorAnswers() {
     setDelivering(true);
     try {
@@ -103,9 +134,24 @@ export function AskPanel({
   return (
     <section className="dd-col" style={{ gap: "var(--s-6)" }}>
       <AskField onAsk={ask} busy={busy || !seatView} />
-      {failed && (
+      {/* What a screen reader hears about the newest question (docs/DESIGN.md → AskPanel): always there, so a change is
+          read out. Searching shows for everyone, as the only sign that 聞く is working; the rest only for the reader,
+          since the entry below says it already. */}
+      <output
+        aria-live="polite"
+        className={`dd-cap dd-ask-status${searching ? "" : " dd-sr-only"}`}
+      >
+        {status}
+      </output>
+      {failed === "seat" && (
+        <RetryLine
+          message={t("ask.seatFailed")}
+          onRetry={() => setSeatTry((n) => n + 1)}
+        />
+      )}
+      {failed === "ask" && (
         <p role="alert" style={{ margin: 0, color: "var(--ink-2)" }}>
-          {t(failed === "seat" ? "ask.seatFailed" : "ask.failed")}
+          {t("ask.failed")}
         </p>
       )}
       {asked.map(({ question, result }, index) => (

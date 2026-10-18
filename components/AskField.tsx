@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useRef, useState } from "react";
 
 // A single writing line and a blue 聞く button (docs/DESIGN.md → AskField). Not a chat box.
 export function AskField({
@@ -13,6 +13,7 @@ export function AskField({
 }) {
   const t = useTranslations();
   const [question, setQuestion] = useState("");
+  const field = useRef<HTMLInputElement>(null);
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -20,11 +21,15 @@ export function AskField({
     if (!text || busy) return;
     onAsk(text);
     setQuestion("");
+    // Back to the field, also when 聞く was pressed: the button is off while the answer comes, and focus mustn't fall
+    // to the page.
+    field.current?.focus();
   }
 
   return (
     <form className="dd-ask" onSubmit={submit}>
       <input
+        ref={field}
         type="text"
         value={question}
         onChange={(event) => setQuestion(event.target.value)}

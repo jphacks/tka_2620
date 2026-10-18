@@ -149,6 +149,10 @@ Use Japanese notebook marks, not coloured chips or emoji. Each mark is followed 
   highlighter (`--marker` behind the text, slightly taller than the x-height, no rounded ends).
   A rule change is a red-pen margin note: a red bracket left of the sentence and 「2025年に変更」 in red UI text right
   after its stamp, on the same line.
+- **AskPanel's status line**: one always-present line under the field. 「先輩たちのメモを探しています」 shows while an answer is on
+  its way (the only sign that 聞く is working); the outcome (an answer, 「誰も知りません。…に届けました」, 「いま、…が答えました」)
+  is read out to a screen reader but not shown again, since the entry says it. The field appears once, in place: 聞く keeps
+  the panel unseen until the seat has loaded. A load that fails offers 「もう一度ためす」 (`RetryLine`).
 - **`AbstainEntry`** (空欄): the blank line, 「歴代の会計は誰も知りません」 in `--ink-2`, and a blue status line
   「去年の会計に届けました」. Calm; never red, never an error icon.
 - **`LiveStamp`**: when the live answer arrives, the new `AnswerEntry` appears and its date stamp lands,

@@ -371,7 +371,8 @@ export function Guide({
       </fieldset>
       {filterNote && <p className="dd-cap dd-print-only">{filterNote}</p>}
 
-      <UpcomingList items={upcoming} />
+      {/* Inline on 聞く the deadlines are right above it already */}
+      {!inline && <UpcomingList items={upcoming} />}
 
       {guide.notes.length === 0 && (
         <p style={{ margin: 0, color: "var(--ink-2)" }}>{t("guide.noNotes")}</p>

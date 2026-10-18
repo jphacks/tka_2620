@@ -54,6 +54,8 @@
   },
   "ask": {
     "placeholder": "Ask the people who held this seat",
+    "searching": "Looking through your predecessors' notes",
+    "found": "Found an answer in your predecessors' notes",
     "sources": "Notes this answer is based on",
     "disagreement": "The rule changed in {term}",
     "outdated": "Outdated?",
@@ -64,8 +66,11 @@
     "sourceGone": "This note can't be read now.",
     "sourceFailed": "Couldn't load this note. Close it and open it again.",
     "source": "Source: a note by {byline}",
-    "seatFailed": "Couldn't load this seat. Check your connection and reopen this page.",
+    "seatFailed": "Couldn't open this seat. Check the connection and try again.",
     "failed": "Couldn't send your question. Ask it again."
+  },
+  "retry": {
+    "action": "Try again"
   },
   "abstain": {
     "routed": "Added to the next handover."
@@ -190,6 +195,7 @@
     "oldest": "Oldest first"
   },
   "guide": {
+    "loading": "Opening the seat",
     "titlePlain": "Handover guide",
     "title": "Handover guide: {seat}",
     "open": "Open the handover guide",
