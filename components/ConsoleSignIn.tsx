@@ -71,6 +71,8 @@ type Console =
       kind: "signedOut";
       busy: boolean;
       failure?: "wrongPassword" | "unavailable";
+      // after 「ログアウト」: the button that had the focus is gone, so the field takes it
+      focusField?: boolean;
     }
   | { kind: "signedIn"; panes: Panes<SignedIn> }
   | { kind: "signingOut" };
@@ -142,7 +144,9 @@ function RealConsole({ metrics }: { metrics?: Metrics }) {
     const mine = ++latest.current;
     setState({ kind: "signingOut" }); // the panes leave the screen now, not when Auth answers
     await signOutPanes(AUTH);
-    if (latest.current === mine) setState({ kind: "signedOut", busy: false });
+    if (latest.current === mine) {
+      setState({ kind: "signedOut", busy: false, focusField: true });
+    }
   }
 
   switch (state.kind) {
@@ -163,7 +167,11 @@ function RealConsole({ metrics }: { metrics?: Metrics }) {
       return (
         <ConsoleFrame>
           <div className="dd-col" style={{ width: "min(390px, 100%)" }}>
-            <p role="alert" style={{ margin: 0, color: "var(--ink-2)" }}>
+            <p
+              role="alert"
+              className="dd-phrase"
+              style={{ margin: 0, color: "var(--ink-2)" }}
+            >
               {t("signIn.offline")}
             </p>
             <div>
@@ -180,6 +188,7 @@ function RealConsole({ metrics }: { metrics?: Metrics }) {
           <PanesSignIn
             busy={state.busy}
             failure={state.failure}
+            focusField={state.focusField}
             onSubmit={submit}
           />
         </ConsoleFrame>
@@ -201,8 +210,9 @@ function RealConsole({ metrics }: { metrics?: Metrics }) {
   }
 }
 
-// The console's title and, below it, what stands in for the panes: as wide as the three panes and their gaps, so the
-// title stays put on signing in and the form sits where the first pane (新しい会計) will be.
+// The console's title and, below it, what stands in for the panes: as wide as the proof (the three panes, their two gaps
+// and the 24px gutter they get from 600px), so the title stays put on signing in and the form sits where the first pane
+// (新しい会計) will be. Narrower, the frame is the page's width with dd-pad's own gutter, as the proof is.
 function ConsoleFrame({ children }: { children: ReactNode }) {
   const t = useTranslations("console");
   return (
@@ -210,10 +220,7 @@ function ConsoleFrame({ children }: { children: ReactNode }) {
       className="dd-pad dd-col dd-console"
       style={{
         gap: "var(--s-5)",
-        // the content as wide as the panes row; dd-pad's gutter (16px, 24px from 600px) comes on top, as on the proof
-        boxSizing: "content-box",
-        width:
-          "min(calc(3 * 390px + 2 * var(--s-5)), calc(100% - 2 * var(--s-5)))",
+        width: "min(calc(3 * 390px + 4 * var(--s-5)), 100%)",
         marginInline: "auto",
       }}
     >
@@ -240,16 +247,23 @@ function Caption({ children }: { children: ReactNode }) {
 function PanesSignIn({
   busy,
   failure,
+  focusField,
   onSubmit,
 }: {
   busy: boolean;
   failure?: "wrongPassword" | "unavailable";
+  focusField?: boolean;
   onSubmit: (password: string) => void;
 }) {
   const t = useTranslations();
   const lead = useId();
   const field = useRef<HTMLInputElement>(null);
   const message = useRef<HTMLParagraphElement>(null);
+
+  // After 「ログアウト」 the keyboard carries on in the field, not on the page.
+  useEffect(() => {
+    if (focusField) field.current?.focus();
+  }, [focusField]);
 
   // After a failure the field is ready again (empty after a wrong password), and the line saying what to do is in view.
   useEffect(() => {
@@ -274,7 +288,6 @@ function PanesSignIn({
     <form
       className="dd-signin"
       onSubmit={submit}
-      aria-label={t("console.signIn")}
       aria-describedby={lead}
       style={{ width: "min(390px, 100%)" }}
     >
@@ -283,7 +296,11 @@ function PanesSignIn({
         className="dd-phrase"
         style={{ margin: 0, color: "var(--ink-2)" }}
       >
-        {t("console.signInLead")}
+        {t("console.signInLead", {
+          newcomer: t("console.newcomer"),
+          predecessor: t("console.predecessor"),
+          outsider: t("console.outsider"),
+        })}
       </p>
       <input
         ref={field}
@@ -305,6 +322,7 @@ function PanesSignIn({
         <p
           ref={message}
           role="alert"
+          className="dd-phrase"
           style={{ margin: 0, color: "var(--ink-2)" }}
         >
           {t(

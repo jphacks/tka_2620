@@ -114,12 +114,12 @@
     "meter": "Seconds to withdraw",
     "seconds": "{s}s",
     "reset": "Reset",
-    "signInLead": "Type the demo password once, and the new treasurer, last year's treasurer and the outsider each sign in in their own pane.",
+    "signInLead": "Type the demo password once, and the new treasurer, last year's treasurer and the outsider each sign in on their own screen.",
     "signIn": "Sign in all three",
     "signingIn": "Signing in all three",
     "signInFailed": "Not all three could sign in, so none of them is signed in. Check the connection and press again.",
     "signOut": "Sign out",
-    "loadFailed": "Couldn't load the panes. Reopen this page."
+    "loadFailed": "Couldn't load the three screens. Reopen this page."
   },
   "bar": {
     "label": "Display and you",
@@ -161,7 +161,7 @@
     "loop": "<fig>{failures}</fig> failures in <fig>{runs}</fig> runs, a median <fig>{median}</fig> s to the signed answer",
     "redactionLabel": "Privacy",
     "redaction": "<hid>{hidden}</hid> items hidden in <fig>{chats}</fig> chats and <fig>{files}</fig> files; <out>{left}</out> canaries left the browser",
-    "resetHint": "To reset the real data, run pnpm demo:reset in a terminal, then reload this page."
+    "resetHint": "To reset the real data, run pnpm demo:reset in a terminal, then reload this page and sign in again."
   },
   "filter": {
     "title": "Filter and order",
