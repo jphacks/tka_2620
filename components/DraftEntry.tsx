@@ -9,7 +9,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { DateStamp } from "@/components/DateStamp";
 import { DuplicateHint } from "@/components/DuplicateHint";
 import { kindMarks } from "@/components/marks";
-import type { Entry, Problem } from "@/components/review";
+import { type Entry, type Problem, scopeOf } from "@/components/review";
 import {
   type ImportedCard,
   type ImportResponse,
@@ -109,9 +109,11 @@ export function DraftEntry({
     card.kind === "deadline" && IsoDate.safeParse(card.deadline_date).success
       ? card.deadline_date
       : undefined;
+  // The scope it will have: the suggestion, or for an update the replaced note's when that is wider (said in the hint).
+  const ring = scopeOf(entry, similar);
   const scope =
     seat &&
-    t(`seatTypes.${seat.seatType}.scope.${card.suggested_scope}`, {
+    t(`seatTypes.${seat.seatType}.scope.${ring}`, {
       seat: seat.name,
       group: seat.group,
       institution: seat.institution,
@@ -215,6 +217,7 @@ export function DraftEntry({
         <DuplicateHint
           similar={similar}
           term={term}
+          widened={ring === card.suggested_scope ? undefined : scope}
           choice={entry.choice}
           disabled={published}
           onChoose={(choice) => onChange({ ...entry, choice })}

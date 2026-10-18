@@ -215,6 +215,37 @@ describe("publishHold and publishCards", () => {
     ).toBe(false);
   });
 
+  it("publishes an update at the replaced note's scope when that is wider, once duplicates carry it (F5.6)", () => {
+    // The field F5.6 adds to each duplicate, not in the contract yet.
+    const duplicates = [
+      { ...response.duplicates[0], scope: "group" },
+    ] as unknown as ImportResponse["duplicates"];
+    const entries = entriesOf(response);
+    entries[2] = { ...entries[2], choice: "update" };
+    expect(publishCards(entries, duplicates, CHIP)[2].scope).toBe("group");
+    entries[2] = { ...entries[2], choice: "keep" };
+    expect(publishCards(entries, duplicates, CHIP)[2].scope).toBe("successor");
+    // Before F5.6 a duplicate carries no scope, and the suggestion stands.
+    entries[2] = { ...entries[2], choice: "update" };
+    expect(publishCards(entries, response.duplicates, CHIP)[2].scope).toBe(
+      "successor",
+    );
+  });
+
+  it("waits when two kept cards would update the same note", () => {
+    const duplicates: ImportResponse["duplicates"] = [
+      { ...response.duplicates[0], card: 0 },
+      { ...response.duplicates[0], card: 1 },
+    ];
+    const entries = entriesOf(response).map(
+      (entry, index): Entry =>
+        index < 2 ? { ...entry, choice: "update" } : entry,
+    );
+    expect(publishHold(entries, duplicates, CHIP)).toBe("twice");
+    entries[1] = { ...entries[1], choice: "keep" };
+    expect(publishHold(entries, duplicates, CHIP)).toBeUndefined();
+  });
+
   it("keeps a card's own provenance over the screen's", () => {
     const [sent] = publishCards(
       [
@@ -297,7 +328,7 @@ describe("the review's words", () => {
     for (const key of ["title", "body", "date", "guard"]) {
       expect(words.problem[key]).toBeTruthy();
     }
-    for (const key of ["empty", "problem", "choose"]) {
+    for (const key of ["empty", "problem", "choose", "twice"]) {
       expect(words.hold[key]).toBeTruthy();
     }
   });

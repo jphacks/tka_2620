@@ -276,7 +276,8 @@
     "hold": {
       "empty": "No notes to publish",
       "problem": "A note needs editing first",
-      "choose": "Choose whether to update the similar note or keep this as a separate note"
+      "choose": "Choose whether to update the similar note or keep this as a separate note",
+      "twice": "Two notes can't update the same note. Keep one of them as a separate note"
     },
     "keptBoth": "It will stay a separate note",
     "blockedReason": {
@@ -297,7 +298,8 @@
       "md": "Text file",
       "text": "Pasted text"
     },
-    "askWhat": "What you'll ask: {prompt}"
+    "askWhat": "What you'll ask: {prompt}",
+    "updateScope": "It will be published to the same readers as the note it updates: {scope}"
   },
   "trust": {
     "nothing": "There are no notes you can see here",

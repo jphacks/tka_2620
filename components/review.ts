@@ -7,6 +7,7 @@ import {
   type ImportResponse,
   IsoDate,
   type PublishCard,
+  Scope,
 } from "@/lib/contracts";
 import { shownReason } from "@/lib/engine/shown";
 import type { FileType } from "@/lib/ingest/types";
@@ -97,8 +98,30 @@ export function cardProblem(
   return undefined;
 }
 
-// Why 公開する waits, if it does: nothing is kept, a kept card needs editing, or a kept card's similar note has no choice yet.
-export type Hold = "empty" | "problem" | "choose";
+// The rings, narrowest first.
+const RINGS = Scope.options;
+
+// The scope a card is published at: the draft's suggestion (successor unless the model said otherwise; the scope picker
+// is F6.4), or for 「更新する」 the replaced note's scope when that is wider. The database refuses an update narrower
+// than the note it replaces, whose readers would lose it (F5.6, #36); a duplicate carries that scope from then on, and
+// until then the suggestion stands.
+export function scopeOf(
+  entry: Entry,
+  similar: ImportResponse["duplicates"][number] | undefined,
+): Scope {
+  const suggested = entry.card.suggested_scope;
+  if (entry.choice !== "update") return suggested;
+  const replaced = Scope.safeParse(
+    (similar as { scope?: unknown } | undefined)?.scope,
+  ).data;
+  return replaced && RINGS.indexOf(replaced) > RINGS.indexOf(suggested)
+    ? replaced
+    : suggested;
+}
+
+// Why 公開する waits, if it does: nothing is kept, a kept card needs editing, a kept card's similar note has no choice
+// yet, or two kept cards would update the same note (publish refuses that).
+export type Hold = "empty" | "problem" | "choose" | "twice";
 
 export function publishHold(
   entries: Entry[],
@@ -119,12 +142,16 @@ export function publishHold(
   ) {
     return "choose";
   }
+  const replaced = kept
+    .filter(({ entry }) => entry.choice === "update")
+    .map(({ index }) => duplicateOf(duplicates, index)?.noteId);
+  if (new Set(replaced).size < replaced.length) return "twice";
   return undefined;
 }
 
-// The cards POST /api/handover/publish gets: the kept ones as the person left them, trimmed, at the scope the draft
-// suggests (successor unless the model said otherwise; the scope picker is F6.4), with where they came from (import is
-// stateless, so publish is told) and the provenance chip, superseding the similar note when 「更新する」 was chosen.
+// The cards POST /api/handover/publish gets: the kept ones as the person left them, trimmed, at their scope (scopeOf),
+// with where they came from (import is stateless, so publish is told) and the provenance chip, superseding the similar
+// note when 「更新する」 was chosen.
 export function publishCards(
   entries: Entry[],
   duplicates: ImportResponse["duplicates"],
@@ -133,16 +160,14 @@ export function publishCards(
   return entries.flatMap((entry, index): PublishCard[] => {
     if (entry.dropped) return [];
     const { source, provenance: given, ...draft } = entry.card;
-    const supersedes =
-      entry.choice === "update"
-        ? duplicateOf(duplicates, index)?.noteId
-        : undefined;
+    const similar = duplicateOf(duplicates, index);
+    const supersedes = entry.choice === "update" ? similar?.noteId : undefined;
     return [
       {
         ...draft,
         title: draft.title.trim(),
         body: draft.body.trim(),
-        scope: draft.suggested_scope,
+        scope: scopeOf(entry, similar),
         source,
         provenance: given ?? provenance,
         ...(supersedes && { supersedes }),

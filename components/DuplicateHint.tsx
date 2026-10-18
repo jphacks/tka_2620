@@ -9,6 +9,7 @@ import type { ImportResponse } from "@/lib/contracts";
 export function DuplicateHint({
   similar,
   term,
+  widened,
   choice,
   onChoose,
   disabled = false,
@@ -16,6 +17,8 @@ export function DuplicateHint({
   similar: ImportResponse["duplicates"][number];
   /** The viewer's term as the label pack words it (「2026年度」), which an update is signed with. */
   term?: string;
+  /** The replaced note's scope, worded, when an update takes it over because it's wider than the draft's suggestion. */
+  widened?: string;
   choice?: "update" | "keep";
   onChoose: (choice: "update" | "keep") => void;
   disabled?: boolean;
@@ -37,6 +40,12 @@ export function DuplicateHint({
               {t("import.superseded", { term })}
             </span>
           )}
+        </p>
+      )}
+      {/* An update keeps the replaced note's readers, so the person sees that before publishing. */}
+      {choice === "update" && widened && (
+        <p className="dd-phrase" style={{ margin: 0 }}>
+          {t("import.updateScope", { scope: widened })}
         </p>
       )}
       {choice === "keep" && (
