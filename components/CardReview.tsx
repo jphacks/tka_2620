@@ -5,7 +5,7 @@
 // and, only when the seat's settings turn them on, how long it stays valid and whether the group keeps it. 公開する
 // hands the cards up as PublishCards.
 import { useLocale, useTranslations } from "next-intl";
-import { useId, useState } from "react";
+import { useCallback, useId, useState } from "react";
 import { kindMarks } from "@/components/marks";
 import { ScopeRings } from "@/components/ScopeRings";
 import {
@@ -143,6 +143,11 @@ export function CardReview({
 }) {
   const t = useTranslations();
   const ids = useId();
+  // Each section comes into view as it appears (the follow-up, then the cards), as VoiceAnswer's do, so 公開する
+  // isn't left under the verb tabs on a phone. The two sections carry their own keys, so the ref runs for each.
+  const intoView = useCallback((node: HTMLElement | null) => {
+    node?.scrollIntoView({ block: "nearest" });
+  }, []);
   const [choices, setChoices] = useState<Choice[]>(() => cards.map(choiceOf));
   const [reply, setReply] = useState("");
   const [skipped, setSkipped] = useState(false);
@@ -155,7 +160,12 @@ export function CardReview({
 
   if (followup && !skipped) {
     return (
-      <section className="dd-slip dd-entry" aria-labelledby={`${ids}-q`}>
+      <section
+        key="followup"
+        ref={intoView}
+        className="dd-slip dd-entry"
+        aria-labelledby={`${ids}-q`}
+      >
         <p id={`${ids}-q`} className="dd-inbox-q" style={{ marginTop: 0 }}>
           {followup.question}
         </p>
@@ -195,7 +205,12 @@ export function CardReview({
   }
 
   return (
-    <section className="dd-col" style={{ gap: "var(--s-4)" }}>
+    <section
+      key="review"
+      ref={intoView}
+      className="dd-col"
+      style={{ gap: "var(--s-4)" }}
+    >
       <h3 className="dd-h">{t("handover.reviewTitle")}</h3>
       {cards.map((card, index) => (
         <ReviewedCard
