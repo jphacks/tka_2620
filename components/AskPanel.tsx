@@ -134,14 +134,17 @@ export function AskPanel({
     );
   }, [api, slug, onSeat, onSeatFailed, seatTry]);
 
-  // The newest entry comes into view when its result lands or changes: on a phone, the seat's header above and the
-  // verb tabs below can leave 「誰も知りません」 or the live answer, stamp and all, landing out of sight. Nothing moves
-  // when it is in view already (the console's panes).
+  // The newest entry comes into view when it is added and when its result lands or changes: on a phone, the seat's
+  // header above and the verb tabs below can leave the question, 「誰も知りません」 or the live answer, stamp and all,
+  // out of sight. Nothing moves when it is in view already (the console's panes), or when a question didn't go out (the
+  // field and its error stay where they are).
   const newest = useRef<HTMLElement>(null);
-  const newestResult = asked[0]?.result;
+  const newestEntry = asked[0];
   useEffect(() => {
-    if (newestResult) newest.current?.scrollIntoView({ block: "nearest" });
-  }, [newestResult]);
+    if (newestEntry && failed !== "ask") {
+      newest.current?.scrollIntoView({ block: "nearest" });
+    }
+  }, [newestEntry, failed]);
 
   // The asker's latest answer replaces the entry: the live answer, then any re-answer after a withdrawal
   // (fewer sentences, or the blank line again).
@@ -191,8 +194,6 @@ export function AskPanel({
 
   // The newest question's state in words: searching, an answer from the notes, nobody knew (and whether it reached last
   // year's holder), or the live answer that just landed.
-  const newestEntry = asked[0];
-  const searching = newestEntry !== undefined && !newestEntry.result;
   const status = (() => {
     if (!newestEntry) {
       return fresh.size > 0 ? t("ask.newAnswers", { n: fresh.size }) : "";
@@ -225,12 +226,8 @@ export function AskPanel({
     <section className="dd-col" style={{ gap: "var(--s-6)" }}>
       <AskField onAsk={ask} busy={busy || !seatView} suggestion={suggestion} />
       {/* What a screen reader hears about the newest question (docs/DESIGN.md → AskPanel): always there, so a change is
-          read out. Searching shows for everyone, as the only sign that 聞く is working; the rest only for the reader,
-          since the entry below says it already. */}
-      <output
-        aria-live="polite"
-        className={`dd-cap dd-ask-status${searching ? "" : " dd-sr-only"}`}
-      >
+          read out, and never shown, since the entry below says it (searching included, under its question). */}
+      <output aria-live="polite" className="dd-sr-only">
         {status}
       </output>
       {/* First steps: someone who hasn't asked anything here yet gets three questions others ask at this kind of seat
@@ -293,6 +290,12 @@ export function AskPanel({
             )
           ) : (
             <p className="dd-q">{question}</p>
+          )}
+          {/* The only sign that 聞く is working, where the answer will be: it takes this line's place, so nothing jumps */}
+          {!result && (
+            <p className="dd-cap dd-ask-status" aria-hidden="true">
+              {t("ask.searching")}
+            </p>
           )}
           {result?.status === "abstained" && seatView && (
             <AbstainEntry

@@ -34,6 +34,7 @@ export function InboxPanel({
   onPublished,
   refresh = 0,
   onItems,
+  onLoaded,
   api: given,
 }: {
   slug: string;
@@ -45,6 +46,8 @@ export function InboxPanel({
   refresh?: number;
   /** The questions now in the inbox, so the handover prompts below don't show them a second time. */
   onItems?: (promptIds: ReadonlySet<string>) => void;
+  /** The first read is done, whether it worked or not (残す shows its sections together then). Stable. */
+  onLoaded?: () => void;
   /** The signed-in predecessor's client (a console pane's); mocks as a25 when left out. */
   api?: Api;
 }) {
@@ -103,6 +106,10 @@ export function InboxPanel({
   useEffect(() => {
     load();
   }, [load, refresh]);
+  const loaded = items !== undefined || failed;
+  useEffect(() => {
+    if (loaded) onLoaded?.();
+  }, [loaded, onLoaded]);
   // A route row holds no question text, so fetch the inbox again.
   useRealtime(api, "prompt_routes", () => {
     load();

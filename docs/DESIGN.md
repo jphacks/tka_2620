@@ -149,10 +149,11 @@ Use Japanese notebook marks, not coloured chips or emoji. Each mark is followed 
   highlighter (`--marker` behind the text, slightly taller than the x-height, no rounded ends).
   A rule change is a red-pen margin note: a red bracket left of the sentence and 「2025年に変更」 in red UI text right
   after its stamp, on the same line.
-- **AskPanel's status line**: one always-present line under the field. 「先輩たちのメモを探しています」 shows while an answer is on
-  its way (the only sign that 聞く is working); the outcome (an answer, 「誰も知りません。…に届けました」, 「いま、…が答えました」)
-  is read out to a screen reader but not shown again, since the entry says it. The field appears once, in place: 聞く keeps
-  the panel unseen until the seat has loaded. A load that fails offers 「もう一度ためす」 (`RetryLine`).
+- **AskPanel's status line**: one always-present line for a screen reader, never shown: 「先輩たちのメモを探しています」, then
+  the outcome (an answer, 「誰も知りません。…に届けました」, 「いま、…が答えました」). On screen the searching line sits under the
+  new question, in `--ink-2`, where the answer will be (the only sign that 聞く is working), and the answer takes its place, so
+  nothing jumps; the new entry comes into view as it is added. The field appears once, in place: 聞く keeps the panel
+  unseen until the seat has loaded. A load that fails offers 「もう一度ためす」 (`RetryLine`).
 - **First steps** on 聞く: someone who hasn't asked anything at the seat yet sees 「たとえば」 and three questions others ask at
   this kind of seat (the label pack's `seatTypes.<type>.examples`) as blue text buttons in the hand; a tap puts one in the
   field to read or change, never sends it. Gone after the first question; never on the console.
@@ -160,7 +161,7 @@ Use Japanese notebook marks, not coloured chips or emoji. Each mark is followed 
   the handover prompts, 自分のメモ, /me and the guide.
 - **「これまでの質問」** on 聞く: the asker's earlier questions at the seat (GET /api/seats/[slug]/asked), under this session's,
   answered ones as `AnswerEntry`, the rest with 「まだ答えはありません。答えが届くと、ここに出ます。」. An answer that came
-  while the tab was closed carries 「新しい答え」 in blue UI text (13px, bold) once per device, and the status line says
+  while the tab was closed carries 「新しい答え」 in blue UI text (13px, bold) once per device, and the status line reads out
   「先輩から新しい答えが1件届いています」. Read again when the page is back from sleep. Off on the console's newcomer pane.
 - **`AbstainEntry`** (空欄): the blank line, 「歴代の会計は誰も知りません」 in `--ink-2`, and a blue status line
   「去年の会計に届けました」. Calm; never red, never an error icon.
@@ -170,15 +171,19 @@ Use Japanese notebook marks, not coloured chips or emoji. Each mark is followed 
   Header 「後輩から質問が届きました」, a 「から」 field with 「2026年度 会計」, the question in Klee One 20px,
   「〇人が質問しました」, and the answer written on the slip itself (`VoiceAnswer`), so nothing has to open first.
 - **残す's page** (`HandoverColumn`): an h1 「残す」 with the seat it's for (「テニスサークル Smashの会計の席」), then the
-  inbox, the handover prompts and 「＋ 追加」. A newcomer's question shows once, on its slip (the prompts leave out what the
-  inbox holds); a new one is read out in one line (「後輩から質問が届きました（2026年度 会計）：…」), and the inbox reads
-  itself again when the phone wakes or comes back online. Each answer box is described by its question, keeps its draft
-  when its drafted cards are put away (やめる), and dictates in the question's (or the page's) language. 「＋ 追加」 shows
-  only to the seat's holders; others read why. 自分のメモ's heading is the page's h1.
+  inbox, the handover prompts and 「＋ 追加」. They appear together, in place, once the seat, the inbox and the prompts have
+  been read (a 「読み込んでいます」 caption until then), so nothing slides under a finger. A newcomer's question shows once,
+  on its slip (the prompts leave out what the inbox holds); a new one is read out in one line
+  (「後輩から質問が届きました（2026年度 会計）：…」), and the inbox reads itself again when the phone wakes or comes back
+  online. Each answer box is described by its question, keeps its draft when its drafted cards are put away (やめる), and
+  dictates in the question's (or the page's) language. 「＋ 追加」 shows only to the seat's holders; others read why.
+  A page's h1 (残す, 自分のメモ, あなた) is `--text-l`, one step above its 20px section headings.
 - **`VoiceAnswer`**: a textbox (1px `--ink-2`, `--blue` while focused) holding the answer in Klee One on ruled lines,
   growing with it and using its full width, with a round 40px microphone laid over it at the bottom right: `--blue` icon, filled `--blue` while
-  listening with one ring pulsing outward in `--blue-wash`. Tap the box to type or the mic to speak; 「公開する」 appears
-  below with the first word. The same box sits on each handover prompt, where the button says 「下書きを作る」.
+  listening with one ring pulsing outward in `--blue-wash`. Focused, the border turns `--blue` inside the usual 2px ring.
+  Tap anywhere on the box to type (it is the field's label) or the mic to speak; 「公開する」 appears below with the first
+  word and stays clear of the verb tabs as the answer grows. The same box sits on each handover prompt, where the button
+  says 「下書きを作る」.
 - **`NoteEntry`**: a note as a notebook entry: kind mark and title (UI bold), body (Klee One), date stamp
   bottom-right, scope in small UI text (「次の会計だけ」). Deadline notes show the date in figures with the highlighter.
 - **`UpcomingList`**: a planner column: boxed date in figures (「10/20 火」), title, mini stamp. Dates within 7 days
@@ -207,8 +212,9 @@ Use Japanese notebook marks, not coloured chips or emoji. Each mark is followed 
        questions in blue
     4. 「あなたの質問と答え」 as `AnswerEntry`s, whose stamps open their notes
   - **Who wrote it:** people appear only as bylines (「2025年度 会計」).
-  - **Inline on 聞く:** 「引き継ぎ書を開く」 opens the same guide in place under the deadlines (no screen change),
-    「引き継ぎ書を閉じる」 folds it; printing from there puts only the guide on paper. `/s/[seat]/guide` stays for /me.
+  - **Inline on 聞く:** 「引き継ぎ書を開く」 opens the same guide in place below the ask panel (no screen change) and scrolls
+    its top into view, 「引き継ぎ書を閉じる」 folds it; printing from there puts only the guide on paper. `/s/[seat]/guide`
+    stays for /me.
 - **`WithdrawMeter`**: figures face, 39px on the console; counts in `--red` from the click, freezes in `--ink`
   when the last pane drops the note: 「0.8秒」.
 - **`LeakCounter`**: 「漏れ 0 / 50 回」, the 0 in `--green`.

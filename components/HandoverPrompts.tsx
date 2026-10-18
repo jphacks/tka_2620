@@ -51,6 +51,7 @@ export function HandoverPrompts({
   refresh = 0,
   onPublished,
   hidden,
+  onLoaded,
   api: given,
 }: {
   slug: string;
@@ -60,6 +61,9 @@ export function HandoverPrompts({
   onPublished?: () => void;
   /** Questions the inbox above already shows: one place per newcomer's question. */
   hidden?: ReadonlySet<string>;
+  /** The seat and the prompts have been read once, whether that worked or not (残す shows its sections together then).
+   * Stable. */
+  onLoaded?: () => void;
   /** The signed-in predecessor's client; mocks as a25 when left out. */
   api?: Api;
 }) {
@@ -121,6 +125,11 @@ export function HandoverPrompts({
   useEffect(() => {
     load();
   }, [load, refresh]);
+  const loaded =
+    (view !== undefined || seatFailed) && (prompts !== undefined || failed);
+  useEffect(() => {
+    if (loaded) onLoaded?.();
+  }, [loaded, onLoaded]);
   useRealtime(api, "prompt_routes", () => {
     load();
   });
