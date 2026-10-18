@@ -340,7 +340,7 @@ export const mockSeen: SeenResponse = { seenAt: "2026-10-18T10:31:20+09:00" };
 export const mockLiveCard: CardDraft = {
   kind: "rule_of_thumb",
   title: "決算後に出てきた領収書",
-  body: "少額なら予備費から出し、大きい額は次年度の会計に回す。今後出ないように、決算前の提出を周知しておく。",
+  body: "少額なら予備費から出し、大きい額は次年度の会計に回す。",
   suggested_scope: "successor",
   critical: false,
   lang: "ja",
