@@ -288,7 +288,6 @@ function PanesSignIn({
     <form
       className="dd-signin"
       onSubmit={submit}
-      aria-describedby={lead}
       style={{ width: "min(390px, 100%)" }}
     >
       <p
@@ -308,6 +307,7 @@ function PanesSignIn({
         className="dd-line"
         placeholder={t("signIn.password")}
         aria-label={t("signIn.password")}
+        aria-describedby={lead}
         autoComplete="current-password"
         enterKeyHint="go"
       />
