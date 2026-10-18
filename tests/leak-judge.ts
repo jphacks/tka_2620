@@ -468,6 +468,35 @@ export function judgeFor(world: World, viewer: Viewpoint) {
       return unique(findings);
     },
 
+    // GET /api/seats/[slug]/guide (GuideView): its notes and every note an answer cites are notes the viewer reads, what
+    // isn't written yet is prompts the viewer may read (a holder's, never a demand prompt that wasn't routed to it), and
+    // every question is the viewer's own.
+    guide(view: unknown): Finding[] {
+      const findings = text(view);
+      const guide = view as {
+        notes?: { id?: string }[];
+        open?: { id?: string }[];
+        asked?: {
+          questionId?: string;
+          answer?: { sentences?: { citations?: { noteId?: string }[] }[] };
+        }[];
+      };
+      for (const item of guide.notes ?? []) findings.push(...note(item.id));
+      for (const item of guide.open ?? []) {
+        findings.push(...row({ table: "prompts", row: { id: item.id } }));
+      }
+      for (const item of guide.asked ?? []) {
+        findings.push(
+          ...row({ table: "questions", row: { id: item.questionId } }),
+        );
+        for (const sentence of item.answer?.sentences ?? []) {
+          for (const citation of sentence.citations ?? [])
+            findings.push(...note(citation.noteId));
+        }
+      }
+      return unique(findings);
+    },
+
     // GET /api/me/notes: only notes the viewer wrote.
     myNotes(response: unknown): Finding[] {
       const findings = text(response);

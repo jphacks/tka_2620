@@ -25,6 +25,7 @@ import {
   DraftResponse,
   EventsRow,
   GapResponse,
+  GuideView,
   ImportResponse,
   InboxResponse,
   MyNotesResponse,
@@ -129,6 +130,8 @@ export function createApi(db: SupabaseClient, userId?: string): Api {
     myNotes: () => call(MyNotesResponse, "/api/me/notes"),
     note: (noteId) =>
       call(NoteView, `/api/notes/${encodeURIComponent(noteId)}`),
+    guide: (slug) =>
+      call(GuideView, `/api/seats/${encodeURIComponent(slug)}/guide`),
     subscribe(channel, onRow) {
       let open = true;
       const subscription = db

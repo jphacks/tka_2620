@@ -372,6 +372,79 @@ describe("seat page, own notes and lineage", () => {
   });
 });
 
+describe("the handover guide", () => {
+  const guide = (parts: Record<string, unknown>) => ({
+    notes: [],
+    open: [],
+    openChecked: true,
+    asked: [],
+    ...parts,
+  });
+  const askedWith = (questionId: string, noteId: string, text = "…") => ({
+    questionId,
+    text: "…",
+    answer: { sentences: [{ text, citations: [{ noteId }] }] },
+  });
+
+  it("flags a note, or a note an answer cites, that the viewer can't read", () => {
+    const listed = guide({
+      notes: [{ id: "smash-2025-hokenjo", title: "…", body: "…" }],
+    });
+    expect(x.guide(listed)).toEqual([
+      { reason: "a note it can't read", ref: "smash-2025-hokenjo" },
+    ]);
+    expect(a26.guide(listed)).toEqual([]);
+    expect(
+      a26.guide(
+        guide({ asked: [askedWith(question.a26, "lab-2025-cartridge")] }),
+      ),
+    ).toEqual([{ reason: "a note it can't read", ref: "lab-2025-cartridge" }]);
+    expect(
+      a26.guide(
+        guide({ asked: [askedWith(question.a26, "smash-2025-hokenjo")] }),
+      ),
+    ).toEqual([]);
+  });
+
+  it("flags someone else's question, and passes the viewer's own", () => {
+    const asked = guide({ asked: [{ questionId: question.a26, text: "…" }] });
+    expect(a26.guide(asked)).toEqual([]);
+    expect(a25.guide(asked)).toEqual([
+      { reason: "someone else's question", ref: question.a26 },
+    ]);
+  });
+
+  it("flags the seat's prompts for someone who doesn't hold it, and a demand prompt that wasn't routed to the viewer", () => {
+    const core = guide({
+      open: [{ id: prompt.core, text: "…", reason: "core" }],
+    });
+    expect(a24.guide(core)).toEqual([]);
+    expect(x.guide(core)).toEqual([
+      { reason: "a prompt it may not read", ref: prompt.core },
+    ]);
+    expect(
+      a26.guide(
+        guide({ open: [{ id: prompt.routed, text: "…", reason: "gap" }] }),
+      ),
+    ).toEqual([{ reason: "a prompt it may not read", ref: prompt.routed }]);
+  });
+
+  it("finds an unreadable note's canary anywhere in it, even in an answer on a note the viewer reads", () => {
+    const leaked = guide({
+      asked: [
+        askedWith(question.x, "gakusai-2025-tsurisen", "番号は TEST-4242 です"),
+      ],
+    });
+    expect(x.guide(leaked)).toEqual([
+      {
+        reason: "the canary of a note it can't read",
+        ref: "smash-2025-uchiage",
+      },
+    ]);
+    expect(a26.guide({ ...leaked, asked: [] })).toEqual([]);
+  });
+});
+
 describe("Realtime messages", () => {
   const update = (id: string, body = "…") => ({
     table: "notes",

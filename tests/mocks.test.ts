@@ -17,6 +17,7 @@ import {
   FollowupOutput,
   GapRequest,
   GapResponse,
+  GuideView,
   ImportOutput,
   ImportRequest,
   ImportResponse,
@@ -579,5 +580,98 @@ describe("createMockApi", () => {
     expect(
       (await senpai.publish({ seat, cards: [sent] })).noteIds,
     ).toHaveLength(1);
+  });
+
+  it("gives the guide like the route: the notes each persona reads, what isn't written for holders, their own questions", async () => {
+    const newcomer = createMockApi("a26", { latencyMs: 0 });
+    const outsider = createMockApi("x", { latencyMs: 0 });
+    const first = GuideView.parse(await newcomer.guide(seat));
+    expect(first.notes.map((note) => note.id)).toEqual([
+      "smash-2025-hokenjo",
+      "smash-2025-gasshuku",
+      "smash-2024-hokenjo",
+    ]);
+    expect(first.open.map((prompt) => prompt.id)).toEqual([
+      mockIds.gapPrompt,
+      mockIds.corePrompt,
+    ]);
+    expect(first).toMatchObject({ openChecked: true, asked: [] });
+    expect(GuideView.parse(await outsider.guide(seat))).toEqual({
+      notes: [],
+      open: [],
+      openChecked: true,
+      asked: [],
+    });
+
+    await newcomer.ask({ seat, question: mockQuestions.q01 });
+    await newcomer.ask({ seat, question: mockQuestions.q04 });
+    const { asked } = GuideView.parse(await newcomer.guide(seat));
+    expect(asked.map((item) => item.questionId)).toEqual([
+      mockIds.q04,
+      mockIds.q01,
+    ]);
+    expect(asked[0]).not.toHaveProperty("answer"); // nobody has answered q04 yet
+    expect(asked[1].answer).toEqual(mockAnswer);
+    expect((await outsider.guide(seat)).asked).toEqual([]);
+    await expect(newcomer.guide("no-such-seat")).rejects.toMatchObject({
+      error: "not_found",
+    });
+  });
+
+  it("leaves a replaced or withdrawn note out of the guide and its answers, and takes an update back", async () => {
+    const newcomer = createMockApi("a26", { latencyMs: 0 });
+    await newcomer.ask({ seat, question: mockQuestions.q01 });
+    // 「更新する」 with 2026's notice: the 2025 note is history.
+    const {
+      noteIds: [notice],
+    } = await newcomer.publish({
+      seat,
+      cards: [
+        {
+          ...mockImportNotice.cards[0],
+          scope: "successor",
+          supersedes: "smash-2025-hokenjo",
+        },
+      ],
+    });
+    let guide = await newcomer.guide(seat);
+    expect(guide.notes.map((note) => note.id)).toEqual([
+      notice,
+      "smash-2025-gasshuku",
+      "smash-2024-hokenjo",
+    ]);
+    const cited = guide.asked[0].answer?.sentences.flatMap((sentence) =>
+      sentence.citations.map((citation) => citation.noteId),
+    );
+    expect(cited).toEqual(["smash-2024-hokenjo"]);
+    expect(guide.asked[0].answer?.ruleChange).toBeUndefined();
+
+    await newcomer.withdraw(notice);
+    guide = await newcomer.guide(seat);
+    expect(guide.notes.map((note) => note.id)).toContain("smash-2025-hokenjo");
+    expect(guide.asked[0].answer).toEqual(mockAnswer);
+  });
+
+  it("leaves out of the guide a prompt answered in a note the persona reads", async () => {
+    await createMockApi("a25", { latencyMs: 0 }).publish({
+      ...mockPublishRequest,
+      promptId: mockIds.corePrompt,
+    });
+    const open = async (persona: "a24" | "a25" | "a26") =>
+      (await createMockApi(persona, { latencyMs: 0 }).guide(seat)).open.map(
+        (prompt) => prompt.id,
+      );
+    expect(await open("a25")).toEqual([mockIds.gapPrompt]);
+    expect(await open("a26")).toEqual([mockIds.gapPrompt]); // a26 reads a25's note for the next treasurers
+    expect(await open("a24")).toEqual([mockIds.gapPrompt, mockIds.corePrompt]);
+  });
+
+  it("shows the live loop's answer in the newcomer's guide once it is published, without `live`", async () => {
+    const newcomer = createMockApi("a26", { latencyMs: 0 });
+    await newcomer.ask({ seat, question: mockQuestions.q04 });
+    await createMockApi("a25", { latencyMs: 0 }).publish(mockPublishRequest);
+    const [q04] = (await newcomer.guide(seat)).asked;
+    const { live: _live, ...answer } = mockLiveAnswer;
+    expect(q04.answer).toEqual(answer);
   });
 });

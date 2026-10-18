@@ -213,6 +213,14 @@ describe("coversPrompt", () => {
     expect(coversPrompt([], SMASH_KAIKEI, 2025)).toBe(false);
   });
 
+  it("without a term (the handover guide), any of the seat's own notes that would answer it covers it", () => {
+    expect(coversPrompt(q01Notes, SMASH_KAIKEI)).toBe(true);
+    const onlyOld = q01Notes.filter((note) => note.term_order === 2024);
+    expect(coversPrompt(onlyOld, SMASH_KAIKEI)).toBe(true);
+    const otherSeat = q01Notes.filter((note) => note.seat_id !== SMASH_KAIKEI);
+    expect(coversPrompt(otherSeat, SMASH_KAIKEI)).toBe(false);
+  });
+
   it("needs the clear match among the seat's own notes: an institution-wide note doesn't pull a loose one in", () => {
     // 学祭実行委員会's note clears MATCH, but the seat's only notes are a loosely related 2025 one and the old 2024 one.
     const [old, other, recent] = q01Notes;

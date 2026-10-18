@@ -404,6 +404,54 @@ export const NoteView = z.object({
 });
 export type NoteView = z.infer<typeof NoteView>;
 
+// GET /api/seats/[slug]/guide -------------------------------------------------------------------
+// The handover guide (引き継ぎ書): one page with everything the caller may read at the seat, to print or export. Here
+// rather than beside SeatView because it uses PromptKind and AnsweredResult, which are declared above.
+
+// A live note of the seat the caller may read, not replaced by a later one (「更新する」) and not past its valid_until.
+// The list is newest term first, then by kind; termOrder lets the page group it by term.
+export const GuideNote = z.object({
+  id: NoteId,
+  kind: NoteKind,
+  title: z.string(),
+  body: z.string(),
+  deadlineDate: IsoDate.optional(),
+  byline: z.string(),
+  termOrder: z.number().int(),
+  lang: Lang,
+});
+export type GuideNote = z.infer<typeof GuideNote>;
+
+// What isn't written yet, for a holder of the seat: a gap, required or core prompt that no note the caller reads answers
+// (named by notes.prompt_id) or covers. Never a demand prompt: its text can be a newcomer's question as typed.
+export const GuideOpen = z.object({
+  id: Uuid,
+  text: z.string(),
+  reason: PromptKind.exclude(["demand"]),
+});
+export type GuideOpen = z.infer<typeof GuideOpen>;
+
+// One of the caller's own questions at the seat. answer is the saved answer, checked again against the notes the caller
+// reads now; absent while nobody has answered, or once none of its sentences stands. It never carries `live`.
+export const GuideAsked = z.object({
+  questionId: Uuid,
+  text: z.string(),
+  lang: Lang,
+  askedAt: Timestamp,
+  answer: AnsweredResult.optional(),
+});
+export type GuideAsked = z.infer<typeof GuideAsked>;
+
+// openChecked is false when the prompts couldn't be checked against the notes (Ollama stopped): open is then empty, and
+// the page says it couldn't check rather than that everything is written. asked is newest first, at most 20.
+export const GuideView = z.object({
+  notes: z.array(GuideNote),
+  open: z.array(GuideOpen),
+  openChecked: z.boolean(),
+  asked: z.array(GuideAsked),
+});
+export type GuideView = z.infer<typeof GuideView>;
+
 // Demo sign-in (docs/SPEC.md → Auth) --------------------------------------------------------
 // The demo accounts that sign in, in the order a switcher lists them, each with the email scripts/seed.ts gives it
 // (tests/sign-in.test.ts checks that the two agree). lib/api.ts signs a device in with one of them and the demo
@@ -598,6 +646,7 @@ export type Api = {
   withdraw(noteId: string): Promise<WithdrawResponse>; // POST /api/notes/[id]/withdraw
   myNotes(): Promise<MyNotesResponse>; // GET /api/me/notes
   note(noteId: string): Promise<NoteView>; // GET /api/notes/[id]
+  guide(slug: string): Promise<GuideView>; // GET /api/seats/[slug]/guide
   // Realtime: calls onRow for each row this session may see; returns the unsubscribe function.
   subscribe<C extends keyof RealtimeRows>(
     channel: C,
