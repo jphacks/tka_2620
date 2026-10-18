@@ -458,7 +458,7 @@ export const mockGapRequest: GapRequest = { seat: SEAT, text: gapPrompt.text };
 export const mockGap: GapResponse = { promptId: gapPrompt.id };
 
 // GET /api/handover/readers: people besides the author (a25) in the seed world. successor: a26; group: a24 and
-// a26; institution: every member at みなと大学; public: every account.
+// a26; institution: every member at みなと大学; public: every member or holder anywhere (scope_readers, 0011).
 export const mockReaders: Record<Scope, number> = {
   successor: 1,
   group: 2,
@@ -832,6 +832,7 @@ type State = {
   sources: Map<string, SourceNote>; // published notes as GET /api/notes/[id] returns them, by id
   withdrawn: Map<string, string>; // note id → withdrawnAt
   gaps: Map<string, string>; // gap prompts added with 「先輩に聞く」: text → prompt id
+  answered: Map<string, string>; // note id → the gap or core prompt it answered (notes.prompt_id, 0011)
 };
 
 function freshState(): State {
@@ -844,6 +845,7 @@ function freshState(): State {
     sources: new Map(),
     withdrawn: new Map(),
     gaps: new Map([[gapPrompt.text, gapPrompt.id]]),
+    answered: new Map(),
   };
 }
 
@@ -1151,6 +1153,10 @@ export function createMockApi(
         });
       });
       const waiting = promptId ? state.waiting.get(promptId) : undefined;
+      // Like publish.ts: the cards name a handover prompt they answer, never a newcomer's question.
+      if (promptId && !waiting) {
+        for (const id of noteIds) state.answered.set(id, promptId);
+      }
       const reanswered: string[] = [];
       if (waiting) {
         state.waiting.delete(waiting.promptId);
@@ -1205,7 +1211,22 @@ export function createMockApi(
           askCount: 0,
         }),
       );
-      return reply({ prompts: [...demand, ...gaps, corePrompt].slice(0, 3) });
+      // Like GET /api/handover/prompts: a gap or core prompt the caller answered in a note they haven't withdrawn isn't
+      // asked again (a later holder still is).
+      const answered = new Set(
+        [...state.answered]
+          .filter(
+            ([noteId]) =>
+              !state.withdrawn.has(noteId) &&
+              state.sources.get(noteId)?.author === persona,
+          )
+          .map(([, promptId]) => promptId),
+      );
+      return reply({
+        prompts: [...demand, ...gaps, corePrompt]
+          .filter((prompt) => !answered.has(prompt.id))
+          .slice(0, 3),
+      });
     },
 
     // Like add_gap_prompt (0009) behind the route: a holder of the seat only, text the guard lets through, and the same

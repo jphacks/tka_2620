@@ -373,6 +373,24 @@ describe("createMockApi", () => {
     stopAnswers();
   });
 
+  it("doesn't ask a holder again what they answered through the handover, until they withdraw it", async () => {
+    const senpai = createMockApi("a25", { latencyMs: 0 });
+    const newcomer = createMockApi("a26", { latencyMs: 0 });
+    const core = mockPrompts.prompts.find((prompt) => prompt.reason === "core");
+    if (!core) throw new Error("mockPrompts has no core prompt");
+    const asked = async (api: ReturnType<typeof createMockApi>) =>
+      (await api.prompts({ seat })).prompts.map((prompt) => prompt.id);
+
+    const { noteIds } = await senpai.publish({
+      ...mockPublishRequest,
+      promptId: core.id,
+    });
+    expect(await asked(senpai)).not.toContain(core.id);
+    expect(await asked(newcomer)).toContain(core.id); // a later holder still is
+    await senpai.withdraw(noteIds[0]);
+    expect(await asked(senpai)).toContain(core.id);
+  });
+
   it("drops a withdrawn note from every answer and pushes the change", async () => {
     const newcomer = createMockApi("a26", { latencyMs: 0 });
     const senpai = createMockApi("a25", { latencyMs: 0 });

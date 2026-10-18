@@ -245,6 +245,7 @@ type AskResult =
 //   followup in the request: the reply round, with the one follow-up the first draft asked and the reply; it never gets another
 // POST /api/handover/publish { seat, promptId?, cards: (CardDraft & { scope: Scope; supersedes?: string; provenance?: string; source?: "import" | "file" | "chat" })[] } → { noteIds: string[]; reanswered: string[] }
 //   source: only for added cards (import is stateless); the server sets handover or live for the others
+//   promptId: the prompt the cards answer, for every handover prompt: a demand prompt re-answers its askers; a gap, required or core prompt isn't asked of its author again
 // GET  /api/handover/prompts?seat=       → { prompts: { id: string; text: string; reason: "demand" | "gap" | "required" | "core"; askCount: number }[] }
 // POST /api/handover/prompts { seat, text } → { promptId: string }   (「先輩に聞く」: a missing item becomes a gap prompt; the same open text is one prompt)
 // GET  /api/handover/readers?seat=&scope= → { count: number }
