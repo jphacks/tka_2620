@@ -155,6 +155,21 @@ Use Japanese notebook marks, not coloured chips or emoji. Each mark is followed 
 - **`DuplicateHint`**: a red-pen note on the drafted entry, 「似たメモがあります：保健所申請の締切（2025年度 会計）」,
   with 「更新する」 and 「別のメモとして残す」.
 - **`MissingList`**: blank lines, each 「〆 保健所申請の締切が書かれていません」 with a blue 「先輩に聞く」.
+- **`HandoverGuide`** (引き継ぎ書, `/s/[seat]/guide`): a document, not a dashboard.
+  - **Header:** 「会計の引き継ぎ書」 (25px), the group and institution, 「2026年10月18日時点」 and the counts. Under it, a caption
+    with the page's rules: only notes you may read, withdrawn and replaced notes left out, a saved copy keeps today's
+    version.
+  - **Export:** 「印刷・PDFで保存」 (primary) and 「テキストで保存（.md）」, then the filter (種類 · 書いた人 · 並び順, `.dd-filter`).
+    Both are never printed.
+  - **Content:**
+    1. `UpcomingList`
+    2. one section per kind, headed by its mark and word (〆 締切). Each note is a `NoteEntry` slip: the title in bold
+       UI, the deadline as written in figures with the highlighter, the body in the hand on the ruled grid, the byline
+       and the 64px date stamp at the foot.
+    3. 「まだ書かれていないこと」 as blank lines with their reason and a dashed stamp outline; the viewer's own unanswered
+       questions in blue
+    4. 「あなたの質問と答え」 as `AnswerEntry`s, whose stamps open their notes
+  - **Who wrote it:** people appear only as bylines (「2025年度 会計」).
 - **`WithdrawMeter`**: figures face, 39px on the console; counts in `--red` from the click, freezes in `--ink`
   when the last pane drops the note: 「0.8秒」.
 - **`LeakCounter`**: 「漏れ 0 / 50 回」, the 0 in `--green`.

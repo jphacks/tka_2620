@@ -208,6 +208,15 @@ through one path that keeps people out of the notes, at the start and at any tim
 - Real exports are used only with the group's agreement; the demo uses `seed/chat-line.sample.txt`.
 - A note from a chat is the author's own note, so it can be withdrawn like any other.
 
+## Handover guide 引き継ぎ書 (export; not in the 90-second demo)
+The handover nobody writes, put together from what the predecessors left, at `/s/[seat]/guide` (opened from 聞く and
+from `/me`; not a fourth verb). One read as the viewer (`GET /api/seats/[slug]/guide`, RLS decides): the deadlines
+coming up, every live note they may read by kind with its date stamp, what isn't written yet (for holders: gap,
+required and core prompts no note names or covers; never a demand prompt), and their own questions with the answers
+that still stand. A filter (kind, who wrote it by byline, order) shapes the page and the export alike: print / PDF
+through the browser, or a dated Markdown file built in the browser. Nothing is sent or stored by exporting; the page
+says that a saved copy keeps today's version even if a note is withdrawn later.
+
 ## Routes
 - `/s/[seat]`: seat page (lineage, upcoming deadlines, 聞く)
 - `/s/[seat]/handover`: 残す — newcomers' questions (live inbox), handover prompts, 「＋ 追加」 (text, files, chats)
