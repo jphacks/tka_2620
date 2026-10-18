@@ -1,7 +1,7 @@
 "use client";
 // The signed-in client for the seat pages that SeatSignIn doesn't run (/me, and the handover guide): the mocks' persona
-// on mocks; on real data this device's session (lib/api.ts → signedIn(), F7.4), else the persona this tab signed in
-// with on a seat page (#key=…&as=…, components/SeatSignIn.tsx). Signed out, the page says so and links back to the seat
+// on mocks; on real data the persona this tab signed in with on a seat page (#key=…&as=…, components/SeatSignIn.tsx),
+// else this device's session (lib/api.ts → signedIn(), F7.4). Signed out, the page says so and links back to the seat
 // page, where sign-in happens. The login screen (#87, components/SignInGate.tsx) replaces this hook once it is in dev.
 import { useEffect, useState } from "react";
 import { consoleKey } from "@/components/ConsoleSignIn";
@@ -26,12 +26,26 @@ function tabPersona(): ConsolePersona | undefined {
   }
 }
 
+// One client per persona for this tab: each signInConsolePane call is a new session on the server with its own refresh
+// timer, so going between the seat page and /me reuses the first one instead of piling them up.
+const panes = new Map<ConsolePersona, Promise<Api>>();
+
 async function realApi(): Promise<Api | undefined> {
-  const device = await signedIn();
-  if (device) return device.api;
-  const persona = tabPersona();
+  // First, so a #key=… fragment always leaves the address bar, whichever way the page signs in.
   const key = consoleKey();
-  return persona && key ? signInConsolePane(persona, key) : undefined;
+  // The tab's persona before the device's session, as SeatSignIn signs in: /me then describes the same person as the
+  // seat page open in this tab.
+  const persona = tabPersona();
+  if (persona && key) {
+    let pane = panes.get(persona);
+    if (!pane) {
+      pane = signInConsolePane(persona, key);
+      panes.set(persona, pane);
+      pane.catch(() => panes.delete(persona)); // a failed sign-in can be tried again
+    }
+    return pane;
+  }
+  return (await signedIn())?.api;
 }
 
 /** mockPersona: who the page plays on mocks (NEXT_PUBLIC_USE_MOCKS=1). */
