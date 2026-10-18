@@ -209,12 +209,17 @@ function sessionClient(storageKey: string): SupabaseClient {
       storageKey,
     },
     // This client only talks to Auth. A stalled network (venue Wi-Fi) gives up after 10 s instead of hanging, so
-    // signIn and signedIn answer unavailable and signOut still clears the device.
+    // signIn and signedIn answer unavailable and signOut still clears the device. A phone too old for
+    // AbortSignal.timeout (iOS before 16) simply waits, rather than failing every sign-in.
     global: {
       fetch: (input, init) =>
         fetch(input, {
           ...init,
-          signal: init?.signal ?? AbortSignal.timeout(AUTH_TIMEOUT_MS),
+          signal:
+            init?.signal ??
+            (typeof AbortSignal.timeout === "function"
+              ? AbortSignal.timeout(AUTH_TIMEOUT_MS)
+              : undefined),
         }),
     },
   });

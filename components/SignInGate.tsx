@@ -52,8 +52,9 @@ export function SignInGate({
         if (latest.current === mine) setSession({ kind: "offline" });
       },
     );
+    // Unmounted (or re-run): no check that's still on its way may answer.
     return () => {
-      if (latest.current === mine) latest.current += 1;
+      latest.current += 1;
     };
   }, []);
   useEffect(check, [check]);
