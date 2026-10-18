@@ -16,9 +16,6 @@
 
 [How it works](#how-it-works) · [Try it](#try-it) · [User evidence (13 quotes)](docs/EVIDENCE.md) · [Everything built during Hack Day](https://github.com/jphacks/tka_2620/compare/pre-hackday...2206aa2)
 
-> [!NOTE]
-> A prototype built at the JPHACKS 2026 Tokyo A Hack Day (17 and 18 Oct). There is no public server. The mock mode in [Try it](#try-it) runs the screens locally with two commands, without a database or AI, and the screens above use its demo data. Changes made after the code freeze (18 Oct, 15:00 JST) are listed under [After the code freeze](#after-the-code-freeze).
-
 ## The problem
 
 A club's treasurer, a festival lead, a lab's equipment keeper: the roles change every year, and what their holders knew leaves with them. Nobody knows what to write down until the newcomer is stuck. The three people we interviewed on 17 Oct 2026 had all run into this (quoted without names, with their consent). All 13 quotes are in [docs/EVIDENCE.md](docs/EVIDENCE.md).
