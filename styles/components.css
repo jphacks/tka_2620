@@ -112,13 +112,21 @@ body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(
 a.dd-tab { display: grid; place-items: center; text-decoration: none; }
 .dd-verbs { position: fixed; inset: auto 0 0; z-index: 1; background: var(--paper); padding-bottom: env(safe-area-inset-bottom); }
 .dd-verbs .dd-tabs { max-width: 640px; margin-inline: auto; box-sizing: border-box; }
-/* A page with the tabs keeps room under its content for them (after .dd-pad, so it wins) */
+@media (min-width: 600px) { .dd-verbs .dd-tabs { padding-inline: var(--s-5); } } /* the page's 24px gutter */
+/* flush with the screen's bottom edge, the ring goes inside the tab or it loses its bottom */
+.dd-verbs .dd-tab:focus-visible { outline-offset: -4px; }
+/* A page with the tabs keeps room under its content for them (after .dd-pad, so it wins), and whatever the browser or
+   the page scrolls to (a focused field, an answer that just arrived) stops above them */
 .dd-with-verbs { padding-bottom: calc(52px + var(--s-6) + env(safe-area-inset-bottom)); }
+:root:has(.dd-verbs) { scroll-padding-bottom: calc(52px + var(--s-4) + env(safe-area-inset-bottom)); }
 
 /* UpcomingList: a planner column, each row the boxed date, the title and the mini stamp of whose note it is */
 .dd-planner { list-style: none; margin: 0; padding: 0; display: grid; }
-.dd-planner-row { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: var(--s-3); min-height: 48px; padding-block: var(--s-2); border-bottom: 1px solid var(--rule); }
+.dd-planner-row { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: var(--s-2); min-height: 48px; padding-block: var(--s-2); border-bottom: 1px solid var(--rule); }
 .dd-planner-title { font-weight: 700; word-break: auto-phrase; overflow-wrap: anywhere; }
+/* the date clear of its box, and the seed title still on one line at 390px */
+.dd-planner .dd-date { padding-inline: var(--s-1); }
+.dd-planner .dd-mini { margin-inline: 0; }
 span.dd-mini { cursor: default; } /* a stamp that only says whose note it is; the tappable ones are buttons */
 
 /* Inbox slip (伝言メモ) */

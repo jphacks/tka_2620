@@ -110,7 +110,6 @@
   },
   "seat": {
     "upcoming": "Coming up",
-    "upcomingItem": "{title} by {date} · {byline}",
     "you": "You",
     "youAt": "You ({term})",
     "upcomingDate": "{weekday} {date}",

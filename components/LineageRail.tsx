@@ -14,6 +14,9 @@ export function LineageRail({ view }: { view: SeatView }) {
   const { seat, lineage } = view;
   if (lineage.length === 0) return null;
   const role = stampRole(seat.name);
+  // A Latin role of up to three letters (TUM) stands upright as one unit; a longer one runs sideways, as Latin does in
+  // vertical text.
+  const upright = /^[A-Za-z]{1,3}$/.test(role);
   // The seat's current term reads in full ink, unless it is the viewer's own tag.
   const newest = lineage[lineage.length - 1];
 
@@ -51,8 +54,9 @@ export function LineageRail({ view }: { view: SeatView }) {
                 className={`dd-ltag${term === newest ? " is-current" : ""}`}
               >
                 <span aria-hidden="true" className="dd-ltag-label">
-                  {digits && <span className="tcy">{digits}</span>}
-                  {rest} {role}
+                  {/* The digits in the figures face, as on the date stamp: Yusei Magic's combined digits sit off-centre. */}
+                  {digits && <span className="tcy dd-fig">{digits}</span>}
+                  {rest} {upright ? <span className="tcy">{role}</span> : role}
                 </span>
               </span>
             </li>

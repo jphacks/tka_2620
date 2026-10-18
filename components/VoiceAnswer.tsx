@@ -71,6 +71,11 @@ export function VoiceAnswer({
   const [failed, setFailed] = useState(false);
   // What the field held when listening began, so a restart after a pause keeps both sentences.
   const base = useRef("");
+  // Each section comes into view as it appears (the form after 声で答える, the card once published): on a phone,
+  // 公開する at the form's foot can sit under the verb tabs. Stable, so typing doesn't scroll anything.
+  const intoView = useCallback((node: HTMLElement | null) => {
+    node?.scrollIntoView({ block: "nearest" });
+  }, []);
 
   const dictation = useMemo(
     () =>
@@ -154,7 +159,7 @@ export function VoiceAnswer({
   // Published: show the drafted card the predecessor just left (F3: on mocks, show the created card).
   if (published) {
     return (
-      <section className="dd-col" style={{ gap: "var(--s-4)" }}>
+      <section ref={intoView} className="dd-col" style={{ gap: "var(--s-4)" }}>
         <h2 className="dd-h">{t("voice.title")}</h2>
         {card && <DraftedCard card={card} />}
         <output className="dd-live-note">{t("voice.published")}</output>
@@ -171,7 +176,7 @@ export function VoiceAnswer({
   }
 
   return (
-    <section className="dd-col" style={{ gap: "var(--s-4)" }}>
+    <section ref={intoView} className="dd-col" style={{ gap: "var(--s-4)" }}>
       <h2 className="dd-h">{t("voice.title")}</h2>
 
       <div

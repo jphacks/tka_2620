@@ -110,7 +110,6 @@
   },
   "seat": {
     "upcoming": "これからの締切",
-    "upcomingItem": "{title} {date}まで ・{byline}",
     "you": "あなた",
     "youAt": "あなた（{term}）",
     "upcomingDate": "{date} {weekday}",
