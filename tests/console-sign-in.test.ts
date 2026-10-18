@@ -4,10 +4,13 @@ import { describe, expect, it } from "vitest";
 import {
   byPane,
   CONSOLE_PANES,
+  checkPanes,
   consoleCheck,
   consoleSignIn,
   PANES,
+  type PaneAuth,
   paneKey,
+  signInPanes,
 } from "@/components/console-sign-in";
 import { ApiClientError, type SignedIn } from "@/lib/api";
 import type { Api, DemoAccount } from "@/lib/contracts";
@@ -124,5 +127,82 @@ describe("consoleSignIn", () => {
         outsider: fulfilled("x"),
       }),
     ).toEqual({ kind: "failed", why: "wrongPassword" });
+  });
+});
+
+// lib/api.ts's sign-in as a stub: which storage keys hold whom, and every sign-out it was asked for.
+function stubAuth(
+  held: Record<string, DemoAccount>,
+  refuse: Partial<Record<DemoAccount, "unauthorized" | "unavailable">> = {},
+) {
+  const signedOut: string[] = [];
+  const auth: PaneAuth = {
+    signIn: async (account, _password, key) => {
+      const code = refuse[account];
+      if (code) throw new ApiClientError(code);
+      held[key] = account;
+      return as(account);
+    },
+    signedIn: async (key) => (held[key] ? as(held[key]) : undefined),
+    signOut: async (key) => {
+      signedOut.push(key);
+      delete held[key];
+    },
+  };
+  return { auth, held, signedOut };
+}
+
+describe("signInPanes", () => {
+  it("keeps all three when all three sign in, and signs nobody out", async () => {
+    const { auth, held, signedOut } = stubAuth({ "daidai-session": "a25" });
+    expect((await signInPanes("typed", auth)).kind).toBe("signedIn");
+    expect(held).toEqual({
+      "daidai-session": "a25",
+      "daidai-console-a26": "a26",
+      "daidai-console-a25": "a25",
+      "daidai-console-x": "x",
+    });
+    expect(signedOut).toEqual([]);
+  });
+
+  it("signs the other two out again when one can't sign in, and never the device's own session", async () => {
+    const { auth, held, signedOut } = stubAuth(
+      { "daidai-session": "a25" },
+      { x: "unavailable" },
+    );
+    expect(await signInPanes("typed", auth)).toEqual({
+      kind: "failed",
+      why: "unavailable",
+    });
+    expect(signedOut.sort()).toEqual(PANES.map(paneKey).sort());
+    expect(held).toEqual({ "daidai-session": "a25" });
+  });
+});
+
+describe("checkPanes", () => {
+  it("shows the panes when this device holds all three, and signs nothing out", async () => {
+    const { auth, signedOut } = stubAuth({
+      "daidai-console-a26": "a26",
+      "daidai-console-a25": "a25",
+      "daidai-console-x": "x",
+    });
+    expect((await checkPanes(auth))?.kind).toBe("signedIn");
+    expect(signedOut).toEqual([]);
+  });
+
+  it("signs out what is there when only part of the three is, and leaves the device's own session", async () => {
+    const { auth, held } = stubAuth({
+      "daidai-session": "a26",
+      "daidai-console-a26": "a26",
+    });
+    expect(await checkPanes(auth)).toEqual({ kind: "signedOut" });
+    expect(held).toEqual({ "daidai-session": "a26" });
+  });
+
+  it("touches nothing once a newer check, a sign-in or a sign-out has taken over", async () => {
+    const { auth, held, signedOut } = stubAuth({ "daidai-console-a26": "a26" });
+    expect(await checkPanes(auth, () => false)).toBeUndefined();
+    expect(signedOut).toEqual([]);
+    expect(held).toEqual({ "daidai-console-a26": "a26" });
   });
 });

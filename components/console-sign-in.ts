@@ -5,6 +5,17 @@ import { signInFailure } from "@/components/sign-in";
 import type { SignedIn } from "@/lib/api";
 import type { DemoAccount } from "@/lib/contracts";
 
+// lib/api.ts's sign-in, passed in so the console's all-or-none steps can be tested without Supabase.
+export type PaneAuth = {
+  signIn: (
+    account: DemoAccount,
+    password: string,
+    storageKey: string,
+  ) => Promise<SignedIn>;
+  signedIn: (storageKey: string) => Promise<SignedIn | undefined>;
+  signOut: (storageKey: string) => Promise<void>;
+};
+
 // Who each pane runs as (docs/SPEC.md → Console panes): the newcomer, last year's treasurer, the outsider.
 export const CONSOLE_PANES = {
   newcomer: "a26",
@@ -62,4 +73,44 @@ export function consoleSignIn(
     kind: "failed",
     why: failures.includes("wrongPassword") ? "wrongPassword" : "unavailable",
   };
+}
+
+// This device's three pane sessions only (scope local), never its own (the seat pages'); a pane that can't reach Auth
+// is still cleared on the device.
+export async function signOutPanes(auth: PaneAuth): Promise<void> {
+  await Promise.all(
+    PANES.map((pane) => auth.signOut(paneKey(pane)).catch(() => undefined)),
+  );
+}
+
+// The three sessions this device already has, checked with Auth (signedIn): all three, or none of them, in which case
+// whatever is there is signed out. current: whether this check still counts; once a newer check, a sign-in or a
+// sign-out has taken over, it touches nothing and answers undefined.
+export async function checkPanes(
+  auth: PaneAuth,
+  current: () => boolean = () => true,
+): Promise<ReturnType<typeof consoleCheck> | undefined> {
+  const found = await Promise.all(
+    PANES.map((pane) => auth.signedIn(paneKey(pane))),
+  );
+  if (!current()) return undefined;
+  const outcome = consoleCheck(byPane(found));
+  if (outcome.kind === "signedOut") await signOutPanes(auth);
+  return current() ? outcome : undefined;
+}
+
+// One press of 「3人でログインする」: the three sign-ins at once, and when any of them fails, the others are signed out
+// again, so the device never keeps part of the three.
+export async function signInPanes(
+  password: string,
+  auth: PaneAuth,
+): Promise<ReturnType<typeof consoleSignIn>> {
+  const results = await Promise.allSettled(
+    PANES.map((pane) =>
+      auth.signIn(CONSOLE_PANES[pane], password, paneKey(pane)),
+    ),
+  );
+  const outcome = consoleSignIn(byPane(results));
+  if (outcome.kind === "failed") await signOutPanes(auth);
+  return outcome;
 }

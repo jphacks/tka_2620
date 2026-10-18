@@ -16,13 +16,13 @@ import {
   useState,
 } from "react";
 import {
-  byPane,
-  CONSOLE_PANES,
-  consoleCheck,
-  consoleSignIn,
+  checkPanes,
   PANES,
+  type PaneAuth,
   type Panes,
   paneKey,
+  signInPanes,
+  signOutPanes,
 } from "@/components/console-sign-in";
 import { type ConsoleApis, TrustConsole } from "@/components/TrustConsole";
 import {
@@ -75,27 +75,21 @@ type Console =
   | { kind: "signedIn"; panes: Panes<SignedIn> }
   | { kind: "signingOut" };
 
-// This device only (scope local), and never throws: a pane that can't reach Auth is still cleared here.
-const signOutAll = () =>
-  Promise.all(
-    PANES.map((pane) => signOut(paneKey(pane)).catch(() => undefined)),
-  );
+const AUTH: PaneAuth = { signIn, signedIn, signOut };
 
 function RealConsole({ metrics }: { metrics?: Metrics }) {
   const t = useTranslations();
   const [state, setState] = useState<Console>({ kind: "checking" });
+  // Bumped by every check, sign-in and sign-out: only the latest one may act on the sessions or the screen.
   const latest = useRef(0);
 
-  // The three sessions this device has, each checked with Auth (lib/api.ts → signedIn): all three, or none of them.
-  // Only the latest check may answer.
+  // The three sessions this device has, each checked with Auth: all three, or none of them (components/console-sign-in.ts).
   const check = useCallback(() => {
     const mine = ++latest.current;
     setState({ kind: "checking" });
-    Promise.all(PANES.map((pane) => signedIn(paneKey(pane)))).then(
-      async (found) => {
-        const outcome = consoleCheck(byPane(found));
-        if (outcome.kind === "signedOut") await signOutAll();
-        if (latest.current !== mine) return;
+    checkPanes(AUTH, () => latest.current === mine).then(
+      (outcome) => {
+        if (!outcome || latest.current !== mine) return;
         setState(
           outcome.kind === "signedIn"
             ? { kind: "signedIn", panes: outcome.panes }
@@ -114,13 +108,18 @@ function RealConsole({ metrics }: { metrics?: Metrics }) {
   useEffect(check, [check]);
 
   // While the panes show their data: a pane signed out or switched anywhere on this device → check all three again.
+  // The panes were just checked or signed in, so a slot already empty when subscribing counts as signed out too.
   const shown = state.kind === "signedIn" ? state.panes : undefined;
   useEffect(() => {
     if (!shown) return;
     const stops = PANES.map((pane) =>
-      onSessionChange((userId) => {
-        if (userId !== shown[pane].userId) check();
-      }, paneKey(pane)),
+      onSessionChange(
+        (userId) => {
+          if (userId !== shown[pane].userId) check();
+        },
+        paneKey(pane),
+        { initialSignedOut: true },
+      ),
     );
     return () => {
       for (const stop of stops) stop();
@@ -128,23 +127,22 @@ function RealConsole({ metrics }: { metrics?: Metrics }) {
   }, [shown, check]);
 
   async function submit(password: string) {
+    const mine = ++latest.current; // no check still on its way may sign these out
     setState({ kind: "signedOut", busy: true });
-    const results = await Promise.allSettled(
-      PANES.map((pane) => signIn(CONSOLE_PANES[pane], password, paneKey(pane))),
+    const outcome = await signInPanes(password, AUTH);
+    if (latest.current !== mine) return;
+    setState(
+      outcome.kind === "signedIn"
+        ? { kind: "signedIn", panes: outcome.panes }
+        : { kind: "signedOut", busy: false, failure: outcome.why },
     );
-    const outcome = consoleSignIn(byPane(results));
-    if (outcome.kind === "signedIn") {
-      setState({ kind: "signedIn", panes: outcome.panes });
-      return;
-    }
-    await signOutAll(); // all three or none
-    setState({ kind: "signedOut", busy: false, failure: outcome.why });
   }
 
   async function logOut() {
+    const mine = ++latest.current;
     setState({ kind: "signingOut" }); // the panes leave the screen now, not when Auth answers
-    await signOutAll();
-    setState({ kind: "signedOut", busy: false });
+    await signOutPanes(AUTH);
+    if (latest.current === mine) setState({ kind: "signedOut", busy: false });
   }
 
   switch (state.kind) {

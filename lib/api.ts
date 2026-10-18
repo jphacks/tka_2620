@@ -291,16 +291,18 @@ export async function signedIn(
 
 // Calls back with the user of this device's (or pane's) session whenever it changes, in this tab or another one:
 // undefined once signed out. A screen showing one account's data uses it to stop showing it. The first call is the
-// session as it is when subscribing, so a change between the screen's check and this subscription isn't missed; an
-// initial "no session" is left out, because supabase-js also reports that when it merely can't reach Auth.
+// session as it is when subscribing, so a change between the screen's check and this subscription isn't missed. An
+// initial "no session" is left out unless initialSignedOut is set: supabase-js also reports that when it merely can't
+// reach Auth to refresh an expired token, so only a screen that has just signed in or checked (fresh tokens) asks.
 // Returns the unsubscribe.
 export function onSessionChange(
   onChange: (userId: string | undefined) => void,
   storageKey = DEVICE,
+  { initialSignedOut = false }: { initialSignedOut?: boolean } = {},
 ): () => void {
   const { data } = sessionClient(storageKey).auth.onAuthStateChange(
     (event, session) => {
-      if (event === "INITIAL_SESSION" && !session) return;
+      if (event === "INITIAL_SESSION" && !session && !initialSignedOut) return;
       onChange(session?.user.id);
     },
   );
