@@ -60,6 +60,7 @@ const note = (
   term_order: term,
   byline: `${term}年度 会計`,
   lang: "ja",
+  superseded_by: null,
   embedding,
 });
 // The same note as the notes query returns it: pgvector as text.
@@ -207,16 +208,15 @@ describe("seatViewAsCaller", () => {
         lang: "ja",
       },
     ]);
-    // The policy picks the notes the caller may read; the query only narrows to the seat's current deadlines.
+    // The policy picks the notes the caller may read; the query only narrows to the seat's live, unexpired deadlines.
     expect(calls.notes[0]).toEqual([
       [
         "select",
-        "id, title, deadline_date, term_order, byline, lang, embedding",
+        "id, title, deadline_date, term_order, byline, lang, superseded_by, embedding",
       ],
       ["eq", "seat_id", SEAT_ID],
       ["eq", "kind", "deadline"],
       ["eq", "status", "live"],
-      ["is", "superseded_by", null],
       // Not expired on Tokyo's date, as search_notes (0004) leaves expired notes out of answers.
       ["or", "valid_until.is.null,valid_until.gte.2026-10-18"],
     ]);
@@ -302,9 +302,18 @@ describe("upcomingDeadlines", () => {
 
   it("lets a later term's note on the same deadline stand for an earlier one", () => {
     expect(ids([hokenjo2024, hokenjo2025])).toEqual(["smash-2025-hokenjo"]);
-    // The 2026 notice after 「更新する」: the 2025 note is superseded (not in the query), and 2026's stands for 2024's.
+    // A 2026 note on it, written beside the others with 「別のメモとして残す」, stands for both.
     const notice2026 = note("notice", 2026, "2026-10-19", [0.8, 0.2, 0.1]);
-    expect(ids([hokenjo2024, notice2026])).toEqual(["notice"]);
+    expect(ids([hokenjo2024, hokenjo2025, notice2026])).toEqual(["notice"]);
+  });
+
+  it("shows no replaced note, but lets it stand for the terms before it", () => {
+    // After 「更新する」 with 2026's notice: the 2025 note is history, and the notice stands for 2024's note too.
+    const replaced2025 = { ...hokenjo2025, superseded_by: "notice" };
+    const notice2026 = note("notice", 2026, "2026-10-19", [0.8, 0.2, 0.1]);
+    expect(ids([hokenjo2024, replaced2025, notice2026])).toEqual(["notice"]);
+    // a25 then: their own 2025 note is history, and the notice is beyond their scope; 2024's 10/27 stays out.
+    expect(ids([hokenjo2024, replaced2025])).toEqual([]);
   });
 
   it("draws the line at SIMILAR, as 「更新する」 does", () => {

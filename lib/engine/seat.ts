@@ -69,6 +69,7 @@ const DeadlineNote = z.object({
   term_order: z.number().int(),
   byline: z.string(),
   lang: Lang,
+  superseded_by: NoteId.nullable(),
   embedding: Vector,
 });
 export type DeadlineNote = z.infer<typeof DeadlineNote>;
@@ -91,9 +92,10 @@ export async function seatViewAsCaller(
   if (!seat.success) throw new ApiFailure("unavailable");
 
   // RLS returns the caller's own rows only; nobody else's term at this seat reaches the page. Of the notes, the policy
-  // returns the ones the caller may read, and the filters leave out what search_notes (0004) leaves out of answers: a
-  // note that isn't live (an author still reads their own withdrawn ones), one a later note replaced (history, 0010)
-  // and one past its valid_until on Tokyo's date. The embeddings serve upcomingDeadlines() only and stay here.
+  // returns the ones the caller may read, and the filters leave out a note that isn't live (an author still reads
+  // their own withdrawn ones) and one past its valid_until on Tokyo's date, as search_notes (0004) does. A note that a
+  // later one replaced (0010) comes along as history for upcomingDeadlines(). The embeddings serve it only and stay
+  // here.
   const [held, lineage, deadlines] = await Promise.all([
     client
       .from("seat_holders")
@@ -102,11 +104,12 @@ export async function seatViewAsCaller(
     client.rpc("seat_lineage", { seat: seat.data.id }),
     client
       .from("notes")
-      .select("id, title, deadline_date, term_order, byline, lang, embedding")
+      .select(
+        "id, title, deadline_date, term_order, byline, lang, superseded_by, embedding",
+      )
       .eq("seat_id", seat.data.id)
       .eq("kind", "deadline")
       .eq("status", "live")
-      .is("superseded_by", null)
       .or(`valid_until.is.null,valid_until.gte.${today}`),
   ]);
   if (held.error) throw dbFailure(held.error);
@@ -150,8 +153,9 @@ export async function seatViewAsCaller(
 // their own words, so a note gives way to a later term's note that says the same: bge-m3 similarity of at least
 // SIMILAR, the line at which 「更新する」 offers to update a note (lib/engine/similar.ts). 2025's 10/20 stands and 2024's
 // 10/27 doesn't (0.72 between them). Only notes the caller reads take part, so a note they can't read never hides one
-// they can, and notes of the same term all stay. Each shows at its next occurrence: a predecessor's 2025-10-20 as
-// 2026-10-20.
+// they can, and notes of the same term all stay. A note that a later one replaced (「更新する」, 0010) shows no more but
+// still stands for the terms before it: once 2026's notice replaced the 2025 note, a25, who can't read the notice,
+// doesn't get 2024's 10/27 back. Each shows at its next occurrence: a predecessor's 2025-10-20 as 2026-10-20.
 export function upcomingDeadlines(
   notes: DeadlineNote[],
   today: string,
@@ -159,6 +163,7 @@ export function upcomingDeadlines(
   return notes
     .filter(
       (note) =>
+        note.superseded_by === null &&
         !notes.some(
           (later) =>
             later.term_order > note.term_order && sameDeadline(note, later),
