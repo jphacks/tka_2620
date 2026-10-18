@@ -8,7 +8,13 @@
 // screen: 「切り替える」 takes it away before signing out, and a session that changes anywhere on the device (another
 // tab switching, a session that ends after `pnpm demo:reset`) brings the switcher, or the new account, at once.
 import { useTranslations } from "next-intl";
-import { type ReactNode, useCallback, useEffect, useState } from "react";
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { SignIn } from "@/components/SignIn";
 import { accountLabel } from "@/components/sign-in";
 import { onSessionChange, type SignedIn, signedIn, signOut } from "@/lib/api";
@@ -28,25 +34,26 @@ export function SignInGate({
 }) {
   const t = useTranslations("signIn");
   const [session, setSession] = useState<Session>({ kind: "checking" });
+  const latest = useRef(0);
 
   // The device's session, checked with Auth: a reset or an ended session shows the switcher, no network a calm retry.
+  // Only the latest check may answer, so two quick changes in another tab can't leave the older account on screen.
   const check = useCallback(() => {
-    let alive = true;
+    const mine = ++latest.current;
     setSession({ kind: "checking" });
     signedIn().then(
       (signed) => {
-        if (alive) {
-          setSession(
-            signed ? { kind: "signedIn", signed } : { kind: "signedOut" },
-          );
-        }
+        if (latest.current !== mine) return;
+        setSession(
+          signed ? { kind: "signedIn", signed } : { kind: "signedOut" },
+        );
       },
       () => {
-        if (alive) setSession({ kind: "offline" });
+        if (latest.current === mine) setSession({ kind: "offline" });
       },
     );
     return () => {
-      alive = false;
+      if (latest.current === mine) latest.current += 1;
     };
   }, []);
   useEffect(check, [check]);

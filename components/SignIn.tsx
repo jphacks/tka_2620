@@ -22,14 +22,18 @@ export function SignIn({
   const title = useId();
   const field = useRef<HTMLInputElement>(null);
   const [account, setAccount] = useState<DemoAccount>();
-  const [typed, setTyped] = useState(false);
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<"wrongPassword" | "unavailable">();
 
+  // The button waits for an account only: a password the browser fills in may never tell the page it's there.
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const password = field.current?.value ?? "";
-    if (!account || !password || busy) return;
+    if (!account || busy) return;
+    if (!password) {
+      field.current?.focus();
+      return;
+    }
     setBusy(true);
     setFailure(undefined);
     try {
@@ -37,10 +41,7 @@ export function SignIn({
     } catch (error) {
       const why = signInFailure(error);
       setFailure(why);
-      if (why === "wrongPassword" && field.current) {
-        field.current.value = "";
-        setTyped(false);
-      }
+      if (why === "wrongPassword" && field.current) field.current.value = "";
       setBusy(false);
       field.current?.focus();
     }
@@ -76,7 +77,6 @@ export function SignIn({
         ref={field}
         type="password"
         className="dd-line"
-        onChange={(event) => setTyped(event.target.value !== "")}
         placeholder={t("signIn.password")}
         aria-label={t("signIn.password")}
         autoComplete="current-password"
@@ -85,7 +85,7 @@ export function SignIn({
       <button
         type="submit"
         className="dd-btn dd-btn-primary dd-btn-wide"
-        disabled={busy || !account || !typed}
+        disabled={busy || !account}
       >
         {t(busy ? "signIn.submitting" : "signIn.submit")}
       </button>

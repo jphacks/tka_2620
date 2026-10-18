@@ -354,12 +354,23 @@ describe("signIn, signedIn and signOut (Auth stubbed)", () => {
     expect(first.userId).toBe(A25_ID);
     const seen: (string | undefined)[] = [];
     const stop = onSessionChange((userId) => seen.push(userId), "unit-watch");
+    // First the session as it is on subscribing, so nothing between a screen's check and its subscription is missed.
+    await vi.waitFor(() => expect(seen).toEqual([A25_ID]));
     await signIn("a26", "typed-password", "unit-watch");
     await signOut("unit-watch");
     stop();
     await signIn("a25", "typed-password", "unit-watch");
-    // Not the session it found on subscribing; nothing after it unsubscribed.
-    expect(seen).toEqual([A26_ID, undefined]);
+    // Nothing after it unsubscribed.
+    expect(seen).toEqual([A25_ID, A26_ID, undefined]);
+  });
+
+  it("leaves out an initial 'no session', which supabase-js also reports when it can't reach Auth", async () => {
+    stubFetch({});
+    const seen: (string | undefined)[] = [];
+    const stop = onSessionChange((userId) => seen.push(userId), "unit-none");
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    stop();
+    expect(seen).toEqual([]);
   });
 });
 

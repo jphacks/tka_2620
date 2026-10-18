@@ -191,6 +191,7 @@ function sessionStore(): SupportedStorage {
 
 // One client per storage key: two clients on one key would race over its session (supabase-js warns about that).
 const clients = new Map<string, SupabaseClient>();
+const AUTH_TIMEOUT_MS = 10_000;
 
 function sessionClient(storageKey: string): SupabaseClient {
   const known = clients.get(storageKey);
@@ -206,6 +207,15 @@ function sessionClient(storageKey: string): SupabaseClient {
       detectSessionInUrl: false,
       storage: sessionStore(),
       storageKey,
+    },
+    // This client only talks to Auth. A stalled network (venue Wi-Fi) gives up after 10 s instead of hanging, so
+    // signIn and signedIn answer unavailable and signOut still clears the device.
+    global: {
+      fetch: (input, init) =>
+        fetch(input, {
+          ...init,
+          signal: init?.signal ?? AbortSignal.timeout(AUTH_TIMEOUT_MS),
+        }),
     },
   });
   clients.set(storageKey, db);
@@ -274,15 +284,18 @@ export async function signedIn(
 }
 
 // Calls back with the user of this device's (or pane's) session whenever it changes, in this tab or another one:
-// undefined once signed out. A screen showing one account's data uses it to stop showing it. Returns the unsubscribe.
+// undefined once signed out. A screen showing one account's data uses it to stop showing it. The first call is the
+// session as it is when subscribing, so a change between the screen's check and this subscription isn't missed; an
+// initial "no session" is left out, because supabase-js also reports that when it merely can't reach Auth.
+// Returns the unsubscribe.
 export function onSessionChange(
   onChange: (userId: string | undefined) => void,
   storageKey = DEVICE,
 ): () => void {
   const { data } = sessionClient(storageKey).auth.onAuthStateChange(
     (event, session) => {
-      // The session the screen just checked; only what comes after it matters.
-      if (event !== "INITIAL_SESSION") onChange(session?.user.id);
+      if (event === "INITIAL_SESSION" && !session) return;
+      onChange(session?.user.id);
     },
   );
   return () => data.subscription.unsubscribe();
