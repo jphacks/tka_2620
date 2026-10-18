@@ -58,9 +58,9 @@ export function HandoverPrompts({
   const [failed, setFailed] = useState(false);
   const [open, setOpen] = useState<Open>();
   const [busy, setBusy] = useState(false);
-  // Whether a prompt is being answered, for load() without reading it again on every keystroke's render.
-  const opened = useRef(false);
-  opened.current = open !== undefined;
+  // The prompt being answered, for load() without reading the list again on every keystroke's render.
+  const opened = useRef<string | undefined>(undefined);
+  opened.current = open?.prompt.id;
   const [trouble, setTrouble] = useState<"draft" | "publish">();
   // The scopes each answered prompt's cards went out at, by prompt id.
   const [published, setPublished] = useState<ReadonlyMap<string, Scope[]>>(
@@ -96,9 +96,13 @@ export function HandoverPrompts({
     const listed = new Set(next.map((prompt) => prompt.id));
     setPrompts((current = []) => {
       // Until one is answered, nothing is under the person's thumb yet: the server's ranking as it is.
-      if (published.size === 0 && !opened.current) return next;
+      if (published.size === 0 && opened.current === undefined) return next;
+      // The prompt being answered stays too, even when a newcomer's question pushes it out of the server's three.
       const kept = current.filter(
-        (prompt) => listed.has(prompt.id) || published.has(prompt.id),
+        (prompt) =>
+          listed.has(prompt.id) ||
+          published.has(prompt.id) ||
+          prompt.id === opened.current,
       );
       const known = new Set(kept.map((prompt) => prompt.id));
       return [...kept, ...next.filter((prompt) => !known.has(prompt.id))];
@@ -229,12 +233,14 @@ export function HandoverPrompts({
                   })}
                 </output>
               ) : answering ? null : (
+                // One prompt at a time: the others wait until this one is published or closed with やめる, so a tap
+                // never throws away an answer or its drafted cards.
                 <div className="dd-row" style={{ gap: "var(--s-3)" }}>
                   <button
                     type="button"
                     className="dd-btn dd-btn-primary"
                     style={{ flex: 1, minHeight: "52px" }}
-                    disabled={busy}
+                    disabled={busy || open !== undefined}
                     onClick={() => {
                       setTrouble(undefined);
                       setOpen({ prompt, mode: "voice" });
@@ -246,7 +252,7 @@ export function HandoverPrompts({
                     type="button"
                     className="dd-btn"
                     style={{ flex: 1, minHeight: "52px" }}
-                    disabled={busy}
+                    disabled={busy || open !== undefined}
                     onClick={() => {
                       setTrouble(undefined);
                       setOpen({ prompt, mode: "text" });
