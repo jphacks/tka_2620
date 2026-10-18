@@ -11,9 +11,20 @@
     "lint": "biome check",
     "format": "biome format --write",
     "test": "vitest run",
+    "test:ask": "node --env-file-if-exists=.env.local --import tsx scripts/check-ask.ts",
+    "test:inbox": "node --env-file-if-exists=.env.local --import tsx scripts/check-inbox.ts",
+    "test:publish": "node --env-file-if-exists=.env.local --import tsx scripts/check-publish.ts",
+    "test:withdraw": "node --env-file-if-exists=.env.local --import tsx scripts/check-withdraw.ts",
+    "test:loop": "node --env-file-if-exists=.env.local --import tsx scripts/check-loop.ts",
+    "test:leak": "node --env-file-if-exists=.env.local --import tsx scripts/check-leak.ts",
+    "test:import": "node --env-file-if-exists=.env.local --import tsx scripts/check-import.ts",
+    "test:redact": "node --env-file-if-exists=.env.local --import tsx scripts/check-redact.ts",
+    "test:supersede": "node --env-file-if-exists=.env.local --import tsx scripts/check-supersede.ts",
+    "test:prompts": "node --env-file-if-exists=.env.local --import tsx scripts/check-prompts.ts",
     "smoke": "node --env-file-if-exists=.env.local scripts/smoke.ts",
     "seed": "node --env-file-if-exists=.env.local --import tsx scripts/seed.ts",
-    "demo:reset": "pnpm seed"
+    "demo:reset": "pnpm seed",
+    "metrics": "node --env-file-if-exists=.env.local --import tsx scripts/metrics.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.81",

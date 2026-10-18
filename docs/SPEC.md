@@ -39,7 +39,7 @@ author usage log, Bluesky, deploy. No hardware beyond the QR code / NFC sticker 
 2. **Ask (10–25 s):** the 2026 treasurer taps the NFC sticker on the club-room key (`/s/smash-kaikei`) and asks
    「模擬店の保健所申請、いつまで？」. Every sentence of the answer cites the 2024 or 2025 note, and
    「2025年にルールが変わりました」 shows.
-3. **Live loop (25–50 s):** the newcomer asks 「部室の鍵を無くしたら、誰に連絡する？」 → 「歴代の会計は誰も知りません」 →
+3. **Live loop (25–50 s):** the newcomer asks 「決算後に申請された領収書はどうすれば良いですか？」 → 「歴代の会計は誰も知りません」 →
    last year's treasurer's phone shows 「後輩から質問が届きました」 → the answer is spoken → 公開 →
    the newcomer's screen shows the answer signed 「2025年度 会計」 with 「いま、2025年度 会計が答えました」.
 4. **Trust proof (50–60 s):** the outsider pane shows nothing; withdrawing a cited note removes it from the
@@ -114,7 +114,8 @@ They are the shared acceptance tests for F2–F4, and `lib/mocks.ts` is built fr
 - `questions(id, asker_user_id, seat_id, text, lang, status: answered|waiting, prompt_id, created_at)`
   - `prompt_id`: the demand prompt the question was merged into after an abstain (`prompts.source_question_id` is only the first)
 - `answers(question_id, payload jsonb, created_at)`: the latest answer per question (asker only), pushed by Realtime
-- `prompts(id, seat_id, kind: core|demand|gap|required, text, ask_count, source_question_id, retired)`
+- `prompts(id, seat_id, kind: core|demand|gap|required, text, ask_count, source_question_id, retired, listed)`
+  - `listed`: a demand prompt in Haiku's words, which the seat's later askers may join (F2.5, Scope rules)
 - `prompt_routes(prompt_id, user_id, created_at, seen_at)`: a demand prompt delivered to a reachable predecessor's inbox
 - `events(id, kind, payload jsonb, created_at)`: meter, leak test, live-loop timings and redaction counts (counts only, never text)
 - Not used on Hack Day (kept for later): `seat_invites`, `note_uses`
@@ -128,6 +129,16 @@ They are the shared acceptance tests for F2–F4, and `lib/mocks.ts` is built fr
 - Notes past `valid_until` are excluded from answers.
 - Newcomers' questions: the question text reaches only `reachable` holders of the same seat (via `prompt_routes`);
   the asker is shown by seat and term (「2026年度 会計」), never by name. `answers` rows are readable only by the asker.
+- A question from someone who holds no seat at that seat routes nowhere: no demand prompt is created, the abstain
+  carries no `promptId`, and `routedTo` is 0. The question remains readable only by the asker. The same holds for a
+  holder's question that nobody but the asker could receive (a25 asking, as the only reachable holder).
+- Demand prompts (F2.5): a routed question's prompt is the question reworded by Haiku about the seat, without names or
+  contact details (the asker's own `questions.text` stays as typed). So that a question can join an open prompt that
+  asks the same thing, a holder of the seat, before asking there, reads the seat's open, *listed* demand prompts (id
+  and text, never who asked) through `open_demand_prompts_at()`. The question is then saved and routed in one
+  transaction (`ask_question()`), joining only such a prompt. Only the asker lists a prompt, only the one their question
+  started, and only when its text is Haiku's wording that passed the guard; a prompt as typed (Haiku down) is read only
+  by its routed holders. A question with no prompt text free of contact details, credentials and names routes nowhere.
 
 ## Adding knowledge: text, files and chats (F5)
 Club knowledge lives in old documents, forms, notices and, most of all, group chats. Daidai takes all of them
@@ -172,8 +183,10 @@ through one path that keeps people out of the notes, at the start and at any tim
    with the reason. Remaining cards default to `successor`, carry `source` (`import`, `file` or `chat`) and a
    provenance chip without names.
 9. **Duplicates and updates**: each card is compared with the seat's live notes (same `kind` and embedding similarity
-   ≥ 0.88). A match shows 「似たメモがあります：…」 with 「更新する」 (the new note supersedes the old one) or
-   「別のメモとして残す」. A changed deadline then shows up as a rule change in answers.
+   ≥ 0.68, measured in `lib/engine/similar.ts`; the latest term's note when several match). A match shows
+   「似たメモがあります：…」 with 「更新する」 (the new note supersedes the old one, at the old note's scope or wider) or
+   「別のメモとして残す」. A changed deadline then shows up as a rule change in answers, against the superseded note's
+   date. Withdrawing the update brings the old note back.
 10. **Author review**: the person adding reads every card and publishes only what they choose, signed with their
    own byline. Nothing from the source is stored except those reviewed notes.
 
@@ -182,6 +195,9 @@ through one path that keeps people out of the notes, at the start and at any tim
   学生課 notice (PDF), a new 申請書 (Word), a message from the festival committee (copy-paste) or a two-line text note.
 - The "missing" list compares the core checklist with all live notes plus the new cards, so it shrinks over the year;
   open items become handover prompts (`kind: gap`), and the handover skips topics a recent note already covers.
+  What the added text itself mentions but leaves out (a deadline without its date, a step it calls necessary but
+  doesn't explain) is always listed: 「保健所申請の締切が書かれていません」 is about that text, even when a live note has
+  the date.
 - Later, not this weekend: save from where people already talk without reading the whole group (a LINE bot that ignores
   everything except messages that mention it, 「@代々 残して」; a Slack message shortcut 「代々に残す」; the phone's share sheet for the
   installed web app on Android; forwarding an email to a seat address), and on-device OCR for scans and screenshots.
@@ -192,9 +208,21 @@ through one path that keeps people out of the notes, at the start and at any tim
 - Real exports are used only with the group's agreement; the demo uses `seed/chat-line.sample.txt`.
 - A note from a chat is the author's own note, so it can be withdrawn like any other.
 
+## Handover guide 引き継ぎ書 (export; not in the 90-second demo)
+The handover nobody writes, put together from what the predecessors left, at `/s/[seat]/guide` (opened from 聞く and
+from `/me`; not a fourth verb). One read as the viewer (`GET /api/seats/[slug]/guide`, RLS decides): the deadlines
+coming up, every live note they may read by kind with its date stamp, what isn't written yet (for holders: gap,
+required and core prompts no note names or covers; never a demand prompt), and their own questions with the answers
+that still stand. A filter (kind, who wrote it by byline, order) shapes the page and the export alike: print / PDF
+through the browser, or a dated Markdown file built in the browser. Nothing is sent or stored by exporting; the page
+says that a saved copy keeps today's version even if a note is withdrawn later.
+
 ## Routes
 - `/s/[seat]`: seat page (lineage, upcoming deadlines, 聞く)
 - `/s/[seat]/handover`: 残す — newcomers' questions (live inbox), handover prompts, 「＋ 追加」 (text, files, chats)
+- `/s/[seat]/guide`: the handover guide 引き継ぎ書 (notes the viewer may read, what isn't written yet, the viewer's
+  own questions; print / PDF and Markdown export in the browser)
+- `/me`: who you are at the seat (seat and term)
 - `/me/notes`: 自分のメモ (scope and withdrawal)
 - `/console`: three persona panes (a26 newcomer, a25 last year's treasurer, x outsider), meter, leak counter, reset
 - Seat routes live in the route group `app/(seat)/` (the URL has no `(seat)` segment).
@@ -208,6 +236,7 @@ type Scope = "successor" | "group" | "institution" | "public";
 type NoteKind = "deadline" | "contact" | "rule_of_thumb" | "pitfall" | "unwritten_rule";
 type Lang = "ja" | "en";                                // notes.lang / questions.lang: screens set lang per note
 type SeatType = "club_role" | "exchange_route" | "lab_duty"; // every seat type has a label pack
+type DemoAccount = "a26" | "a25" | "a24" | "b" | "x";       // the accounts that sign in (Supabase Auth, no route of ours); emails in DEMO_EMAIL
 type Citation = { noteId: string; byline: string; termLabel: string };
 type CardDraft = { kind: NoteKind; title: string; body: string; deadline_date?: string; suggested_scope: Scope; critical: boolean; valid_until?: string; lang: Lang; flags: { person_verdict: boolean; secret: boolean } };
 
@@ -221,31 +250,59 @@ type SeatView = {
 // POST /api/ask { seat, question }       → AskResult
 type AskResult =
   | { status: "answered"; questionId: string; sentences: { text: string; citations: Citation[] }[]; ruleChange?: { termLabel: string; summary: string }; language: "ja" | "en"; live?: { byline: string } }
-  | { status: "abstained"; questionId: string; promptId: string; routedTo: number };
+  | { status: "abstained"; questionId: string; promptId?: string; routedTo: number };
 // Realtime `answers` (asker only)        → AskResult with status "answered" and `live` set
 // GET  /api/inbox?seat=                  → { items: { promptId: string; question: string; askedBy: string; askCount: number; askedAt: string; lang: Lang }[] }
 // Realtime `prompt_routes` (recipient)   → a new inbox item (the row has no question text: refetch the inbox)
-// POST /api/handover/draft { seat, promptId, answer }  → { cards: CardDraft[]; followup?: { missing: "date" | "contact" | "threshold"; question: string } }
+// POST /api/inbox/seen { promptId }      → { seenAt: string }   (the slip was opened; the first open counts)
+// POST /api/handover/draft { seat, promptId, answer, followup?: { question: string; answer: string } }  → { cards: CardDraft[]; followup?: { missing: "date" | "contact" | "threshold"; question: string } }
+//   followup in the request: the reply round, with the one follow-up the first draft asked and the reply; it never gets another
 // POST /api/handover/publish { seat, promptId?, cards: (CardDraft & { scope: Scope; supersedes?: string; provenance?: string; source?: "import" | "file" | "chat" })[] } → { noteIds: string[]; reanswered: string[] }
 //   source: only for added cards (import is stateless); the server sets handover or live for the others
+//   promptId: the prompt the cards answer, for every handover prompt: a demand prompt re-answers its askers; a gap, required or core prompt isn't asked of its author again
 // GET  /api/handover/prompts?seat=       → { prompts: { id: string; text: string; reason: "demand" | "gap" | "required" | "core"; askCount: number }[] }
+// POST /api/handover/prompts { seat, text } → { promptId: string }   (「先輩に聞く」: a missing item becomes a gap prompt; the same open text is one prompt)
 // GET  /api/handover/readers?seat=&scope= → { count: number }
 // POST /api/import { seat, kind: "text" | "file" | "chat", fileType?: "pdf" | "docx" | "txt" | "md", platform?: "line" | "whatsapp" | "paste", text, redaction }
 //   text: extracted in the browser and redacted there; the file itself is never sent; nothing is stored.
 //   redaction: { names, phones, emails, urls, ids, addresses, accounts, secrets, people } counts
 //   → { cards: (CardDraft & { source: "import" | "file" | "chat"; provenance?: string })[]; missing: { topic: string; reason: string; prompt: string }[];
-//       blocked: { title: string; reason: string }[]; duplicates: { card: number; noteId: string; title: string; byline: string; similarity: number }[] }
+//       blocked: { title: string; reason: "placeholder" | "secret" | "contact" | "name" }[]; duplicates: { card: number; noteId: string; title: string; byline: string; similarity: number }[] }
 // POST /api/notes/[id]/withdraw          → { withdrawnAt: string }
-// GET  /api/me/notes                     → { notes: { id: string; title: string; scope: Scope; status: "live" | "withdrawn"; lang: Lang }[] }
+// GET  /api/me/notes                     → { notes: { id: string; seat: string; title: string; scope: Scope; status: "live" | "withdrawn"; lang: Lang }[] }
+//   seat: the slug of the seat the note was written at (its scope label uses that seat's words)
+// GET  /api/notes/[id]                   → { id: string; kind: NoteKind; title: string; body: string; deadlineDate?: string; lang: Lang; byline: string }
+//   the source a citation's stamp opens: one live note the caller may read (RLS); otherwise not_found
+// GET  /api/seats/[slug]/guide           → { notes: { id: string; kind: NoteKind; title: string; body: string; deadlineDate?: string; byline: string; termOrder: number; lang: Lang }[];
+//       open: { id: string; text: string; reason: "gap" | "required" | "core" }[]; openChecked: boolean; asked: { questionId: string; text: string; lang: Lang; askedAt: string; answer?: AskResult }[] }
+//   the handover guide (引き継ぎ書), as the caller (RLS): the seat's live, current notes they may read; for a holder, the prompts no note they read names
+//   or covers (openChecked false: the check failed, open is empty); their own questions, newest first, each answer ("answered", no live) checked again
 // Any error                              → { error: "invalid_request" | "unauthorized" | "forbidden" | "not_found" | "unredacted" | "unavailable" }
 // Realtime `notes` → { id, status }; `events` → { id, kind, payload: Record<string, number>, created_at }
 ```
 
 - **Auth:** every API call sends `Authorization: Bearer <access token>`; route handlers create a Supabase
   client with that token so RLS runs as the caller.
-- **Console panes:** each pane creates its own Supabase client signed in as its persona
-  (`persistSession: false`), so three personas run side by side in one browser.
+- **Demo sign-in (seat pages):** Supabase's own email and password, one session per device (`lib/api.ts`: `signIn`,
+  `signedIn`, `signOut`). The device's client keeps its session in localStorage and refreshes it itself, so a reload
+  or a closed tab stays signed in; a console pane keeps its own under its own storage key. Only the demo
+  accounts sign in (`DemoAccount` and `DEMO_EMAIL` in `lib/contracts.ts`, the emails `scripts/seed.ts` creates). The
+  demo password is typed on the device and goes to Supabase Auth only, never into client code or a `NEXT_PUBLIC_*`
+  variable. Signing out ends this device's session only (`scope: "local"`; the default would also sign the demo phone
+  out), and clears it from the device even offline. Nobody signs up: "Allow new users to sign up" is off in Supabase
+  Auth and email is the only sign-in method, since the anon key is public (`tests/sign-in.test.ts` checks both).
+  `pnpm demo:reset` recreates the demo users, so every device signs in again after a reset: `signedIn` checks a
+  stored session with Supabase Auth and clears one it no longer knows.
+- **Console panes:** a26, a25 and x each run on their own Supabase client and session, under their own storage key
+  (`daidai-console-a26`, `-a25`, `-x`; `components/console-sign-in.ts`), so three personas run side by side in one
+  browser, apart from the device's own session. Signed out, `/console` shows one password field and 「3人でログインする」
+  where the panes go: the demo password, typed once, signs in all three (`lib/api.ts` → `signIn` per pane), and a
+  reload keeps them. All three or none: if one pane can't sign in, the others are signed out again and the console
+  says so calmly. 「ログアウト」 signs the three panes out on this device only. Reset on the real database is
+  `pnpm demo:reset` in a terminal (the service-role key stays out of the app), then a reload and the password once
+  more, since the reset recreates the demo users; the console's リセット button is for mocks.
 - **Realtime:** clients subscribe to `answers`, `prompt_routes`, `notes` (status changes) and `events` (meter); nothing polls.
+  Only inserts and updates are sent: Realtime can't check a deleted row against RLS, so deletes never go out (0005).
 - **Publishing for a routed prompt** re-runs every waiting question linked to it (`questions.prompt_id`) and writes an `answers` row per asker.
 
 ## Features (Hack Day, in build order)
@@ -262,12 +319,18 @@ type AskResult =
 Build order: contracts → F1 + F3 screens on mocks → F2 → F3 end to end (14:00 go/no-go) → F4 → F5 → F6 → F7 polish.
 
 ## Numbers for the README (`pnpm metrics` → `metrics/latest.json`, committed)
+Shape: `Metrics` in `lib/contracts.ts`. The console's leak counter reads the leak numbers from this file and says the
+test hasn't run when it's missing; no screen shows a typed-in number.
 - Leaks: outsider attempts (≥50), total attempts, leaks found (target 0)
 - Withdrawal: 10 runs, median and max seconds from click to absent in every pane
 - Citations: share of answer sentences with a valid source note across `seed/questions.csv` (target 100%)
 - Live loop: runs, failures and median seconds from abstain to the signed answer
 - Privacy: synthetic chats and files added, names / contact details / secrets hidden, and canaries that left the browser (target 0)
 The `/hackday-log` skill copies them into the README with a table of Hack Day work vs setup, with commit links.
+The file's shape is `Metrics` in `lib/contracts.ts`, and every number is one a check measured: `pnpm metrics`
+(`scripts/metrics.ts`) runs the checks and reads back a partial `Metrics` from each check's `METRICS {...}` line
+(`scripts/metrics-line.ts`). A section no check measured stays missing, and the README says "not measured" — a
+missing number is never shown as 0.
 
 ## LLM contracts
 - **Answer (Sonnet):** input = question + retrieved notes wrapped in `<note id=… byline=… term=…>` tags.
@@ -284,11 +347,14 @@ The `/hackday-log` skill copies them into the README with a table of Hack Day wo
   a `missing` item. For chats: extract only knowledge about the seat (deadlines, procedures, offices or roles to
   contact, rules, pitfalls); refer to people only by role; skip health, relationships, gossip, judgements about people
   and money owed by individuals; keep placeholders like `[電話番号]` out of cards and say where to find the contact instead.
-- **Follow-up (Haiku):** input = prompt + answer. Output: `{ needs_followup: boolean, missing?: "date" | "contact" | "threshold", question?: string }`. At most one per answer.
+- **Follow-up (Haiku):** input = prompt + answer. Output: `{ needs_followup: boolean, missing?: "date" | "contact" | "threshold", question?: string }`. At most one per answer:
+  the reply goes back with the next draft (`followup` in the request), which drafts from the answer plus the reply and
+  never asks again. Until then, a deadline the answer gives no date for is drafted as another kind of card.
 - **Dedupe and classification (Haiku):** merge similar demand prompts; reframe questions about individuals to the seat.
-  Input = the new question + the seat's open demand prompts in `<prompt id=…>` tags. Output:
-  `{ duplicate_of: string | null, prompt: string }` (the prompt it joins, checked against the given ids, and the
-  question as a demand prompt about the seat).
+  Two calls side by side, so another holder's prompt text never reaches the wording. Match: input = the new question +
+  the seat's open, listed demand prompts in `<prompt id=…>` tags, output `{ duplicate_of: string | null }` (the prompt
+  it joins, checked against the given ids). Wording: input = the new question alone, output `{ prompt: string }` (the
+  question as a demand prompt about the seat, checked by the guard).
 - **All model outputs** (Zod in `lib/contracts.ts`) have no minimums: the code checks each sentence and card, so one
   bad item is dropped instead of failing the call. Cards carry `lang`; their dates are plain strings there, checked
   per card, and a bad or missing deadline date becomes a `missing` item or a follow-up.

@@ -2,7 +2,8 @@
   "verbs": {
     "ask": "聞く",
     "handover": "残す",
-    "myNotes": "自分のメモ"
+    "myNotes": "自分のメモ",
+    "label": "この席でできること"
   },
   "seatTypes": {
     "club_role": {
@@ -16,7 +17,9 @@
         "institution": "{institution}の全サークル",
         "public": "一般公開"
       },
-      "abstain": "歴代の{seat}は誰も知りません。"
+      "abstain": "歴代の{seat}は誰も知りません。",
+      "routed": "去年の{seat}に届けました。",
+      "roles": "部長・副部長・会計・副会計・顧問・学生課"
     },
     "exchange_route": {
       "seat": "留学ルート",
@@ -29,7 +32,9 @@
         "institution": "{institution}の留学生全員",
         "public": "一般公開"
       },
-      "abstain": "このルートの先輩は誰も知りません。"
+      "abstain": "このルートの先輩は誰も知りません。",
+      "routed": "前の留学生に届けました。",
+      "roles": "前の留学生・派遣先の担当者・国際課・指導教員"
     },
     "lab_duty": {
       "seat": "担当",
@@ -42,7 +47,9 @@
         "institution": "{institution}の全研究室",
         "public": "一般公開"
       },
-      "abstain": "歴代の{seat}は誰も知りません。"
+      "abstain": "歴代の{seat}は誰も知りません。",
+      "routed": "前の{seat}に届けました。",
+      "roles": "教授・助教・技術職員・先輩・メーカーの担当者"
     }
   },
   "ask": {
@@ -52,7 +59,13 @@
     "outdated": "古い？",
     "outdatedDone": "次の引き継ぎで確認してもらいます",
     "ruleChange": "{term}にルールが変わりました",
-    "sourceChip": "{byline}"
+    "sourceChip": "{byline}",
+    "changedIn": "{term}年に変更",
+    "sourceGone": "このメモは今は読めません。",
+    "sourceFailed": "メモを読み込めませんでした。閉じて、もう一度開いてください。",
+    "source": "根拠：{byline}のメモ",
+    "seatFailed": "この席を読み込めませんでした。通信を確かめて、このページを開き直してください。",
+    "failed": "質問を送れませんでした。もう一度聞いてください。"
   },
   "abstain": {
     "routed": "この質問を次の引き継ぎに追加しました。"
@@ -65,14 +78,160 @@
     "invite": "次の人に席を渡す",
     "inviteHint": "このリンクは一度だけ使えます",
     "pasteOld": "去年の引き継ぎ資料を貼り付ける（任意）",
-    "gapsOnly": "資料にないことだけを聞きます"
+    "gapsOnly": "資料にないことだけを聞きます",
+    "promptsTitle": "引き継ぎの質問",
+    "reasonGap": "資料に書かれていなかったことです",
+    "reasonCore": "毎年、{seat}に聞いている質問です",
+    "makeDraft": "下書きを作る",
+    "drafting": "下書きを作っています…",
+    "draftFailed": "下書きを作れませんでした。通信を確かめて、もう一度お試しください。",
+    "draftEmpty": "この答えからはメモを作れませんでした。人の名前や連絡先、暗証番号を入れずに、もう一度答えてください。",
+    "followupLabel": "答え",
+    "followupSend": "答えて下書きし直す",
+    "followupSkip": "答えずに進む",
+    "reviewTitle": "公開する前に確かめてください",
+    "scopeLegend": "読める人",
+    "validUntil": "いつまで有効か",
+    "critical": "大事なメモにする（{group}が管理します）",
+    "publishedAs": "公開しました：{scopes}",
+    "promptsEmpty": "いまは答える質問はありません。",
+    "promptsFailed": "質問を読み込めませんでした。通信を確かめて、このページを開き直してください。",
+    "cancel": "やめる"
   },
   "withdraw": {
     "action": "撤回する",
     "done": "撤回しました（{ms}ミリ秒で回答から消えました）"
   },
   "leak": {
-    "counter": "漏れ {leaks} / {probes} 検査"
+    "counter": "漏れ <safe>{leaks}</safe> / {probes} 回",
+    "notRun": "漏れテストは未実施です"
+  },
+  "console": {
+    "title": "信頼の証明",
+    "newcomer": "新しい会計",
+    "predecessor": "去年の会計",
+    "outsider": "部外者",
+    "meter": "撤回にかかった秒数",
+    "seconds": "{s}秒",
+    "reset": "リセット",
+    "signInLead": "デモ用のパスワードを1回入れると、{newcomer}・{predecessor}・{outsider}の3人が、それぞれの画面でログインします。",
+    "signIn": "3人でログインする",
+    "signingIn": "3人でログインしています",
+    "signInFailed": "3人そろってはログインできなかったので、だれもログインしていません。通信を確かめて、もう一度押してください。",
+    "signOut": "ログアウト",
+    "loadFailed": "3人の画面を読み込めませんでした。開き直してください。"
+  },
+  "bar": {
+    "label": "表示とあなた",
+    "darkScreen": "暗い画面",
+    "you": "あなた",
+    "home": "はじめのページへ",
+    "language": {
+      "ja": "日本語",
+      "en": "English"
+    }
+  },
+  "home": {
+    "title": "代々",
+    "lead": "知識は人ではなく、席に受け継がれる。",
+    "barLabel": "表示",
+    "seatTitle": "席を開く",
+    "open": "席のページは、ふだんはそのリンク（部室の鍵のQRコードやNFCのシール）から開きます。",
+    "demoSeat": "デモの席を開く",
+    "consoleTitle": "信頼の証明",
+    "consoleText": "3人の画面を並べて、部外者に何も見えないこと、撤回したメモが回答から消える速さ、漏れテストの結果を確かめます。発表用のPCで開きます。",
+    "openConsole": "コンソールを開く"
+  },
+  "profile": {
+    "title": "あなた",
+    "loading": "読み込んでいます",
+    "noSeat": "席のページの「あなた」から開いてください。",
+    "failed": "読み込めませんでした。通信を確かめて、このページを開き直してください。",
+    "notHolder": "{seat}を担当したことはありません",
+    "place": "この席の<fig>{n}</fig>代目です",
+    "noteCounts": "公開中 <fig>{live}</fig>件、撤回済み <fig>{withdrawn}</fig>件",
+    "openNotes": "自分のメモを開く"
+  },
+  "measured": {
+    "title": "測定の内訳",
+    "notRun": "まだ測定していません（pnpm metrics）",
+    "notMeasured": "未測定",
+    "at": "{at}に測定（pnpm metrics）",
+    "leaksLabel": "漏れテスト",
+    "leaks": "<fig>{total}</fig>回のうち部外者 <fig>{outsider}</fig>回、漏れ <safe>{found}</safe>件",
+    "withdrawLabel": "撤回",
+    "withdraw": "回答から消えるまで中央値 <fig>{median}</fig>秒、最大 <fig>{max}</fig>秒（<fig>{runs}</fig>回）",
+    "citationsLabel": "根拠",
+    "citations": "回答の <fig>{sentences}</fig>文のうち <fig>{cited}</fig>文に根拠のメモ（<fig>{percent}</fig>%）",
+    "loopLabel": "ライブループ",
+    "loop": "<fig>{runs}</fig>回のうち失敗 <fig>{failures}</fig>回、署名つきの答えまで中央値 <fig>{median}</fig>秒",
+    "redactionLabel": "個人情報",
+    "redaction": "トーク <fig>{chats}</fig>件とファイル <fig>{files}</fig>件から <hid>{hidden}</hid>件を隠し、端末の外に出たカナリアは <out>{left}</out>件",
+    "resetHint": "実データのリセットは、ターミナルで pnpm demo:reset を実行してから、このページを再読み込みして、もう一度ログインします。"
+  },
+  "filter": {
+    "title": "絞り込みと並び順",
+    "sort": "並び順",
+    "shown": "<fig>{n}</fig>件のメモを表示しています",
+    "clear": "絞り込みを外す",
+    "search": "検索",
+    "searchNotes": "タイトル・内容・書いた人で探す",
+    "searchTitles": "タイトルで探す",
+    "searched": "、「{query}」を含む",
+    "noneMatch": "この条件のメモはありません。",
+    "status": "状態",
+    "allStatus": "すべて",
+    "live": "公開中",
+    "scope": "読める人",
+    "allScopes": "すべての範囲",
+    "seat": "席",
+    "allSeats": "すべての席",
+    "newest": "新しい順",
+    "oldest": "古い順"
+  },
+  "guide": {
+    "titlePlain": "引き継ぎ書",
+    "title": "{seat}の引き継ぎ書",
+    "open": "引き継ぎ書を開く",
+    "close": "引き継ぎ書を閉じる",
+    "where": "{group}（{institution}）",
+    "asOf": "{date}時点",
+    "counts": "メモ <fig>{notes}</fig>件、まだ書かれていないこと <fig>{open}</fig>件",
+    "rules": "あなたが読めるメモだけをまとめています。撤回されたメモと、新しいメモに更新されたメモは入りません。保存した写しは、あとでメモが撤回されても残ります。",
+    "toolsLabel": "書き出す",
+    "print": "印刷・PDFで保存",
+    "saveText": "テキストで保存（.md）",
+    "exportHint": "いま表示している内容を、絞り込みも含めて書き出します。ファイルはこの端末に保存され、どこにも送られません。",
+    "saved": "{name} を保存しました",
+    "kind": "種類",
+    "byline": "書いた人",
+    "allKinds": "すべての種類",
+    "allBylines": "すべての先輩",
+    "sorts": {
+      "newest": "新しい年度から",
+      "oldest": "古い年度から",
+      "deadline": "締切が近い順"
+    },
+    "filteredNote": "絞り込み：{kind}、{byline}",
+    "noNotes": "この席には、あなたが読めるメモがまだありません。",
+    "deadline": "締切 {date}",
+    "openTitle": "まだ書かれていないこと",
+    "openNone": "いまのところ、書かれていないことは見つかっていません。",
+    "openHolders": "書かれていないことは、この席を担当した人に表示されます。",
+    "openUnchecked": "まだ書かれていないことを、いまは確かめられませんでした。しばらくしてから開き直してください。",
+    "openItem": "{text}（{reason}）",
+    "reason": {
+      "gap": "資料に書かれていなかったこと",
+      "required": "{group}の必須の質問",
+      "core": "毎年{seat}に聞いていること"
+    },
+    "yourQuestion": "あなたの質問、まだ答えがありません",
+    "askedTitle": "あなたの質問と答え",
+    "upcomingItem": "{date} {title}（{byline}）",
+    "sentenceBy": "{text}（{byline}）",
+    "bylineSeparator": "、",
+    "source": "最新の内容：{url}",
+    "failed": "引き継ぎ書を読み込めませんでした。通信を確かめて、このページを開き直してください。"
   },
   "onkuri": {
     "credit": "{n}人の先輩が、あなたの質問{q}個に答えました。次はあなたの番です！"
@@ -84,7 +243,28 @@
   },
   "seat": {
     "upcoming": "これからの締切",
-    "upcomingItem": "{title} {date}まで ・{byline}"
+    "tagKind": "{kind}：",
+    "you": "あなた",
+    "youAt": "あなた（{term}）",
+    "upcomingDate": "{date} {weekday}"
+  },
+  "signIn": {
+    "title": "ログイン",
+    "lead": "デモ用のアカウントを選んで、パスワードを入れてください。",
+    "accounts": "アカウント",
+    "member": "{group}の部員",
+    "student": "{institution}の学生",
+    "password": "パスワード",
+    "submit": "ログインする",
+    "submitting": "ログインしています",
+    "wrongPassword": "パスワードが違います。もう一度入れてください。",
+    "unavailable": "いまはログインできません。通信を確かめて、もう一度押してください。",
+    "checking": "ログインを確かめています",
+    "offline": "ログインを確かめられませんでした。通信を確かめて、もう一度ためしてください。",
+    "retry": "もう一度ためす",
+    "signedInAs": "{account}でログインしています",
+    "switch": "切り替える",
+    "signingOut": "ログアウトしています"
   },
   "kinds": {
     "deadline": "締切",
@@ -94,21 +274,46 @@
     "unwritten_rule": "暗黙のルール"
   },
   "myNotes": {
-    "used": "このメモは{n}回、回答に使われました"
+    "used": "このメモは{n}回、回答に使われました",
+    "empty": "まだメモはありません。",
+    "withdrawn": "撤回済み",
+    "failed": "メモを読み込めませんでした。ページを開き直してください。",
+    "withdrawFailed": "撤回できませんでした。もう一度「撤回する」を押してください。"
   },
   "inbox": {
     "title": "後輩からの質問",
     "arrived": "後輩から質問が届きました",
+    "from": "から",
     "askedBy": "{byline}からの質問",
-    "askCount": "{n}人が質問しました",
+    "askCount": "<fig>{n}</fig>人が質問しました",
     "answerByVoice": "声で答える",
     "answerByText": "文字で答える",
     "listening": "聞いています…",
-    "publish": "公開する"
+    "publish": "公開する",
+    "empty": "まだ質問は届いていません。",
+    "failed": "質問を読み込めませんでした。通信を確かめて、このページを開き直してください。"
+  },
+  "voice": {
+    "title": "答えを残す",
+    "transcriptLabel": "話した内容",
+    "tapToSpeak": "マイクを押して話す",
+    "startListening": "音声入力を始める",
+    "stopListening": "音声入力を止める",
+    "placeholder": "話した内容がここに入ります",
+    "keyboardHint": "キーボードの音声入力も、この欄で使えます。",
+    "micDenied": "マイクを使えません。この欄に文字で答えられます。",
+    "unsupported": "このブラウザでは音声入力を使えません。この欄に文字で入力してください。",
+    "publishing": "公開しています…",
+    "published": "公開しました",
+    "close": "閉じる",
+    "failed": "公開できませんでした。通信を確かめて、もう一度お試しください。",
+    "answerLabel": "答え",
+    "inlinePlaceholder": "答えを書くか、マイクで話す"
   },
   "live": {
     "answered": "いま、{byline}が答えました",
-    "waiting": "先輩に質問を届けました"
+    "waiting": "先輩に質問を届けました",
+    "stamp": "{byline}のメモ"
   },
   "import": {
     "title": "資料・ファイル・トーク履歴から追加",
@@ -120,12 +325,11 @@
     "askLeaver": "先輩に聞く",
     "tabDoc": "貼り付け",
     "tabChat": "トーク履歴",
-    "dropChat": "LINE や WhatsApp のトーク履歴（.txt）をここに置くか、Slack・X・Instagram からコピーして貼り付けてください",
+    "dropChat": "LINE・\u2060WhatsApp のトーク履歴（.txt）をここに置いてください",
     "speakers": "話している人",
     "rolePick": "役割を選ぶ",
     "member": "メンバー{letter}",
     "hideMore": "ほかに隠す言葉",
-    "hidden": "名前 {names}件・電話番号 {phones}件・メール {emails}件・口座番号 {accounts}件・秘密 {secrets}件を隠しました",
     "preview": "送られる内容",
     "consent": "このトークのメンバーに、引き継ぎに使うことを伝えました",
     "sendRedacted": "この内容だけを送る",
@@ -144,10 +348,117 @@
     "duplicate": "似たメモがあります：{title}（{byline}）",
     "update": "更新する",
     "keepBoth": "別のメモとして残す",
-    "superseded": "{term}に更新"
+    "superseded": "{term}に更新",
+    "close": "閉じる",
+    "check": "送る内容を確認する",
+    "pasteChat": "Slack・X・Instagram などからコピーしたメッセージを貼り付けてください",
+    "reading": "読み込んでいます",
+    "fileReadText": "{name}を読み込みました",
+    "unreadable": "このファイルは読めませんでした。文字をコピーして貼り付けてください",
+    "unsupported": "PDF・Word（.docx）・テキスト（.txt・.md）のファイルを選んでください",
+    "notChat": "トーク履歴として読めませんでした。LINE・\u2060WhatsApp の .txt か、コピーしたメッセージを使ってください",
+    "noSpeakers": "話している人を見つけられませんでした。資料として「貼り付け」から追加し、名前は「ほかに隠す言葉」に入れてください",
+    "toPaste": "貼り付けに切り替える",
+    "again": "やり直す",
+    "another": "別の資料を追加する",
+    "hidePending": "Enter を押すと、この言葉も隠します",
+    "notHidden": "{words} は隠せませんでした。前後の文字と一緒に入力してください",
+    "bars": {
+      "phone": "電話番号",
+      "email": "メール",
+      "url": "URL",
+      "urlHost": "URL: {host}",
+      "id": "ID",
+      "studentId": "学籍番号",
+      "address": "住所",
+      "account": "口座番号",
+      "card": "カード番号",
+      "secret": "秘密",
+      "name": "名前"
+    },
+    "unavailable": "追加の画面を開けませんでした。ページを開き直してください",
+    "rolesHint": "名前は、選んだ役割に置きかえて送ります",
+    "messageCount": "{count}件",
+    "rolesDone": "この役割で隠す",
+    "asDoc": "トークではなく資料として読む",
+    "changeRoles": "役割を選び直す",
+    "hideMoreHint": "「、」で区切って入力してください",
+    "hiddenList": "<list></list>を隠しました",
+    "hiddenNone": "隠すものは見つかりませんでした",
+    "listSeparator": "・",
+    "kinds": {
+      "names": "名前 <fig>{count}</fig>件",
+      "phones": "電話番号 <fig>{count}</fig>件",
+      "emails": "メール <fig>{count}</fig>件",
+      "accounts": "口座番号 <fig>{count}</fig>件",
+      "secrets": "秘密 <fig>{count}</fig>件",
+      "ids": "ID <fig>{count}</fig>件",
+      "addresses": "住所 <fig>{count}</fig>件",
+      "urls": "URL <fig>{count}</fig>件"
+    },
+    "used": "{total}件中{kept}件のメッセージを使います",
+    "useAll": "全部使う",
+    "useKept": "引き継ぎに関係しそうなものだけ使う",
+    "noneKept": "引き継ぎに関係しそうなメッセージは見つかりませんでした",
+    "tooLong": "長すぎます（10万文字まで）。分けて追加してください",
+    "sending": "送っています",
+    "unredacted": "電話番号かメールが残っていたため、送りませんでした。「ほかに隠す言葉」に入れてください",
+    "failed": "送れませんでした。もう一度お試しください",
+    "drafted": "メモの下書き {cards}件・書かれていないこと {missing}件",
+    "draftsTitle": "メモの下書き",
+    "edit": "直す",
+    "editDone": "直し終える",
+    "drop": "外す",
+    "restore": "戻す",
+    "dropped": "「{title}」は公開しません",
+    "fieldTitle": "タイトル",
+    "fieldBody": "内容",
+    "fieldDate": "締切の日",
+    "problem": {
+      "title": "タイトルを入れてください（100文字まで）",
+      "body": "内容を入れてください（2000文字まで）",
+      "date": "締切の日を入れてください",
+      "guard": "名前・連絡先・秘密が残っています。「直す」で消してください"
+    },
+    "publishCount": "{count}件を公開する",
+    "publishing": "公開しています",
+    "published": "{count}件を公開しました",
+    "publishFailed": "公開できませんでした。通信を確かめて、もう一度お試しください",
+    "publishUnredacted": "名前か連絡先が残っていたため、公開しませんでした。「直す」で消してから、もう一度お試しください",
+    "hold": {
+      "empty": "公開するメモがありません",
+      "problem": "直すところのあるメモがあります",
+      "choose": "似たメモを更新するか、別のメモとして残すかを選んでください",
+      "twice": "同じメモを更新できるのは1件だけです。もう1件は「別のメモとして残す」を選んでください"
+    },
+    "keptBoth": "似たメモとは別のメモとして残します",
+    "blockedReason": {
+      "placeholder": "隠した部分が含まれていたため、このメモは作りませんでした",
+      "secret": "暗証番号などの秘密が含まれていたため、このメモは作りませんでした",
+      "contact": "連絡先が含まれていたため、このメモは作りませんでした",
+      "name": "名前が含まれていたため、このメモは作りませんでした"
+    },
+    "asked": "先輩への質問に加えました",
+    "askFailed": "先輩への質問に加えられませんでした。もう一度お試しください",
+    "from": {
+      "line": "LINEグループ",
+      "whatsapp": "WhatsAppグループ",
+      "paste": "コピーしたメッセージ",
+      "pdf": "PDF",
+      "docx": "Word",
+      "txt": "テキスト",
+      "md": "テキスト",
+      "text": "貼り付け"
+    },
+    "askWhat": "先輩に聞くこと：{prompt}",
+    "updateScope": "元のメモと同じ範囲（{scope}）で公開します"
   },
   "trust": {
     "nothing": "このページで見られるメモはありません",
-    "leaks": "漏れ {leaks} / {attempts} 回"
+    "leaks": "現在までの情報漏れ {leaks} / {attempts} 回"
+  },
+  "mock": {
+    "newcomerAsks": "後輩が質問する（モック）",
+    "predecessorAnswers": "先輩が答えて公開する（モック）"
   }
 }

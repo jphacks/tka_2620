@@ -2,7 +2,8 @@
   "verbs": {
     "ask": "Ask",
     "handover": "Hand over",
-    "myNotes": "My notes"
+    "myNotes": "My notes",
+    "label": "At this seat"
   },
   "seatTypes": {
     "club_role": {
@@ -16,7 +17,9 @@
         "institution": "Every club at {institution}",
         "public": "Public"
       },
-      "abstain": "No {seat} before you knew this."
+      "abstain": "No {seat} before you knew this.",
+      "routed": "Sent to last year's {seat}.",
+      "roles": "President, Vice president, Treasurer, Deputy treasurer, Advisor, Student affairs office"
     },
     "exchange_route": {
       "seat": "exchange route",
@@ -29,7 +32,9 @@
         "institution": "All exchange students at {institution}",
         "public": "Public"
       },
-      "abstain": "Nobody on this route knew this yet."
+      "abstain": "Nobody on this route knew this yet.",
+      "routed": "Sent to the previous exchange student.",
+      "roles": "Previous exchange student, Host university contact, International office, Supervisor"
     },
     "lab_duty": {
       "seat": "duty",
@@ -42,7 +47,9 @@
         "institution": "Every lab at {institution}",
         "public": "Public"
       },
-      "abstain": "No {seat} before you knew this."
+      "abstain": "No {seat} before you knew this.",
+      "routed": "Sent to the previous {seat}.",
+      "roles": "Professor, Assistant professor, Technician, Senior student, Vendor contact"
     }
   },
   "ask": {
@@ -52,27 +59,179 @@
     "outdated": "Outdated?",
     "outdatedDone": "We'll ask the next handover to check this",
     "ruleChange": "The rule changed in {term}",
-    "sourceChip": "{byline}"
+    "sourceChip": "{byline}",
+    "changedIn": "Changed in {term}",
+    "sourceGone": "This note can't be read now.",
+    "sourceFailed": "Couldn't load this note. Close it and open it again.",
+    "source": "Source: a note by {byline}",
+    "seatFailed": "Couldn't load this seat. Check your connection and reopen this page.",
+    "failed": "Couldn't send your question. Ask it again."
   },
   "abstain": {
     "routed": "Added to the next handover."
   },
   "handover": {
-    "reasonDemand": "{n} newcomers asked this",
+    "reasonDemand": "{n, plural, one {# newcomer asked this} other {# newcomers asked this}}",
     "reasonRequired": "Required by {group}",
-    "readers": "{n} people can read this",
+    "readers": "{n, plural, one {# person can read this} other {# people can read this}}",
     "publish": "Publish",
     "invite": "Hand the seat to the next person",
     "inviteHint": "This link works once",
     "pasteOld": "Paste last year's handover doc (optional)",
-    "gapsOnly": "We'll only ask about what it doesn't cover"
+    "gapsOnly": "We'll only ask about what it doesn't cover",
+    "promptsTitle": "Handover questions",
+    "reasonGap": "Not covered by the handover doc",
+    "reasonCore": "Asked of every {seat}",
+    "makeDraft": "Make a draft",
+    "drafting": "Making a draft…",
+    "draftFailed": "Couldn't make a draft. Check your connection and try again.",
+    "draftEmpty": "Couldn't make a note from this answer. Leave out people's names, contact details and PINs, and answer again.",
+    "followupLabel": "Answer",
+    "followupSend": "Answer and redraft",
+    "followupSkip": "Skip",
+    "reviewTitle": "Check before publishing",
+    "scopeLegend": "Who can read it",
+    "validUntil": "Valid until",
+    "critical": "Mark as important (kept by {group})",
+    "publishedAs": "Published: {scopes}",
+    "promptsEmpty": "Nothing to answer right now.",
+    "promptsFailed": "Couldn't load the questions. Check your connection and reopen this page.",
+    "cancel": "Cancel"
   },
   "withdraw": {
     "action": "Withdraw",
     "done": "Withdrawn (gone from answers in {ms} ms)"
   },
   "leak": {
-    "counter": "Leaks {leaks} / {probes} checks"
+    "counter": "Leaks <safe>{leaks}</safe> / {probes} checks",
+    "notRun": "Leak test not run yet"
+  },
+  "console": {
+    "title": "Trust proof",
+    "newcomer": "The new treasurer",
+    "predecessor": "Last year's treasurer",
+    "outsider": "Outsider",
+    "meter": "Seconds to withdraw",
+    "seconds": "{s}s",
+    "reset": "Reset",
+    "signInLead": "Type the demo password once, and the new treasurer, last year's treasurer and the outsider each sign in on their own screen.",
+    "signIn": "Sign in all three",
+    "signingIn": "Signing in all three",
+    "signInFailed": "Not all three could sign in, so none of them is signed in. Check the connection and press again.",
+    "signOut": "Sign out",
+    "loadFailed": "Couldn't load the three screens. Reopen this page."
+  },
+  "bar": {
+    "label": "Display and you",
+    "darkScreen": "Dark screen",
+    "you": "You",
+    "home": "To the start page",
+    "language": {
+      "ja": "日本語",
+      "en": "English"
+    }
+  },
+  "home": {
+    "title": "Daidai",
+    "lead": "Knowledge passes down with the seat, not the person.",
+    "barLabel": "Display",
+    "seatTitle": "Open a seat",
+    "open": "A seat's page usually opens from its link: the QR code or NFC sticker on the club-room key.",
+    "demoSeat": "Open the demo seat",
+    "consoleTitle": "Trust proof",
+    "consoleText": "Three screens side by side show that an outsider sees nothing, how fast a withdrawn note leaves every answer, and the leak test's result. Open it on the presenting laptop.",
+    "openConsole": "Open the console"
+  },
+  "profile": {
+    "title": "You",
+    "loading": "Loading",
+    "noSeat": "Open this page with “You” on a seat's page.",
+    "failed": "Couldn't load this. Check the connection and reopen the page.",
+    "notHolder": "You have never held {seat}",
+    "place": "Holder no. <fig>{n}</fig> of this seat",
+    "noteCounts": "<fig>{live}</fig> live, <fig>{withdrawn}</fig> withdrawn",
+    "openNotes": "Open my notes"
+  },
+  "measured": {
+    "title": "What the checks measured",
+    "notRun": "Not measured yet (pnpm metrics)",
+    "notMeasured": "Not measured",
+    "at": "Measured {at} (pnpm metrics)",
+    "leaksLabel": "Leak test",
+    "leaks": "<safe>{found}</safe> leaks in <fig>{total}</fig> attempts, <fig>{outsider}</fig> of them by an outsider",
+    "withdrawLabel": "Withdrawal",
+    "withdraw": "Gone from every answer in a median <fig>{median}</fig> s, at most <fig>{max}</fig> s (<fig>{runs}</fig> runs)",
+    "citationsLabel": "Sources",
+    "citations": "<fig>{cited}</fig> of <fig>{sentences}</fig> answer sentences cite a note (<fig>{percent}</fig>%)",
+    "loopLabel": "Live loop",
+    "loop": "<fig>{failures}</fig> failures in <fig>{runs}</fig> runs, a median <fig>{median}</fig> s to the signed answer",
+    "redactionLabel": "Privacy",
+    "redaction": "<hid>{hidden}</hid> items hidden in <fig>{chats}</fig> chats and <fig>{files}</fig> files; <out>{left}</out> canaries left the browser",
+    "resetHint": "To reset the real data, run pnpm demo:reset in a terminal, then reload this page and sign in again."
+  },
+  "filter": {
+    "title": "Filter and order",
+    "sort": "Order",
+    "shown": "Showing <fig>{n}</fig> notes",
+    "clear": "Clear the filter",
+    "search": "Search",
+    "searchNotes": "Search titles, text and who wrote it",
+    "searchTitles": "Search titles",
+    "searched": ", containing “{query}”",
+    "noneMatch": "No notes match this filter.",
+    "status": "Status",
+    "allStatus": "All",
+    "live": "Live",
+    "scope": "Who can read",
+    "allScopes": "Every scope",
+    "seat": "Seat",
+    "allSeats": "Every seat",
+    "newest": "Newest first",
+    "oldest": "Oldest first"
+  },
+  "guide": {
+    "titlePlain": "Handover guide",
+    "title": "Handover guide: {seat}",
+    "open": "Open the handover guide",
+    "close": "Close the handover guide",
+    "where": "{group} ({institution})",
+    "asOf": "As of {date}",
+    "counts": "<fig>{notes}</fig> notes, <fig>{open}</fig> things not written yet",
+    "rules": "Only the notes you may read are here. Withdrawn notes and notes replaced by a newer one are left out. A saved copy keeps what it shows even if a note is withdrawn later.",
+    "toolsLabel": "Export",
+    "print": "Print or save as PDF",
+    "saveText": "Save as text (.md)",
+    "exportHint": "Exports what this page shows, filters included. The file is saved on this device and sent nowhere.",
+    "saved": "Saved {name}",
+    "kind": "Kind",
+    "byline": "Written by",
+    "allKinds": "All kinds",
+    "allBylines": "Every predecessor",
+    "sorts": {
+      "newest": "Newest term first",
+      "oldest": "Oldest term first",
+      "deadline": "Nearest deadline first"
+    },
+    "filteredNote": "Filtered: {kind}, {byline}",
+    "noNotes": "There are no notes here that you may read yet.",
+    "deadline": "Deadline {date}",
+    "openTitle": "Not written yet",
+    "openNone": "Nothing found that isn't written yet.",
+    "openHolders": "What isn't written yet is shown to the seat's holders.",
+    "openUnchecked": "Couldn't check what isn't written yet. Reopen this page in a moment.",
+    "openItem": "{text} ({reason})",
+    "reason": {
+      "gap": "missing from an added document",
+      "required": "required by {group}",
+      "core": "asked of every {seat}"
+    },
+    "yourQuestion": "your question, not answered yet",
+    "askedTitle": "Your questions and answers",
+    "upcomingItem": "{date} {title} ({byline})",
+    "sentenceBy": "{text} ({byline})",
+    "bylineSeparator": ", ",
+    "source": "Latest version: {url}",
+    "failed": "Couldn't load the handover guide. Check the connection and reopen this page."
   },
   "onkuri": {
     "credit": "{n} senpai answered {q} of your questions. Your turn!"
@@ -84,7 +243,28 @@
   },
   "seat": {
     "upcoming": "Coming up",
-    "upcomingItem": "{title} by {date} · {byline}"
+    "tagKind": "{kind}: ",
+    "you": "You",
+    "youAt": "You ({term})",
+    "upcomingDate": "{weekday} {date}"
+  },
+  "signIn": {
+    "title": "Sign in",
+    "lead": "Pick a demo account and type its password.",
+    "accounts": "Account",
+    "member": "{group} member",
+    "student": "{institution} student",
+    "password": "Password",
+    "submit": "Sign in",
+    "submitting": "Signing in",
+    "wrongPassword": "That password isn't right. Type it again.",
+    "unavailable": "Can't sign in right now. Check the connection and press again.",
+    "checking": "Checking your sign-in",
+    "offline": "Couldn't check your sign-in. Check the connection and try again.",
+    "retry": "Try again",
+    "signedInAs": "Signed in as {account}",
+    "switch": "Switch account",
+    "signingOut": "Signing out"
   },
   "kinds": {
     "deadline": "Deadline",
@@ -94,21 +274,46 @@
     "unwritten_rule": "Unwritten rule"
   },
   "myNotes": {
-    "used": "This note was used in {n} answers"
+    "used": "This note was used in {n} answers",
+    "empty": "You haven't written any notes yet.",
+    "withdrawn": "Withdrawn",
+    "failed": "Couldn't load your notes. Reopen this page.",
+    "withdrawFailed": "Couldn't withdraw the note. Press Withdraw again."
   },
   "inbox": {
     "title": "Questions from newcomers",
     "arrived": "A newcomer asked you something",
+    "from": "From",
     "askedBy": "Asked by {byline}",
-    "askCount": "{n} people asked this",
+    "askCount": "{n, plural, one {<fig>#</fig> person asked this} other {<fig>#</fig> people asked this}}",
     "answerByVoice": "Answer by voice",
     "answerByText": "Answer in text",
     "listening": "Listening…",
-    "publish": "Publish"
+    "publish": "Publish",
+    "empty": "No questions yet.",
+    "failed": "Couldn't load the questions. Check your connection and reopen this page."
+  },
+  "voice": {
+    "title": "Leave the answer",
+    "transcriptLabel": "What you said",
+    "tapToSpeak": "Tap the microphone and speak",
+    "startListening": "Start voice input",
+    "stopListening": "Stop voice input",
+    "placeholder": "What you say appears here",
+    "keyboardHint": "Your keyboard's dictation works in this field too.",
+    "micDenied": "We can't use the microphone. You can answer in this field instead.",
+    "unsupported": "This browser can't take voice input. Please type in this field.",
+    "publishing": "Publishing…",
+    "published": "Published",
+    "close": "Close",
+    "failed": "Couldn't publish. Check your connection and try again.",
+    "answerLabel": "Answer",
+    "inlinePlaceholder": "Type, or tap the mic to speak"
   },
   "live": {
     "answered": "{byline} just answered",
-    "waiting": "Sent to your predecessors"
+    "waiting": "Sent to your predecessors",
+    "stamp": "Note by {byline}"
   },
   "import": {
     "title": "Add from docs, files and chats",
@@ -117,15 +322,14 @@
     "notStored": "The original document or file is not stored",
     "missingTitle": "What's missing",
     "missingItem": "No {topic} in the doc",
-    "askLeaver": "Ask the leaver",
+    "askLeaver": "Ask your predecessors",
     "tabDoc": "Paste",
     "tabChat": "Chat history",
-    "dropChat": "Drop a LINE or WhatsApp chat export (.txt) here, or paste messages copied from Slack, X or Instagram",
+    "dropChat": "Drop a LINE or WhatsApp chat export (.txt) here",
     "speakers": "People in this chat",
     "rolePick": "Choose a role",
     "member": "Member {letter}",
     "hideMore": "Other words to hide",
-    "hidden": "Hidden: {names} names, {phones} phone numbers, {emails} emails, {accounts} account numbers, {secrets} secrets",
     "preview": "What will be sent",
     "consent": "I told the people in this chat that it will be used for the handover",
     "sendRedacted": "Send only this",
@@ -144,10 +348,117 @@
     "duplicate": "A similar note exists: {title} ({byline})",
     "update": "Update it",
     "keepBoth": "Keep as a separate note",
-    "superseded": "Updated in {term}"
+    "superseded": "Updated in {term}",
+    "close": "Close",
+    "check": "Check what will be sent",
+    "pasteChat": "Paste messages you copied from Slack, X, Instagram or elsewhere",
+    "reading": "Reading",
+    "fileReadText": "Read {name}",
+    "unreadable": "This file couldn't be read. Copy the text and paste it instead",
+    "unsupported": "Choose a PDF, Word (.docx) or text (.txt, .md) file",
+    "notChat": "This couldn't be read as a chat. Use a LINE or WhatsApp .txt export or messages you copied",
+    "noSpeakers": "No one speaking was found. Add it as a document under \"Paste\" and put any names in \"Other words to hide\"",
+    "toPaste": "Switch to Paste",
+    "again": "Start over",
+    "another": "Add another document",
+    "hidePending": "Press Enter to hide these words too",
+    "notHidden": "Couldn't hide {words}. Type them with the characters around them",
+    "bars": {
+      "phone": "Phone",
+      "email": "Email",
+      "url": "URL",
+      "urlHost": "URL: {host}",
+      "id": "ID",
+      "studentId": "Student ID",
+      "address": "Address",
+      "account": "Account no.",
+      "card": "Card no.",
+      "secret": "Secret",
+      "name": "Name"
+    },
+    "unavailable": "The add panel couldn't open. Reload the page",
+    "rolesHint": "Each name is replaced by the role you choose",
+    "messageCount": "{count, plural, one {# message} other {# messages}}",
+    "rolesDone": "Hide names behind these roles",
+    "asDoc": "Not a chat: read it as a document",
+    "changeRoles": "Change the roles",
+    "hideMoreHint": "Separate words with commas",
+    "hiddenList": "Hidden: <list></list>",
+    "hiddenNone": "Nothing needed hiding",
+    "listSeparator": ", ",
+    "kinds": {
+      "names": "{count, plural, one {<fig>#</fig> name} other {<fig>#</fig> names}}",
+      "phones": "{count, plural, one {<fig>#</fig> phone number} other {<fig>#</fig> phone numbers}}",
+      "emails": "{count, plural, one {<fig>#</fig> email} other {<fig>#</fig> emails}}",
+      "accounts": "{count, plural, one {<fig>#</fig> account number} other {<fig>#</fig> account numbers}}",
+      "secrets": "{count, plural, one {<fig>#</fig> secret} other {<fig>#</fig> secrets}}",
+      "ids": "{count, plural, one {<fig>#</fig> ID} other {<fig>#</fig> IDs}}",
+      "addresses": "{count, plural, one {<fig>#</fig> address} other {<fig>#</fig> addresses}}",
+      "urls": "{count, plural, one {<fig>#</fig> URL} other {<fig>#</fig> URLs}}"
+    },
+    "used": "{kept} of {total, plural, one {# message} other {# messages}} will be sent",
+    "useAll": "Use them all",
+    "useKept": "Use only what looks like handover knowledge",
+    "noneKept": "No message looked like handover knowledge",
+    "tooLong": "This is too long (up to 100,000 characters). Add it in parts",
+    "sending": "Sending",
+    "unredacted": "A phone number or email was still in the text, so nothing was sent. Add it to \"Other words to hide\"",
+    "failed": "Couldn't send. Please try again",
+    "drafted": "{cards, plural, one {# draft note} other {# draft notes}}, {missing, plural, one {# thing missing} other {# things missing}}",
+    "draftsTitle": "Draft notes",
+    "edit": "Edit",
+    "editDone": "Done editing",
+    "drop": "Leave out",
+    "restore": "Put back",
+    "dropped": "“{title}” won't be published",
+    "fieldTitle": "Title",
+    "fieldBody": "Note",
+    "fieldDate": "Deadline date",
+    "problem": {
+      "title": "Add a title (up to 100 characters)",
+      "body": "Add what the note says (up to 2,000 characters)",
+      "date": "Add the deadline's date",
+      "guard": "It still holds a name, contact details or a secret. Remove it with “Edit”"
+    },
+    "publishCount": "Publish {count, plural, one {# note} other {# notes}}",
+    "publishing": "Publishing",
+    "published": "{count, plural, one {Published # note} other {Published # notes}}",
+    "publishFailed": "Couldn't publish. Check your connection and try again",
+    "publishUnredacted": "Not published: a name or contact details were left. Remove them with “Edit” and try again",
+    "hold": {
+      "empty": "No notes to publish",
+      "problem": "A note needs editing first",
+      "choose": "Choose whether to update the similar note or keep this as a separate note",
+      "twice": "Two notes can't update the same note. Keep one of them as a separate note"
+    },
+    "keptBoth": "It will stay a separate note",
+    "blockedReason": {
+      "placeholder": "Not drafted: it held something that was hidden",
+      "secret": "Not drafted: it held a secret such as a PIN",
+      "contact": "Not drafted: it held contact details",
+      "name": "Not drafted: it held a name"
+    },
+    "asked": "Added to the questions for your predecessors",
+    "askFailed": "Couldn't add it to the questions. Please try again",
+    "from": {
+      "line": "LINE group",
+      "whatsapp": "WhatsApp group",
+      "paste": "Copied messages",
+      "pdf": "PDF",
+      "docx": "Word",
+      "txt": "Text file",
+      "md": "Text file",
+      "text": "Pasted text"
+    },
+    "askWhat": "What you'll ask: {prompt}",
+    "updateScope": "It will be published to the same readers as the note it updates: {scope}"
   },
   "trust": {
     "nothing": "There are no notes you can see here",
     "leaks": "Leaks {leaks} / {attempts} attempts"
+  },
+  "mock": {
+    "newcomerAsks": "Newcomer asks (mock)",
+    "predecessorAnswers": "Predecessor answers and publishes (mock)"
   }
 }

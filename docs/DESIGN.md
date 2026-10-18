@@ -104,21 +104,46 @@ Use Japanese notebook marks, not coloured chips or emoji. Each mark is followed 
   holds. UI areas (headers, buttons, forms) have no lines.
 - **Shape follows the object, not one radius for everything:**
   page 0 · slip (inbox, import panel) 2px · key tag 10px with a 10px punched hole · button 6px ·
-  voice button round · ask field none (a writing line).
+  voice button round · ask field 6px (an outlined box).
 - **Elevation**: none, except slips, which sit on the page with a 1px `--rule` border and a 0 2px 0 offset
   in `--rule` (a paper edge, not a blur shadow).
 - Tap targets at least 44px; the voice button 80px.
 
 ## Components (golden path)
-- **`SeatHeader`**: the key tag on the left (seat name in Yusei Magic, a ring through the punched hole),
+- **`SeatHeader`**: the key tag on the left, 44px tall (Nico's call): the seat type's word in UI text, then the seat's
+  name in Yusei Magic 20px, 「役職：会計」 (a ring through the punched hole),
   group and institution in UI text beside it. One line icon per seat type (club = flag, exchange = route,
   lab = flask); seat types never get their own colour.
 - **`LineageRail`** (歴代の札): one small key tag per term, oldest left, newest right, vertical Yusei Magic
   labels 「24 会計」, 「25 会計」, then a dashed blank tag 「あなた」 for the viewer. Horizontal scroll on phones.
 - **`VerbTabs`**: 聞く · 残す · 自分のメモ as notebook index tabs: on phones they sit at the bottom edge; the active
-  tab is `--sheet` with blue text and joins the page, inactive tabs are `--paper` with `--ink-2` text.
-- **`AskField`**: a single writing line in `--blue` with the placeholder in Klee One
-  (「先輩たちに聞いてみましょう」) and a blue 「聞く」 button. Not a chat box.
+  tab is `--sheet` with blue text and joins the page, inactive tabs are `--paper` with `--ink-2` text. The bar is
+  translucent (the paper at 72%, the chosen tab at 88%, no blur), so the page shows faintly as it scrolls under it;
+  opaque under `prefers-reduced-transparency`. A pressed tab shows `--blue-wash` at once.
+- **`SeatBar`**: a quiet row above every seat page, right-aligned in the page's 640px column, never printed. Three
+  44px items: the language switch (the other language named in itself, 「English」 / 「日本語」, as a blue text button),
+  the theme switch (**`DisplayToggles`**: a 6px blue-outlined icon button, the moon on the notebook and the sun on the
+  blackboard, `aria-pressed` for 暗い画面) and 「あなた」, the lineage rail's dashed blue tag lying down, which opens
+  `/me`. Both choices are this device's own (cookies), rendered by the server, so there is no flash. It is not a
+  fourth verb.
+- **Profile** (`/me`): who you are at the seat, never by name. Your dashed tag 「26 会計」 beside your byline
+  (「2026年度 会計」, 20px bold), the group and institution, 「この席の3代目です」, and your notes here with the way to
+  自分のメモ. Identity only: nothing to set.
+- **`SignIn`**: what a signed-out seat page shows in place (the URL stays the seat link, so an NFC tap still lands
+  on the seat). A UI area with no ruled lines: 「ログイン」 and a one-sentence lead in `--ink-2`, then 「アカウント」 and the
+  five demo accounts as 44px choices, never by name: a holder by the label pack's byline (「2026年度 会計」), the other
+  two by their group or school (「軽音サークルの部員」, 「やまて大学の学生」). Hover and the chosen one are `--blue-wash`;
+  the chosen one also gets a `--blue` border and bold blue text. Below them, one password field as a writing line (a
+  2px `--blue` underline, no box) in the UI face (the password is the app's word, not a predecessor's) with the usual
+  focus ring,
+  then a full-width primary 「ログインする」, live as soon as an account is chosen. A wrong password, or no answer from
+  the server, gets a calm `--ink-2` line under the button that says what to do, never red; it scrolls clear of the
+  verb tabs. Checking the session and signing out show a calm caption (「ログインを確かめています」,
+  「ログアウトしています」); no network shows a calm line with 「もう一度ためす」. Signed in, the page ends with
+  「2025年度 会計でログインしています」 and 「切り替える」, which signs out this device only.
+- **`AskField`**: an outlined box, 1.5px `--blue` with 6px corners on `--sheet` (Nico's call; it was a writing line),
+  as tall as the blue 「聞く」 button beside it, with the placeholder in Klee One (「先輩たちに聞いてみましょう」). Not a chat
+  box: no bubble, no send arrow.
 - **`AnswerEntry`**: the question repeated in blue UI text, then the answer in Klee One on the ruled grid. Each
   sentence ends with a mini stamp (「25」). Tapping a stamp opens the source note. Deadline phrases carry the
   highlighter (`--marker` behind the text, slightly taller than the x-height, no rounded ends).
@@ -130,9 +155,11 @@ Use Japanese notebook marks, not coloured chips or emoji. Each mark is followed 
   with 「いま、2025年度 会計が答えました」 under it.
 - **`InboxSlip`** (伝言メモ, on the predecessor's phone): a message slip like an office phone-message pad.
   Header 「後輩から質問が届きました」, a 「から」 field with 「2026年度 会計」, the question in Klee One 20px,
-  「〇人が質問しました」, and two large actions: 「声で答える」 (primary) and 「文字で答える」.
-- **`VoiceAnswer`**: a round 80px `--blue` button with a microphone; while listening, one ring pulses outward
-  in `--blue-wash`; the transcript appears in Klee One on ruled lines; 「公開する」 below.
+  「〇人が質問しました」, and the answer written on the slip itself (`VoiceAnswer`), so nothing has to open first.
+- **`VoiceAnswer`**: a textbox (1px `--ink-2`, `--blue` while focused) holding the answer in Klee One on ruled lines,
+  growing with it and using its full width, with a round 40px microphone laid over it at the bottom right: `--blue` icon, filled `--blue` while
+  listening with one ring pulsing outward in `--blue-wash`. Tap the box to type or the mic to speak; 「公開する」 appears
+  below with the first word. The same box sits on each handover prompt, where the button says 「下書きを作る」.
 - **`NoteEntry`**: a note as a notebook entry: kind mark and title (UI bold), body (Klee One), date stamp
   bottom-right, scope in small UI text (「次の会計だけ」). Deadline notes show the date in figures with the highlighter.
 - **`UpcomingList`**: a planner column: boxed date in figures (「10/20 火」), title, mini stamp. Dates within 7 days
@@ -146,11 +173,40 @@ Use Japanese notebook marks, not coloured chips or emoji. Each mark is followed 
 - **`DuplicateHint`**: a red-pen note on the drafted entry, 「似たメモがあります：保健所申請の締切（2025年度 会計）」,
   with 「更新する」 and 「別のメモとして残す」.
 - **`MissingList`**: blank lines, each 「〆 保健所申請の締切が書かれていません」 with a blue 「先輩に聞く」.
+- **`HandoverGuide`** (引き継ぎ書, `/s/[seat]/guide`): a document, not a dashboard.
+  - **Header:** 「会計の引き継ぎ書」 (25px), the group and institution, 「2026年10月18日時点」 and the counts. Under it, a caption
+    with the page's rules: only notes you may read, withdrawn and replaced notes left out, a saved copy keeps today's
+    version.
+  - **Export:** 「印刷・PDFで保存」 (primary) and 「テキストで保存（.md）」, then the filter (種類 · 書いた人 · 並び順, `.dd-filter`).
+    Both are never printed.
+  - **Content:**
+    1. `UpcomingList`
+    2. one section per kind, headed by its mark and word (〆 締切). Each note is a `NoteEntry` slip: the title in bold
+       UI, the deadline as written in figures with the highlighter, the body in the hand on the ruled grid, the byline
+       and the 64px date stamp at the foot.
+    3. 「まだ書かれていないこと」 as blank lines with their reason and a dashed stamp outline; the viewer's own unanswered
+       questions in blue
+    4. 「あなたの質問と答え」 as `AnswerEntry`s, whose stamps open their notes
+  - **Who wrote it:** people appear only as bylines (「2025年度 会計」).
+  - **Inline on 聞く:** 「引き継ぎ書を開く」 opens the same guide in place under the deadlines (no screen change),
+    「引き継ぎ書を閉じる」 folds it; printing from there puts only the guide on paper. `/s/[seat]/guide` stays for /me.
 - **`WithdrawMeter`**: figures face, 39px on the console; counts in `--red` from the click, freezes in `--ink`
   when the last pane drops the note: 「0.8秒」.
 - **`LeakCounter`**: 「漏れ 0 / 50 回」, the 0 in `--green`.
-- **`PersonaPane`** (console): a plain 390×844 rounded rectangle in `--sheet` with a 1px `--rule` border and the
-  persona above it in UI text: 新しい会計 · 去年の会計 · 部外者. No device chrome.
+- **`PersonaPane`** (console): a plain rounded rectangle in `--sheet`, 390 wide and up to 844 tall (shorter on a laptop
+  whose window leaves less room, so the whole proof stays on one screen; the pane scrolls inside), with a 1px `--rule`
+  border and the persona above it in UI text: 新しい会計 · 去年の会計 · 部外者. No device chrome. Below about 1270px
+  the three panes scroll sideways instead of wrapping. Signed out (real data), the console keeps its title at the
+  proof's x and, where the first pane goes, a 390px column like `SignIn` (the full width on a phone): a
+  one-sentence lead naming the three, one password field (the writing line in the UI face) and a full-width primary
+  「3人でログインする」; no page scroll at 1920. It is all three or none: when one can't sign in, nobody is signed in,
+  and a calm `--ink-2` line says so and what to do. The checking and signing-out captions and the offline line with
+  「もう一度ためす」 are `SignIn`'s. Signed in, 「ログアウト」 sits beside the meter and the leak counter and ends this
+  device's three sessions only.
+- **`MeasuredNumbers`** (console): 「測定の内訳」, a collapsed `<details>` under the meter and the leak counter with
+  one line per check that `pnpm metrics` measured (leaks, withdrawal, citations, live loop, privacy), read from
+  `metrics/latest.json` only, with when it was measured. A check that didn't run says 「未測定」. Green only for 漏れ 0 and
+  the privacy counts. On real data it also says that a reset is `pnpm demo:reset` in a terminal.
 
 ## Motion
 One signature moment, everything else functional.
@@ -159,7 +215,9 @@ One signature moment, everything else functional.
 - **Double line** (withdraw, update): two red lines draw left to right, 220ms, then the entry collapses (200ms).
 - **Listening**: one ring pulses from the voice button every 1.2s while recording.
 - **Inbox arrival**: the slip slides 8px down into place (160ms) and the phone vibrates where supported.
-- No fade-and-slide on page load, no hover lifts, no confetti, no bouncing.
+- **Page change** (a verb tab, 「あなた」, the guide link; Nico's call): the new page's content fades in, opacity only, 160ms
+  (`PageTurn`), never on the first load. After sign-in the account's page fades in the same way (`.dd-fade-in`).
+- No fade or slide on the first page load, no slides at all, no hover lifts, no confetti, no bouncing.
 - `prefers-reduced-motion`: every motion becomes an instant state change; the stamp simply appears.
 
 ## Copy voice
@@ -174,6 +232,11 @@ the 恩送り slide. English mirrors the Japanese. All strings live in `messages
 - Progressive disclosure: scope, expiry and "critical" controls appear only while writing, and only when the
   seat's settings enable them. Scope defaults to `successor`.
 - No feeds, badges, follower counts, folders or settings pages for newcomers.
+- Exception, by choice: the two display switches and 「あなた」 in `SeatBar` (language and theme are the viewer's
+  device settings, not the seat's; `/me` only shows who you are).
+- Anything that decides what a user sees is visible and usable on screen, never only in a terminal, a URL fragment
+  or a cookie: the language and theme switches, the measured numbers on the console. What stays a terminal command
+  (`pnpm demo:reset`, which needs the service-role key) is said on screen where it matters.
 
 ## Accessibility
 - Text at least 4.5:1 in both themes (see Color). Focus: a 2px `--blue` outline with 2px offset on every control.
@@ -181,6 +244,11 @@ the 恩送り slide. English mirrors the Japanese. All strings live in `messages
 - Highlighter and colour never carry meaning alone: deadlines also show 〆 and the date; the rule change also
   shows 「変更」.
 - Voice always has the text fallback in the same place.
+- Every seat page has two navs, each labelled: `SeatBar` (「表示とあなた」) and `VerbTabs` (「この席でできること」).
+- Print: paper only. `SeatBar`, `VerbTabs` and every `.dd-noprint` control are hidden, the light tokens are forced
+  (the blackboard's pale ink would print grey on white), and an entry isn't split across sheets.
+- `viewport-fit=cover`, so the bottom tabs keep `env(safe-area-inset-bottom)` above an iPhone's home indicator; the
+  browser bars take `--paper` of the theme shown.
 
 ## Don'ts (they make Daidai look generic or generated)
 - Chat bubbles, typing dots, robot or sparkle icons, "Ask AI" labels.

@@ -3,7 +3,8 @@
    components (className="dd-stamp") or translate them to Tailwind; keep the names in docs/DESIGN.md. */
 body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--font-ui); font-size: 16px; line-height: 1.6; letter-spacing: .02em; line-break: strict; }
 @supports (text-autospace: normal) { body { text-autospace: normal; } }
-.dd-pad { padding: var(--s-4) var(--s-5); }
+.dd-pad { padding: var(--s-4); }
+@media (min-width: 600px) { .dd-pad { padding-inline: var(--s-5); } } /* side gutter 16px on phones, 24px from 600px */
 .dd-row { display: flex; flex-wrap: wrap; gap: var(--s-4); align-items: center; }
 .dd-col { display: grid; gap: var(--s-3); }
 .dd-label, .dd-btn, .dd-h { font-feature-settings: "palt"; letter-spacing: .04em; word-break: auto-phrase; }
@@ -29,7 +30,7 @@ body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(
 .dd-btn:hover { background: var(--blue-wash); }
 .dd-btn-primary { background: var(--blue); color: var(--sheet); }
 .dd-btn-primary:hover { background: var(--blue); text-decoration: underline; text-underline-offset: 3px; }
-.dd-btn[disabled] { border-color: var(--rule); color: var(--ink-2); background: var(--paper); cursor: not-allowed; text-decoration: none; }
+.dd-btn[disabled], .dd-btn[aria-disabled="true"] { border-color: var(--rule); color: var(--ink-2); background: var(--paper); cursor: not-allowed; text-decoration: none; }
 .dd-link { color: var(--blue); text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; background: none; border: 0; padding: 0; font: inherit; cursor: pointer; }
 
 /* Date stamp (日付印): authorship only */
@@ -37,11 +38,12 @@ body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(
   color: var(--red); transform: rotate(-3deg); overflow: hidden; text-align: center; font-family: var(--font-ui); font-size: 13px; line-height: 1; letter-spacing: 0; flex: none; }
 .dd-stamp > span { display: grid; place-items: center; }
 .dd-stamp > span:first-child { align-self: end; padding-bottom: 2px; }
-.dd-stamp > span:last-child { align-self: start; padding-top: 2px; letter-spacing: -.02em; }
+.dd-stamp > span:last-child { align-self: start; padding-top: 0; letter-spacing: -.04em; }
 .dd-stamp-year { border-block: 1px solid var(--red); font-family: var(--font-figures); font-weight: 700; }
 .dd-mini { position: relative; display: inline-grid; place-items: center; width: 24px; height: 24px; box-sizing: border-box; border: 1.5px solid var(--red); border-radius: var(--r-round);
   color: var(--red); font-family: var(--font-figures); font-size: 13px; font-weight: 700; line-height: 1; letter-spacing: 0; transform: rotate(-3deg); vertical-align: 2px; margin-inline: 2px 6px; background: none; padding: 0; cursor: pointer; }
 .dd-mini::after { content: ""; position: absolute; inset: -10px; } /* 44px hit area */
+.dd-mini + .dd-mini { margin-left: 14px; } /* two stamps 20px apart: their 44px hit areas don't overlap */
 .dd-stamp-blank { display: inline-block; width: 24px; height: 24px; box-sizing: border-box; border: 1.5px dashed var(--ink-2); border-radius: var(--r-round); vertical-align: middle; }
 .is-landing { animation: dd-land var(--t-stamp, 180ms) cubic-bezier(.2,.8,.2,1) both; }
 @keyframes dd-land { from { transform: scale(1.12) rotate(-8deg); opacity: 0; } to { transform: rotate(-3deg); opacity: 1; } }
@@ -57,31 +59,56 @@ body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(
 /* Slip: the only raised object */
 .dd-slip { background: var(--sheet); border: 1px solid var(--rule); border-radius: var(--r-slip); box-shadow: var(--edge); }
 
-/* Writing line (AskField) */
+/* Writing line (AskField, and the password in SignIn) */
 .dd-ask { display: flex; align-items: end; gap: var(--s-3); }
-.dd-ask input { flex: 1; min-width: 0; min-height: 44px; border: 0; border-bottom: 2px solid var(--blue); background: transparent; color: var(--ink); font-family: var(--font-hand); font-size: 20px; padding: 0 var(--s-1); border-radius: 0; }
-.dd-ask input::placeholder { color: var(--ink-2); }
+.dd-ask input, .dd-line { flex: 1; min-width: 0; min-height: 44px; border: 0; border-bottom: 2px solid var(--blue); background: transparent; color: var(--ink); font-family: var(--font-hand); font-size: 20px; padding: 0 var(--s-1); border-radius: 0; }
+.dd-ask input::placeholder, .dd-line::placeholder { color: var(--ink-2); }
 .dd-ask input:focus-visible { outline: none; border-bottom-width: 3px; }
+/* On a narrow phone the placeholder (「先輩たちに聞いてみましょう」) fits whole: the hand shrinks with the screen, never under
+   16px (iOS zooms into a smaller field) */
+@media (max-width: 480px) { .dd-ask input { font-size: clamp(16px, 4.5vw, 20px); } } /* room to spare at 320, 375 and 390 */
+/* A console pane is a 390px phone inside a wide window, where the rules above (by the window's width) never apply: the
+   hand is 18px there, so the placeholder fits whole on the projector (238 of 253px). */
+.dd-pane .dd-ask input { font-size: 18px; }
+@media (max-width: 340px) { .dd-ask input { letter-spacing: 0; padding-inline: 0; } }
+/* The password is the app's own word: the UI face, and the usual focus ring (a wrong password puts the focus back) */
+.dd-line { box-sizing: border-box; width: 100%; font-family: var(--font-ui); }
 
 /* Answer */
 .dd-q { color: var(--blue); font-weight: 700; margin: 0 0 var(--s-2); }
+.dd-live-note { color: var(--blue); font-weight: 700; margin: var(--s-2) 0 0; }
 .dd-margin { position: relative; padding-left: var(--s-4); }
 .dd-margin::before { content: ""; position: absolute; left: 0; top: 6px; bottom: 6px; width: 6px; border: 1.5px solid var(--red); border-right: 0; }
-.dd-margin-note { color: var(--red); font-family: var(--font-ui); font-size: 13px; font-weight: 700; letter-spacing: .04em; white-space: nowrap; }
+/* line-height 1, like .dd-mini: the 13px note stays on its sentence's 32px line without growing it */
+.dd-margin-note { color: var(--red); font-family: var(--font-ui); font-size: 13px; font-weight: 700; line-height: 1; letter-spacing: .04em; white-space: nowrap; }
+/* UI text on the ruled grid (a stamp's opened source): the UI face, on one 32px line */
+.dd-ruled .dd-cap { font-family: var(--font-ui); line-height: var(--s-6); }
+/* A stamp's opened source note, indented under its sentence: kind mark and title in bold UI text, the body in the
+   hand; every line keeps the 32px rhythm */
+.dd-source { padding-left: var(--s-4); }
+.dd-source-title { font-family: var(--font-ui); font-size: 16px; font-weight: 700; }
+.dd-source-title .dd-kind-mark { margin-right: var(--s-1); }
 
-/* Key tag */
-.dd-tag { position: relative; display: inline-flex; align-items: center; gap: var(--s-3); height: 56px; padding: 0 var(--s-4) 0 var(--s-6); background: var(--sheet); border: 1.5px solid var(--ink); border-radius: var(--r-tag); box-sizing: border-box; }
+/* Key tag: at least 56px high; a long seat name (「TUM → 東大IST / 秋学期」) wraps inside it and the tag grows */
+.dd-tag { position: relative; display: inline-flex; align-items: center; gap: var(--s-3); min-height: 56px; max-width: 100%; padding: var(--s-2) var(--s-4) var(--s-2) var(--s-6); background: var(--sheet); border: 1.5px solid var(--ink); border-radius: var(--r-tag); box-sizing: border-box; }
 .dd-tag::before { content: ""; position: absolute; left: 10px; top: 50%; width: 10px; height: 10px; margin-top: -5px; border-radius: var(--r-round); background: var(--paper); border: 1.5px solid var(--ink); box-sizing: border-box; }
 .dd-tag-ring { position: absolute; left: -14px; top: 50%; width: 30px; height: 30px; margin-top: -15px; border: 2px solid var(--ink-2); border-radius: var(--r-round); box-sizing: border-box; clip-path: inset(0 50% 0 0); }
-.dd-tag-name { font-family: var(--font-marker); font-size: 31px; line-height: 36px; letter-spacing: .04em; }
+.dd-tag-name { margin: 0; font-family: var(--font-marker); font-size: 31px; line-height: 36px; font-weight: 400; letter-spacing: .04em; overflow-wrap: anywhere; }
+/* SeatHeader: the tag (its ring reaches 14px past the left edge, into the gutter), then where the seat lives */
+.dd-seat-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-3) var(--s-4); }
+.dd-seat-where { display: flex; align-items: flex-start; gap: var(--s-2); color: var(--ink-2); }
+.dd-seat-where svg { flex: none; }
+.dd-seat-where p { margin: 0; display: grid; }
+.dd-seat-group { color: var(--ink); font-weight: 700; }
 
 /* Lineage rail */
-.dd-rail { display: flex; gap: var(--s-3); overflow-x: auto; padding: var(--s-2) var(--s-1) var(--s-3); }
+.dd-rail { display: flex; gap: var(--s-3); overflow-x: auto; margin: 0; padding: var(--s-2) 0 var(--s-3); list-style: none; }
 .dd-ltag { position: relative; flex: none; width: 44px; height: 112px; box-sizing: border-box; padding-top: 26px; display: grid; justify-items: center; align-content: start;
   background: var(--sheet); border: 1.5px solid var(--ink-2); border-radius: var(--r-tag); color: var(--ink); }
 .dd-ltag::before { content: ""; position: absolute; top: 8px; left: 50%; width: 10px; height: 10px; margin-left: -5px; border-radius: var(--r-round); border: 1.5px solid var(--ink-2); box-sizing: border-box; background: var(--paper); }
 .dd-ltag-label { writing-mode: vertical-rl; font-family: var(--font-marker); font-size: 16px; line-height: 18px; letter-spacing: .08em; }
 .dd-ltag-label .tcy { text-combine-upright: all; }
+.dd-ltag-label .tcy.dd-fig { font-weight: 700; } /* figures as on the date stamp's year band, as heavy as the marker */
 .dd-ltag.is-current { border-color: var(--ink); }
 .dd-ltag.is-you { border: 1.5px dashed var(--blue); background: transparent; color: var(--blue); }
 .dd-ltag.is-you .dd-ltag-label { font-family: var(--font-ui); font-weight: 700; font-size: 13px; }
@@ -90,32 +117,301 @@ body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(
 .dd-tabs { display: flex; gap: var(--s-1); padding: 0 var(--s-4); border-top: 1px solid var(--rule); }
 .dd-tab { flex: 1; min-height: 48px; margin-top: -1px; border: 1px solid var(--rule); border-top: 0; border-radius: 0 0 var(--r-button) var(--r-button); background: var(--paper); color: var(--ink-2);
   font-family: var(--font-ui); font-size: 16px; font-weight: 700; letter-spacing: .04em; cursor: pointer; }
-.dd-tab[aria-selected="true"] { background: var(--sheet); color: var(--blue); min-height: 52px; }
+@media (max-width: 360px) { .dd-tab { letter-spacing: 0; white-space: nowrap; } } /* 「Hand over」 on one line at 320px */
+.dd-tab[aria-selected="true"], .dd-tab[aria-current="page"] { background: var(--sheet); color: var(--blue); min-height: 52px; }
+/* VerbTabs are links between the verb pages: fixed to the bottom edge, in the page's 640px column */
+a.dd-tab { display: grid; place-items: center; text-decoration: none; }
+.dd-verbs { position: fixed; inset: auto 0 0; z-index: 1; background: var(--paper); padding-bottom: env(safe-area-inset-bottom); }
+.dd-verbs .dd-tabs { max-width: 640px; margin-inline: auto; box-sizing: border-box; }
+@media (min-width: 600px) { .dd-verbs .dd-tabs { padding-inline: var(--s-5); } } /* the page's 24px gutter */
+/* flush with the screen's bottom edge, the ring goes inside the tab or it loses its bottom */
+.dd-verbs .dd-tab:focus-visible { outline-offset: -4px; }
+/* A page with the tabs keeps room under its content for them (after .dd-pad, so it wins), and whatever the browser or
+   the page scrolls to (a focused field, an answer that just arrived) stops above them */
+/* The page ends where its content ends: no rubber-band bounce past the end (or the top) that would pull blank paper
+   out from under the fixed verb tabs. */
+html { overscroll-behavior-y: none; }
+/* only the tabs' own 52px and a 12px gap: scrolled to the end, the last element sits just above the tabs, no blank paper */
+.dd-with-verbs { padding-bottom: calc(52px + var(--s-3) + env(safe-area-inset-bottom)); }
+:root:has(.dd-verbs) { scroll-padding-bottom: calc(52px + var(--s-4) + env(safe-area-inset-bottom)); }
+
+/* SeatBar: a quiet row above every seat page, in the page's 640px column: the language and theme switches, then 「あなた」
+   (docs/DESIGN.md → SeatBar). Every item is a 44px target. */
+.dd-bar { display: flex; justify-content: flex-end; align-items: center; gap: var(--s-2); max-width: 640px; margin-inline: auto; box-sizing: border-box; padding: var(--s-2) var(--s-4) 0; }
+@media (min-width: 600px) { .dd-bar { padding-inline: var(--s-5); } } /* the page's 24px gutter */
+/* 「代々」, the bar's way to the start page: the wordmark pushes the switches to the right */
+.dd-bar-home { margin-right: auto; display: inline-flex; align-items: center; justify-content: center; min-height: 44px; min-width: 44px; box-sizing: border-box; padding-inline: var(--s-1); color: var(--blue); font-weight: 700; letter-spacing: .12em; text-decoration: none; }
+.dd-bar-home:hover { text-decoration: underline; text-underline-offset: 3px; }
+/* The start page (/): the name, one line, then its two ways in, each a heading, a sentence and its button, ruled apart */
+.dd-home { gap: var(--s-6); padding-top: var(--s-5); }
+.dd-home-title { margin: 0; font-size: var(--text-xxl); line-height: 1.2; letter-spacing: .12em; }
+.dd-home-lead { margin: 0; color: var(--ink-2); }
+.dd-home-part { gap: var(--s-3); padding-top: var(--s-5); border-top: 1px solid var(--rule); }
+.dd-bar-link { min-height: 44px; padding-inline: var(--s-2); font-weight: 700; }
+.dd-bar-link[disabled] { color: var(--ink-2); cursor: progress; }
+.dd-icon-btn { display: inline-grid; place-items: center; width: 44px; height: 44px; box-sizing: border-box; padding: 0; border: 1.5px solid var(--blue); border-radius: var(--r-button); background: var(--sheet); color: var(--blue); cursor: pointer; }
+.dd-icon-btn:hover { background: var(--blue-wash); }
+/* The theme switch shows the theme a press switches to: the moon on the notebook, the sun on the blackboard. CSS picks
+   it, so it is right before the page has loaded. */
+.dd-when-dark { display: none; }
+:root[data-theme="dark"] .dd-when-light { display: none; }
+:root[data-theme="dark"] .dd-when-dark { display: block; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .dd-when-light { display: none; }
+  :root:not([data-theme="light"]) .dd-when-dark { display: block; }
+}
+/* 「あなた」: the lineage rail's dashed blank tag for the viewer, lying down; solid on /me itself */
+.dd-you { display: inline-grid; place-items: center; min-width: 44px; min-height: 44px; box-sizing: border-box; padding: 0 var(--s-3); border: 1.5px dashed var(--blue); border-radius: var(--r-tag); color: var(--blue);
+  font-weight: 700; letter-spacing: .04em; font-feature-settings: "palt"; text-decoration: none; }
+.dd-you:hover { background: var(--blue-wash); }
+.dd-you[aria-current="page"] { border-style: solid; background: var(--blue-wash); }
+
+/* /me: the viewer's dashed tag beside their byline, group and institution */
+.dd-me { display: flex; gap: var(--s-4); align-items: flex-start; }
+.dd-me .dd-ltag { flex: none; }
+.dd-me-byline { margin: 0; font-size: var(--text-m); line-height: 30px; font-weight: 700; font-feature-settings: "palt"; letter-spacing: .04em; word-break: auto-phrase; }
+
+/* 「測定の内訳」 on the console: one line per check, collapsed under the meter and the leak counter */
+.dd-measured summary { display: flex; align-items: center; width: fit-content; min-height: 44px; color: var(--blue); font-weight: 700; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.dd-measured dl { margin: 0 0 var(--s-2); display: grid; gap: var(--s-1); }
+.dd-measured dl > div { display: grid; grid-template-columns: minmax(7em, auto) 1fr; gap: var(--s-3); }
+.dd-measured dt { color: var(--ink-2); }
+.dd-measured dd { margin: 0; overflow-wrap: anywhere; }
+
+/* Console on a laptop: the panes stay phone-sized and side by side, never taller than the window leaves room for, so
+   the whole proof is on one screen (844px at 1920×1080, 556px on a 1366×768 laptop; each pane scrolls inside). 212px:
+   the page's padding, the title row, 「測定の内訳」 and the pane labels. The row scrolls sideways when the window is
+   narrower than the three. */
+.dd-console { max-width: 100%; box-sizing: border-box; grid-template-columns: minmax(0, 1fr); }
+.dd-panes { flex-wrap: nowrap; overflow-x: auto; padding-bottom: var(--s-2); }
+.dd-panes .dd-pane { height: min(844px, max(480px, calc(100dvh - 212px))); }
+
+/* Filter and order (the handover guide, 自分のメモ): labelled 44px selects in a light frame, as many per line as fit
+   (one under another on a 320px phone), then the count of what shows and the way back to everything. Never printed. */
+.dd-filter { margin: 0; padding: var(--s-1) var(--s-3) var(--s-3); border: 1px solid var(--rule); border-radius: var(--r-slip); display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: var(--s-2) var(--s-3); }
+.dd-filter > label:nth-of-type(odd):last-of-type { grid-column: 1 / -1; } /* a lone last select: the whole row, no hole */
+.dd-filter legend { padding: 0 var(--s-1); font-size: 16px; }
+.dd-filter label { display: grid; gap: var(--s-1); }
+.dd-filter .dd-select { width: 100%; min-height: 44px; font-size: 16px; } /* 16px: iOS zooms into a smaller field */
+.dd-filter-count { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0 var(--s-4); min-height: 44px; }
+.dd-filter-reset { min-height: 44px; }
+/* A link that reads as a button (a calm state's way back), at its own width */
+.dd-btn-link { display: inline-grid; place-items: center; justify-self: start; text-decoration: none; }
+.dd-print-only { display: none; }
+
+/* Handover guide (引き継ぎ書, /s/[seat]/guide): the header, the export buttons and the filter (never printed), the notes
+   as NoteEntry slips, and what isn't written yet as blank lines (空欄) with a dashed stamp outline at the end */
+.dd-guide-title { font-size: var(--text-l); line-height: 1.3; }
+.dd-guide-rules { margin: 0; }
+.dd-guide-link { justify-self: start; display: inline-flex; align-items: center; min-height: 44px; font-weight: 700; }
+.dd-guide-body { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.dd-gaps { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s-2); }
+.dd-gaps li { display: grid; grid-template-columns: 1fr auto; column-gap: var(--s-3); align-items: center; padding-block: var(--s-2); border-bottom: 1px solid var(--rule); }
+.dd-gaps li > .dd-cap { grid-column: 1; }
+.dd-gaps li > .dd-stamp-blank { grid-column: 2; grid-row: 1 / span 2; }
+.dd-gap-text { overflow-wrap: anywhere; font-weight: 700; }
+.dd-gap-text.is-yours { color: var(--blue); }
+/* 「あなたの質問と答え」: 12px from the heading to the first answer, as in every guide section (the section's gap is 24) */
+.dd-guide-answer:first-of-type { margin-top: calc(var(--s-3) - var(--s-5)); } /* the viewer's own question, blue as everywhere */
+@media print {
+  .dd-guide { gap: var(--s-5) !important; }
+}
+
+/* The verb tabs let the page show through faintly as it scrolls under them: the paper at 72% (the chosen tab at 88%),
+   no blur (docs/DESIGN.md → Don'ts). Opaque for anyone who asks for less transparency, and where color-mix() is missing
+   (the declarations above stay). A pressed tab answers at once with the wash. */
+.dd-verbs { background: color-mix(in srgb, var(--paper) 72%, transparent); }
+.dd-verbs .dd-tab { background: transparent; }
+.dd-verbs .dd-tab[aria-current="page"] { background: color-mix(in srgb, var(--sheet) 88%, transparent); }
+.dd-verbs .dd-tab:active { background: var(--blue-wash); }
+@media (prefers-reduced-transparency: reduce) {
+  .dd-verbs { background: var(--paper); }
+  .dd-verbs .dd-tab { background: var(--paper); }
+  .dd-verbs .dd-tab[aria-current="page"] { background: var(--sheet); }
+}
+/* What an account may see arrives with a short fade after sign-in (SignInGate); opacity only, 160ms */
+.dd-fade-in { animation: dd-fade-in var(--t-quick, 160ms) ease-out both; }
+@keyframes dd-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .dd-fade-in { animation: none !important; } }
+/* The ask field as an outlined box with rounded corners (Nico's call; docs/DESIGN.md → AskField), as tall as 「聞く」
+   beside it, with the standard focus ring. On a 320px phone the padding narrows so the placeholder still fits whole;
+   an ellipsis is the safety net. */
+.dd-ask { align-items: stretch; }
+.dd-ask input { min-height: 44px; box-sizing: border-box; border: 1.5px solid var(--blue); border-radius: var(--r-button); padding: 0 var(--s-3); background: var(--sheet); text-overflow: ellipsis; }
+.dd-ask input:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; border-width: 1.5px; }
+@media (max-width: 340px) {
+  .dd-ask input { padding-inline: var(--s-1); }
+  .dd-ask .dd-btn { padding-inline: var(--s-3); }
+}
+/* The key tag, smaller and saying what it is (Nico's call): 「役職：」 in the UI face, then the seat's name in the marker */
+.dd-seat-head .dd-tag { min-height: 44px; padding: var(--s-1) var(--s-3) var(--s-1) var(--s-6); }
+.dd-seat-head .dd-tag-name { font-size: var(--text-m); line-height: 28px; }
+.dd-tag-kind { font-family: var(--font-ui); font-size: var(--text-s); font-weight: 700; color: var(--ink-2); letter-spacing: .04em; }
+/* The guide opened inline on 聞く sits under the deadlines, ruled off from them */
+.dd-guide-inline { margin-top: var(--s-3); padding-top: var(--s-5); border-top: 1px solid var(--rule); }
+@media print {
+  /* Printing the inline guide: only the guide goes on paper, not the seat page around it */
+  :root.dd-printing-guide .dd-seat-home > :not(:has(.dd-guide-inline)),
+  :root.dd-printing-guide .dd-guide-wrap > :not(.dd-guide-inline) { display: none !important; }
+  :root.dd-printing-guide .dd-guide-inline { margin: 0; padding: 0; border: 0; }
+}
+/* The search field heads a filter, across its whole width */
+.dd-filter-search { grid-column: 1 / -1; display: grid; gap: var(--s-1); }
+
+/* A row's lone main action (VoiceAnswer's 公開する): the full width on a phone, in the thumb's reach; from 600px its own
+   width, since a 592px button reads as a banner. Overrides the inline flex: 1, which the two-button rows keep. */
+@media (min-width: 600px) {
+  .dd-row > .dd-btn-primary:only-child { flex: 0 1 auto !important; min-width: 240px; }
+}
+
+/* Print (the handover guide, or any page): paper only. The bars, the verb tabs and every .dd-noprint control stay on
+   screen; the room kept under the content for the tabs goes; an entry isn't split across two sheets. The light tokens
+   are forced in styles/tokens.css. */
+@media print {
+  .dd-bar, .dd-verbs, .dd-noprint, .dd-filter { display: none !important; }
+  .dd-print-only { display: block; }
+  .dd-with-verbs { padding-bottom: 0 !important; }
+  .dd-slip { box-shadow: none; }
+  .dd-slip, .dd-entry, article { break-inside: avoid; }
+  h1, h2, h3 { break-after: avoid; } /* a heading stays with what it heads */
+  .dd-gaps { break-inside: avoid; }
+}
+
+/* SignIn: the demo-account switcher, a UI area with no ruled lines. Each account a 44px choice, the chosen one in the
+   viewer's pen; the row carries the focus ring, not the radio inside it */
+.dd-signin { display: grid; gap: var(--s-5); }
+.dd-choices { display: grid; gap: var(--s-2); min-width: 0; margin: 0; padding: 0; border: 0; }
+.dd-choices legend { padding: 0; margin-bottom: var(--s-2); font-weight: 700; }
+.dd-choice { display: flex; align-items: center; gap: var(--s-3); min-height: 44px; padding: var(--s-1) var(--s-3); box-sizing: border-box; border: 1.5px solid var(--rule); border-radius: var(--r-button); background: var(--sheet); cursor: pointer; }
+.dd-choice input { accent-color: var(--blue); width: 18px; height: 18px; margin: 0; flex: none; }
+.dd-choice input:focus-visible { outline: none; }
+.dd-choice:hover { background: var(--blue-wash); }
+.dd-choice:has(input:checked) { border-color: var(--blue); background: var(--blue-wash); color: var(--blue); font-weight: 700; }
+.dd-choice:has(input:focus-visible) { outline: 2px solid var(--blue); outline-offset: 2px; }
+.dd-btn-wide { width: 100%; }
+/* Signed in: which account this device is, and 切り替える */
+.dd-who { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s-2) var(--s-3); padding-top: var(--s-4); border-top: 1px solid var(--rule); }
+.dd-who p { margin: 0; color: var(--ink-2); }
+
+/* UpcomingList: a planner column, each row the boxed date, the title and the mini stamp of whose note it is */
+.dd-planner { list-style: none; margin: 0; padding: 0; display: grid; }
+.dd-planner-row { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: var(--s-2); min-height: 48px; padding-block: var(--s-2); border-bottom: 1px solid var(--rule); }
+.dd-planner-title { font-weight: 700; word-break: auto-phrase; overflow-wrap: anywhere; }
+/* the date clear of its box, and the seed title still on one line at 390px */
+.dd-planner .dd-date { padding-inline: var(--s-1); }
+.dd-planner .dd-mini { margin-inline: 0; }
+/* a stamp that only says whose note it is: no pointer and no 44px hit area (the tappable ones are buttons) */
+span.dd-mini { cursor: default; }
+span.dd-mini::after { content: none; }
 
 /* Inbox slip (伝言メモ) */
 .dd-inbox { max-width: 360px; padding: var(--s-4); border-top: 1px dashed var(--ink-2); }
 .dd-field { display: grid; grid-template-columns: 56px 1fr; align-items: end; gap: var(--s-2); border-bottom: 1px solid var(--rule); padding: var(--s-1) 0; }
 .dd-field dt { font-size: 13px; color: var(--ink-2); }
-.dd-field dd { margin: 0; font-weight: 700; }
-.dd-inbox-q { word-break: auto-phrase; font-family: var(--font-hand); font-size: 20px; line-height: var(--s-6); font-weight: 600; margin: var(--s-3) 0 var(--s-1); }
+.dd-field dd { margin: 0; font-weight: 700; overflow-wrap: anywhere; }
+.dd-inbox-q { word-break: auto-phrase; overflow-wrap: anywhere; font-family: var(--font-hand); font-size: 20px; line-height: var(--s-6); font-weight: 600; margin: var(--s-3) 0 var(--s-1); }
+/* the app's own question (a gap, required or core prompt, the follow-up) in the UI face; a newcomer's stays .dd-inbox-q */
+.dd-prompt { word-break: auto-phrase; overflow-wrap: anywhere; font-size: 20px; line-height: var(--s-6); font-weight: 700; letter-spacing: .04em; font-feature-settings: "palt"; margin: var(--s-3) 0 var(--s-1); }
 .is-arriving { animation: dd-arrive var(--t-quick, 160ms) ease-out both; }
 @keyframes dd-arrive { from { transform: translateY(-8px); } to { transform: none; } }
+
 
 /* Voice */
 .dd-voice { position: relative; width: 80px; height: 80px; border-radius: var(--r-round); border: 0; background: var(--blue); color: var(--sheet); display: grid; place-items: center; cursor: pointer; flex: none; }
 .dd-voice.is-listening::after { content: ""; position: absolute; inset: 0; border-radius: var(--r-round); border: 6px solid var(--blue-wash); animation: dd-pulse 1.2s ease-out infinite; }
 @keyframes dd-pulse { from { transform: scale(1); opacity: 1; } to { transform: scale(1.45); opacity: 0; } }
+/* The transcript and the text fallback are the same control: hand text on the 32px ruled grid. */
+.dd-voice-text { width: 100%; box-sizing: border-box; border: 0; padding: 0; resize: vertical; color: var(--ink); background: repeating-linear-gradient(to bottom, transparent 0 31px, var(--rule) 31px 32px);
+  font-family: var(--font-hand); font-size: 17px; line-height: var(--s-6); letter-spacing: .02em; min-height: calc(var(--s-6) * 2); }
+.dd-voice-text::placeholder { color: var(--ink-2); }
+
+/* The answer box (inbox slips, handover prompts): the ruled hand field across the whole textbox, the microphone laid
+   over it at the bottom right (on the sheet, so text running under it stays out of the way), filled --blue with the
+   pulsing ring while listening. The field grows with the answer. */
+.dd-answer { position: relative; border: 1px solid var(--ink-2); border-radius: var(--r-button); background: var(--sheet);
+  min-height: 48px; box-sizing: border-box; padding: 7px var(--s-3); }
+.dd-answer:focus-within { border-color: var(--blue); box-shadow: 0 0 0 1px var(--blue); }
+.dd-answer .dd-voice-text { display: block; min-height: var(--s-6); field-sizing: content; resize: none; background-color: transparent; }
+.dd-answer .dd-voice-text:focus { outline: none; } /* the box shows focus */
+.dd-mic { position: absolute; right: 3px; bottom: 3px; width: 40px; height: 40px; border-radius: var(--r-round); border: 0;
+  background: var(--sheet); color: var(--blue); display: grid; place-items: center; cursor: pointer; z-index: 1; }
+.dd-mic:hover { background: var(--blue-wash); }
+.dd-mic::before { content: ""; position: absolute; inset: -2px; } /* a 44px tap target around the 40px mic */
+.dd-mic.is-listening { background: var(--blue); color: var(--sheet); }
+.dd-mic.is-listening::after { content: ""; position: absolute; inset: 0; border-radius: var(--r-round); border: 4px solid var(--blue-wash); animation: dd-pulse 1.2s ease-out infinite; }
 
 /* Scope rings */
-.dd-scope { display: flex; gap: var(--s-5); align-items: center; flex-wrap: wrap; }
+/* ReaderCount beside the rings, the scope list below (DESIGN → ScopeRings); the 72px rings hold the first row, so the
+   count arriving moves nothing below it */
+.dd-scope { display: grid; grid-template-columns: 72px 1fr; column-gap: var(--s-4); row-gap: var(--s-2); align-items: center; }
+.dd-scope svg { grid-column: 1; grid-row: 1; }
+.dd-scope output { grid-column: 2; grid-row: 1; }
+.dd-scope fieldset { grid-column: 1 / -1; grid-row: 2; }
 .dd-scope svg circle { fill: none; stroke: var(--blue); stroke-width: 1.5; }
 .dd-scope svg circle.is-on { fill: var(--blue-wash); }
-.dd-scope fieldset { border: 0; margin: 0; padding: 0; display: grid; gap: var(--s-1); }
-.dd-scope label { display: flex; gap: var(--s-2); align-items: center; min-height: 36px; cursor: pointer; }
-.dd-scope input { accent-color: var(--blue); width: 18px; height: 18px; margin: 0; }
+/* each scope's whole row is its 44px tap target (DESIGN → Space), rows touching */
+.dd-scope fieldset { border: 0; margin: 0; padding: 0; display: grid; gap: 0; }
+.dd-scope label { display: flex; gap: var(--s-2); align-items: center; min-height: 44px; cursor: pointer; }
+.dd-scope input { accent-color: var(--blue); width: 24px; height: 24px; margin: 0; flex: none; }
 
 /* Drop area and planner */
 .dd-drop { border: 1.5px dashed var(--ink-2); border-radius: var(--r-slip); padding: var(--s-5) var(--s-4); text-align: center; display: grid; gap: var(--s-1); justify-items: center; }
+.dd-drop.is-over { border-color: var(--blue); background: var(--blue-wash); } /* a file is being dragged over the page */
+
+/* 「＋ 追加」 (AddPanel): index tabs on the slip's top edge, form fields, speaker rows and the preview of what is sent */
+.dd-itabs { display: flex; gap: var(--s-1); padding: 0 var(--s-4); border-bottom: 1px solid var(--rule); }
+.dd-itab { flex: 1; min-height: 44px; margin-bottom: -1px; padding: 0 var(--s-1); border: 1px solid var(--rule); border-bottom: 0; border-radius: var(--r-button) var(--r-button) 0 0; background: var(--paper); color: var(--ink-2);
+  font-family: var(--font-ui); font-size: 16px; font-weight: 700; letter-spacing: .04em; font-feature-settings: "palt"; cursor: pointer; }
+.dd-itab[aria-selected="true"] { background: var(--sheet); color: var(--blue); border-bottom: 1px solid var(--sheet); }
+/* 16px text: iOS zooms into a smaller field on focus */
+.dd-input { box-sizing: border-box; width: 100%; min-height: 44px; padding: var(--s-2) var(--s-3); font: inherit; font-size: 16px; color: var(--ink); background: var(--sheet); border: 1px solid var(--ink-2); border-radius: var(--r-button); }
+textarea.dd-input { min-height: 160px; resize: vertical; }
+/* a field's own face wins over .dd-input's font: inherit: figures for a date, the hand for a predecessor's words */
+.dd-input.dd-fig { font-family: var(--font-figures); font-variant-numeric: tabular-nums; }
+.dd-input.dd-hand { font-family: var(--font-hand); font-size: 17px; letter-spacing: .02em; }
+.dd-check { display: flex; gap: var(--s-2); align-items: flex-start; min-height: 44px; cursor: pointer; }
+.dd-check input { accent-color: var(--blue); width: 20px; height: 20px; margin: 2px 0 0; flex: none; }
+.dd-roles { list-style: none; margin: 0; padding: 0; display: grid; }
+.dd-roles label { display: flex; flex-wrap: wrap; gap: var(--s-2) var(--s-3); align-items: center; justify-content: space-between; min-height: 52px; padding: var(--s-1) 0; border-bottom: 1px solid var(--rule); }
+.dd-roles .dd-select { min-height: 44px; min-width: 160px; }
+/* Lines that hold a file name or a long count list: break between phrases, and anywhere rather than overflow a phone */
+.dd-phrase { word-break: auto-phrase; overflow-wrap: anywhere; }
+.dd-roles-name { overflow-wrap: anywhere; }
+.dd-preview { max-height: 320px; overflow: auto; padding: var(--s-3); border: 1px solid var(--rule); border-radius: var(--r-slip); background: var(--paper); white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.8; }
 .dd-date { display: inline-grid; place-items: center; min-width: 72px; height: 32px; border: 1px solid var(--ink); border-radius: var(--r-slip); font-family: var(--font-figures); font-variant-numeric: tabular-nums; font-size: 16px; }
 
-@media (prefers-reduced-motion: reduce) { .is-landing, .is-arriving, .dd-voice.is-listening::after { animation: none !important; } }
+/* Import review (ImportReview): a drafted NoteEntry with its date stamp at the bottom right, the red-pen DuplicateHint
+   (inside .dd-margin's red bracket) with its two choices, and MissingList's blank lines */
+.dd-entry { display: grid; gap: var(--s-2); padding: var(--s-4); }
+.dd-entry-foot { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--s-3); }
+.dd-hint { margin: 0; color: var(--red); font-weight: 700; }
+/* the chosen one of a pair: the wash plus a ring, so it differs from hover */
+.dd-btn[aria-pressed="true"] { background: var(--blue-wash); box-shadow: inset 0 0 0 1.5px var(--blue); }
+.dd-missing { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s-4); }
+.dd-blank { display: flex; align-items: center; justify-content: flex-end; height: var(--s-6); }
+
+/* Withdrawal (自分のメモ): the two red lines draw left to right, then the entry collapses and leaves */
+.dd-cross { position: relative; }
+.dd-cross::after { content: ""; position: absolute; inset: 0; pointer-events: none;
+  background-image: linear-gradient(var(--red), var(--red)), linear-gradient(var(--red), var(--red));
+  background-repeat: no-repeat; background-position: 0 42%, 0 60%; background-size: 0% 1.5px, 0% 1.5px;
+  animation: dd-cross var(--t-line, 220ms) ease-out forwards; }
+@keyframes dd-cross { to { background-size: 100% 1.5px, 100% 1.5px; } }
+/* NoteEntry sets max-height to the entry's own height as it starts closing; 320px is the fallback */
+.dd-collapse { overflow: hidden; max-height: 320px; animation: dd-collapse 200ms ease-in forwards; }
+@keyframes dd-collapse { to { max-height: 0; opacity: 0; margin-block: 0; padding-block: 0; border-width: 0; } }
+
+/* Console: three phone-sized persona panes, the withdrawal meter and the leak counter (docs/DESIGN.md → PersonaPane) */
+.dd-pane { width: 390px; height: 844px; box-sizing: border-box; overflow: auto; scroll-padding-block: var(--s-4); background: var(--sheet); border: 1px solid var(--rule); border-radius: 12px; padding: var(--s-4); }
+.dd-meter { font-family: var(--font-figures); font-variant-numeric: tabular-nums; font-size: var(--text-xxl); line-height: 1.1; font-weight: 700; color: var(--red); }
+.dd-meter.is-frozen { color: var(--ink); }
+.dd-safe { color: var(--green); font-family: var(--font-figures); font-variant-numeric: tabular-nums; }
+/* Read from the back of the room, beside the meter: the green 0 is the whole claim */
+.dd-leak { margin: 0; font-family: var(--font-figures); font-variant-numeric: tabular-nums; font-size: var(--text-xl); line-height: 1.1; font-weight: 700; }
+
+@media (prefers-reduced-motion: reduce) {
+  .is-landing, .is-arriving, .dd-voice.is-listening::after, .dd-mic.is-listening::after { animation: none !important; }
+  /* Instant state changes: the double line is simply there, and the entry is already closed */
+  .dd-cross::after { animation: none !important; background-size: 100% 1.5px, 100% 1.5px; }
+  .dd-collapse { animation: none !important; max-height: 0 !important; opacity: 0; margin-block: 0 !important; padding-block: 0 !important; border-width: 0 !important; }
+}

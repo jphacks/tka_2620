@@ -1,0 +1,28 @@
+{
+  "measuredAt": "2026-10-18T02:28:58.440Z",
+  "leaks": {
+    "outsiderAttempts": 92,
+    "totalAttempts": 536,
+    "found": 0
+  },
+  "withdraw": {
+    "runs": 10,
+    "medianS": 0.27,
+    "maxS": 0.69
+  },
+  "citations": {
+    "sentences": 5,
+    "cited": 5
+  },
+  "redaction": {
+    "chats": 1,
+    "files": 3,
+    "hidden": 33,
+    "leftBrowser": 0
+  },
+  "loop": {
+    "runs": 5,
+    "failures": 0,
+    "medianS": 6
+  }
+}

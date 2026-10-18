@@ -14,11 +14,17 @@ import {
   type CardDraft,
   type Citation,
   type DedupeOutput,
+  type DemoAccount,
   type DraftOutput,
   DraftRequest,
   type DraftResponse,
   type EventsRow,
   type FollowupOutput,
+  GapRequest,
+  type GapResponse,
+  type GuideAsked,
+  type GuideNote,
+  type GuideOpen,
   type HandoverPrompt,
   type ImportedCard,
   type ImportOutput,
@@ -30,7 +36,9 @@ import {
   type MyNote,
   type MyNotesResponse,
   NoteId,
+  NoteKind,
   type NotesRow,
+  type NoteView,
   type PromptRoutesRow,
   type PromptsResponse,
   PublishRequest,
@@ -42,13 +50,17 @@ import {
   SeatQuery,
   SeatSlug,
   type SeatView,
+  SeenRequest,
+  type SeenResponse,
   type WithdrawResponse,
 } from "@/lib/contracts";
+import { questionLang } from "@/lib/engine/lang";
+import { shownReason } from "@/lib/engine/shown";
 
 export const USE_MOCKS = process.env.NEXT_PUBLIC_USE_MOCKS === "1";
 
-// The demo accounts (docs/SPEC.md → Personas).
-export type Persona = "a24" | "a25" | "a26" | "b" | "x";
+// The demo accounts (docs/SPEC.md → Personas), as lib/contracts.ts lists them.
+export type Persona = DemoAccount;
 
 // Fixed v4 uuids, so a question, its prompt and its answer line up across panes and tests
 // (crypto.randomUUID needs https, and phones may load the dev server over plain http).
@@ -78,14 +90,14 @@ const SEAT = "smash-kaikei";
 // seed/questions.csv (q02 and q03 ask q01's question as b and x).
 export const mockQuestions = {
   q01: "模擬店の保健所申請、いつまで？",
-  q04: "部室の鍵を無くしたら、誰に連絡する？",
+  q04: "決算後に申請された領収書はどうすれば良いですか？",
   q05: "合宿のお金はどう管理する？",
   q06: "打ち上げのお店はどこ？",
 };
 
 // seed/live-answer.txt: what a25 says in the live loop.
 export const mockLiveAnswerText =
-  "学生課の施設係に連絡してください。合鍵は顧問の先生が持っているので、その日のうちにお願いすれば借りられます。";
+  "少額ならば予備部分から出して、大きい場合は次年度の人に回してください。";
 
 // Holders of smash-kaikei; bylines come from the club_role label pack (「{term}年度 {seat}」), as in scripts/seed.ts.
 const holders: Partial<Record<Persona, { term: string; byline: string }>> = {
@@ -263,9 +275,10 @@ export const mockAnswer: AnsweredResult = {
       citations: [cite.hokenjo2025],
     },
   ],
+  // As the engine computes it from the cited deadline notes: the two dates, so no copy (lib/engine/rule-change.ts).
   ruleChange: {
     termLabel: "2025",
-    summary: "締切が10月27日から10月20日に早まりました。",
+    summary: "10/27 → 10/20",
   },
   language: "ja",
 };
@@ -324,11 +337,14 @@ export const mockInboxItem: InboxItem = {
   lang: "ja",
 };
 
-// POST /api/handover/draft for the spoken answer: one contact card, people only by role.
+// POST /api/inbox/seen as a25, opening that slip.
+export const mockSeen: SeenResponse = { seenAt: "2026-10-18T10:31:20+09:00" };
+
+// POST /api/handover/draft for the spoken answer: one rule-of-thumb card, people only by role.
 export const mockLiveCard: CardDraft = {
-  kind: "contact",
-  title: "部室の鍵を無くしたとき",
-  body: "学生課の施設係に連絡する。合鍵は顧問の先生が持っているので、その日のうちにお願いすれば借りられる。",
+  kind: "rule_of_thumb",
+  title: "決算後に出てきた領収書",
+  body: "少額なら予備費から出し、大きい額は次年度の会計に回す。",
   suggested_scope: "successor",
   critical: false,
   lang: "ja",
@@ -343,11 +359,12 @@ export const mockDraftRequest: DraftRequest = {
 
 export const mockDraft: DraftResponse = { cards: [mockLiveCard] };
 
-// An answer without a date gets one follow-up (F6).
+// An answer without a date gets one follow-up (F6). Until a reply gives the date, the deadline is a rule of thumb, so
+// the card can be published as it is when the predecessor skips the question.
 export const mockDraftWithFollowup: DraftResponse = {
   cards: [
     {
-      kind: "deadline",
+      kind: "rule_of_thumb",
       title: "保健所申請の締切",
       body: "学祭の前までに学生課に出す。",
       suggested_scope: "successor",
@@ -357,6 +374,29 @@ export const mockDraftWithFollowup: DraftResponse = {
     },
   ],
   followup: { missing: "date", question: "締切は何月何日でしたか？" },
+};
+
+// The reply round: the same answer with the follow-up and the reply, which gives the date. It never asks again.
+export const mockDraftFollowupRequest: DraftRequest = {
+  seat: SEAT,
+  promptId: mockIds.corePrompt,
+  answer: "学祭の前までに学生課に出す。",
+  followup: { question: "締切は何月何日でしたか？", answer: "10月20日です。" },
+};
+
+export const mockDraftAfterFollowup: DraftResponse = {
+  cards: [
+    {
+      kind: "deadline",
+      title: "保健所申請の締切",
+      body: "10月20日までに学生課に出す。",
+      deadline_date: "2026-10-20",
+      suggested_scope: "successor",
+      critical: false,
+      lang: "ja",
+      flags: noFlags,
+    },
+  ],
 };
 
 export const mockPublishRequest: PublishRequest = {
@@ -375,9 +415,8 @@ export const mockLiveAnswer: LiveAnswer = {
   status: "answered",
   questionId: mockIds.q04,
   sentences: [
-    { text: "学生課の施設係に連絡してください。", citations: [cite.live] },
     {
-      text: "合鍵は顧問の先生が持っているので、その日のうちにお願いすれば借りられます。",
+      text: "少額ならば予備部分から出して、大きい場合は次年度の人に回してください。",
       citations: [cite.live],
     },
   ],
@@ -414,8 +453,13 @@ export const mockPrompts: PromptsResponse = {
   ],
 };
 
+// POST /api/handover/prompts: 「先輩に聞く」 on the old handover doc's second missing item, which the seed world already
+// asks (the gap prompt above), so it answers with that prompt.
+export const mockGapRequest: GapRequest = { seat: SEAT, text: gapPrompt.text };
+export const mockGap: GapResponse = { promptId: gapPrompt.id };
+
 // GET /api/handover/readers: people besides the author (a25) in the seed world. successor: a26; group: a24 and
-// a26; institution: every member at みなと大学; public: every account.
+// a26; institution: every member at みなと大学; public: every member or holder anywhere (scope_readers, 0011).
 export const mockReaders: Record<Scope, number> = {
   successor: 1,
   group: 2,
@@ -507,21 +551,13 @@ const oldHandoverMissing = [
   },
 ];
 
+// No provenance: the review screen words the chip (messages → import.provenance) and sends it when publishing.
 export const mockImport: ImportResponse = {
   cards: oldHandoverCards.map(
-    (card): ImportedCard => ({
-      ...card,
-      source: "import",
-      provenance: "貼り付け・2026年10月",
-    }),
+    (card): ImportedCard => ({ ...card, source: "import" }),
   ),
   missing: oldHandoverMissing,
-  blocked: [
-    {
-      title: "通帳と印鑑の保管場所",
-      reason: "隠した情報（[秘密]）が残っていたため、作りませんでした",
-    },
-  ],
+  blocked: [{ title: "通帳と印鑑の保管場所", reason: "placeholder" }], // the [秘密] line
   duplicates: [
     {
       card: 2,
@@ -529,6 +565,7 @@ export const mockImport: ImportResponse = {
       title: "領収書は月末にまとめて精算",
       byline: "2025年度 会計",
       similarity: 0.91,
+      scope: "group", // seed/notes.csv: an update of it is for the whole club too
     },
   ],
 };
@@ -554,7 +591,6 @@ export const mockImportNotice: ImportResponse = {
       lang: "ja",
       flags: noFlags,
       source: "file",
-      provenance: "PDF・2026年10月",
     },
   ],
   missing: [],
@@ -566,6 +602,7 @@ export const mockImportNotice: ImportResponse = {
       title: "保健所申請の締切が早くなった",
       byline: "2025年度 会計",
       similarity: 0.93,
+      scope: "successor",
     },
   ],
 };
@@ -584,7 +621,15 @@ const seedNote = (
   title: string,
   scope: Scope,
   author: Persona,
-): AuthoredNote => ({ id, title, scope, status: "live", lang: "ja", author });
+): AuthoredNote => ({
+  id,
+  seat: SEAT,
+  title,
+  scope,
+  status: "live",
+  lang: "ja",
+  author,
+});
 
 const seedNotes: AuthoredNote[] = [
   seedNote("smash-2024-hokenjo", "模擬店の保健所申請", "successor", "a24"),
@@ -625,6 +670,106 @@ export const mockMyNotes: Record<Persona, MyNotesResponse> = {
   b: myNotesOf("b"),
   x: myNotesOf("x"),
 };
+
+// GET /api/notes/[id] ---------------------------------------------------------------------------
+
+// The notes q01's and q02's answers cite, as GET /api/notes/[id] returns them: seed/notes.csv word for word
+// (tests/mocks.test.ts checks it). smash-2025-uchiage stays out: its body carries a leak-test canary.
+export const mockNoteViews: NoteView[] = [
+  {
+    id: "smash-2024-hokenjo",
+    kind: "deadline",
+    title: "模擬店の保健所申請",
+    body: "学祭の模擬店は保健所への臨時出店の届出が必要。学生課でまとめて受け付けていて、2024年の締切は10月27日だった。",
+    deadlineDate: "2024-10-27",
+    lang: "ja",
+    byline: "2024年度 会計",
+  },
+  {
+    id: "smash-2025-hokenjo",
+    kind: "deadline",
+    title: "保健所申請の締切が早くなった",
+    body: "2025年から締切が学祭の3週間前（10月20日）に変わった。学生課の掲示板にしか出ていなかったので、10月に入ったら必ず確認すること。",
+    deadlineDate: "2025-10-20",
+    lang: "ja",
+    byline: "2025年度 会計",
+  },
+  {
+    id: "smash-2025-gasshuku",
+    kind: "unwritten_rule",
+    title: "合宿のお金は別の封筒で",
+    body: "夏合宿のお金は部費と別の封筒で管理する。混ぜると年度末の会計報告で必ず合わなくなる。",
+    lang: "ja",
+    byline: "2025年度 会計",
+  },
+  {
+    id: "gakusai-2025-hokenjo",
+    kind: "rule_of_thumb",
+    title: "模擬店には保健所への届出が必要",
+    body: "模擬店を出す団体は保健所への臨時出店の届出が必要です。手続きは学生課でまとめて受け付けます。締切は学生課の掲示で確認してください。",
+    lang: "ja",
+    byline: "2025年度 模擬店担当",
+  },
+];
+
+// A note with who wrote it and for whom, so the mock can answer like the notes policy, and the seat and term it was
+// written at (the handover guide lists a seat's notes, newest term first). author: none for a holder who isn't a
+// persona (gakusai-2025-hokenjo's, the festival committee's).
+type SourceNote = {
+  note: NoteView;
+  seat: string;
+  termOrder: number;
+  scope: Scope;
+  author?: Persona;
+};
+
+const seedRings: Record<string, Omit<SourceNote, "note">> = {
+  "smash-2024-hokenjo": {
+    seat: SEAT,
+    termOrder: 2024,
+    scope: "successor",
+    author: "a24",
+  },
+  "smash-2025-hokenjo": {
+    seat: SEAT,
+    termOrder: 2025,
+    scope: "successor",
+    author: "a25",
+  },
+  "smash-2025-gasshuku": {
+    seat: SEAT,
+    termOrder: 2025,
+    scope: "successor",
+    author: "a25",
+  },
+  "gakusai-2025-hokenjo": {
+    seat: "gakusai-mogiten",
+    termOrder: 2025,
+    scope: "institution",
+  },
+};
+
+const seedSources = new Map<string, SourceNote>(
+  mockNoteViews.map((note) => [note.id, { note, ...seedRings[note.id] }]),
+);
+
+// The scope rings as the seed world has them (tests/visibility.test.ts): successor, the author and later holders of
+// the seat; group, every holder (Smash's members); institution, everyone at みなと大学 (all but x); public, everyone.
+function mayRead(persona: Persona, { scope, author }: SourceNote): boolean {
+  if (persona === author) return true;
+  const reader = holders[persona];
+  const writer = author ? holders[author] : undefined;
+  switch (scope) {
+    case "successor":
+      return !!reader && !!writer && Number(reader.term) > Number(writer.term);
+    case "group":
+      return !!reader;
+    case "institution":
+      return persona !== "x";
+    case "public":
+      return true;
+  }
+}
 
 // Realtime rows ----------------------------------------------------------------------------------
 
@@ -702,6 +847,7 @@ type Waiting = {
   lang: Lang;
   askedAt: string;
   askers: { questionId: string; persona: Persona }[];
+  seenAt?: string; // the first time a25 opened the slip (POST /api/inbox/seen)
 };
 
 type State = {
@@ -710,7 +856,22 @@ type State = {
   answers: Map<string, { asker: Persona; result: AnsweredResult }>; // latest answer per question, as answered
   learned: Map<string, AnsweredResult>; // answers published for a question, by its text
   published: (MyNote & { author: Persona })[];
+  sources: Map<string, SourceNote>; // published notes as GET /api/notes/[id] returns them, by id
   withdrawn: Map<string, string>; // note id → withdrawnAt
+  gaps: Map<string, string>; // gap prompts added with 「先輩に聞く」: text → prompt id
+  answered: Map<string, string>; // note id → the gap or core prompt it answered (notes.prompt_id, 0011)
+  asked: Asked[]; // every question asked, oldest first, as questions rows keep them
+  replacedBy: Map<string, string>; // note id → the note that replaced it (「更新する」, superseded_by in 0010)
+};
+
+// A question as its asker's guide lists it. questionId is the one the ask answered with.
+type Asked = {
+  questionId: string;
+  persona: Persona;
+  seat: string;
+  text: string;
+  lang: Lang;
+  askedAt: string;
 };
 
 function freshState(): State {
@@ -720,7 +881,12 @@ function freshState(): State {
     answers: new Map(),
     learned: new Map(),
     published: [],
+    sources: new Map(),
     withdrawn: new Map(),
+    gaps: new Map([[gapPrompt.text, gapPrompt.id]]),
+    answered: new Map(),
+    asked: [],
+    replacedBy: new Map(),
   };
 }
 
@@ -740,7 +906,7 @@ export function resetMocks() {
 
 const keyOf = (question: string) => question.trim().replace(/[？?\s]+$/, "");
 // Hiragana, katakana or kanji (U+3040–30FF, U+4E00–9FFF) → ja.
-const langOf = (text: string): Lang => (/[぀-ヿ一-鿿]/.test(text) ? "ja" : "en");
+const langOf = questionLang; // the reading /api/ask saves as questions.lang
 const now = () => new Date().toISOString();
 const sleep = (ms: number) =>
   new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -784,7 +950,7 @@ function push<C extends keyof RealtimeRows>(
 }
 
 // Like the engine after a withdrawal: a sentence that cited a withdrawn note goes, and with it the rule change;
-// with nothing left, the question abstains.
+// with nothing left, the question abstains, routed nowhere and naming no prompt (the answers trigger, 0006).
 function withoutWithdrawn(result: AnsweredResult): AskResult {
   const sentences = result.sentences.filter((sentence) =>
     sentence.citations.every(
@@ -793,12 +959,7 @@ function withoutWithdrawn(result: AnsweredResult): AskResult {
   );
   if (sentences.length === result.sentences.length) return result;
   if (sentences.length === 0) {
-    return {
-      status: "abstained",
-      questionId: result.questionId,
-      promptId: newId(),
-      routedTo: 0,
-    };
+    return { status: "abstained", questionId: result.questionId, routedTo: 0 };
   }
   return {
     status: "answered",
@@ -813,6 +974,30 @@ function notesOf(persona: Persona) {
   return [...seedNotes, ...state.published].filter(
     (note) => note.author === persona,
   );
+}
+
+// A note stands while it is live and no later note that still stands replaced it: taking back an update brings the
+// note it replaced back, and in a chain the oldest stays replaced while a later one stands (0010).
+function stands(noteId: string): boolean {
+  if (state.withdrawn.has(noteId)) return false;
+  let by = state.replacedBy.get(noteId);
+  while (by !== undefined) {
+    if (!state.withdrawn.has(by)) return false;
+    by = state.replacedBy.get(by);
+  }
+  return true;
+}
+
+// A saved answer as the guide shows it, like lib/engine/guide.ts: the sentences whose notes all still stand, the rule
+// change only while every sentence does, and never `live`. With no sentence left there is no answer.
+function standingAnswer(result: AnsweredResult): AnsweredResult | undefined {
+  const sentences = result.sentences.filter((sentence) =>
+    sentence.citations.every((citation) => stands(citation.noteId)),
+  );
+  if (sentences.length === 0) return undefined;
+  const { live: _live, ruleChange, ...rest } = result;
+  const whole = sentences.length === result.sentences.length;
+  return { ...rest, sentences, ...(ruleChange && whole && { ruleChange }) };
 }
 
 // The answer to a published prompt: the card bodies, sentence by sentence, each citing its new note.
@@ -870,15 +1055,12 @@ export function createMockApi(
       state.answers.set(known.questionId, { asker: persona, result: known });
       return withoutWithdrawn(known);
     }
-    // Nobody knew. Holders' questions reach the reachable predecessor (a25); the rule for anyone else is #7's call.
-    const routed = seat === SEAT && holders[persona] && persona !== "a25";
-    if (!routed) {
-      return {
-        status: "abstained",
-        questionId,
-        promptId: newId(),
-        routedTo: 0,
-      };
+    // Nobody knew. A holder's question becomes a demand prompt and reaches the seat's reachable holders other than
+    // the asker: a25. A question that would reach nobody, because a25 asked it or because its asker holds no seat at
+    // that seat, creates no prompt, so its result names none. The database's ask_question() and /api/ask answer the
+    // same way.
+    if (seat !== SEAT || !holders[persona] || persona === "a25") {
+      return { status: "abstained", questionId, routedTo: 0 };
     }
     let waiting = [...state.waiting.values()].find(
       (prompt) => keyOf(prompt.question) === key,
@@ -933,7 +1115,22 @@ export function createMockApi(
 
     async ask(request) {
       const { seat, question } = AskRequest.parse(request);
-      return reply(askAs(seat, question));
+      const result = askAs(seat, question);
+      // Saved like a questions row, for the asker's guide. A fixed id asked again is the one question, now the latest.
+      state.asked = [
+        ...state.asked.filter(
+          (asked) => asked.questionId !== result.questionId,
+        ),
+        {
+          questionId: result.questionId,
+          persona,
+          seat,
+          text: question,
+          lang: langOf(question),
+          askedAt: now(),
+        },
+      ];
+      return reply(result);
     },
 
     async inbox(query) {
@@ -953,10 +1150,22 @@ export function createMockApi(
       return reply({ items });
     },
 
+    async seen(request) {
+      const { promptId } = SeenRequest.parse(request);
+      const prompt =
+        persona === "a25" ? state.waiting.get(promptId) : undefined;
+      if (!prompt) throw new MockApiError("not_found");
+      prompt.seenAt ??= now();
+      return reply({ seenAt: prompt.seenAt });
+    },
+
     async draft(request) {
-      const { answer } = DraftRequest.parse(request);
-      if (answer.includes("施設係")) return reply(mockDraft);
-      if (answer.includes("学祭の前")) return reply(mockDraftWithFollowup);
+      const { answer, followup } = DraftRequest.parse(request);
+      if (answer.includes("予備")) return reply(mockDraft);
+      // One follow-up per answer: the reply round gets the dated card and no second question.
+      if (answer.includes("学祭の前")) {
+        return reply(followup ? mockDraftAfterFollowup : mockDraftWithFollowup);
+      }
       const card: CardDraft = {
         kind: "rule_of_thumb",
         title: answer.split(/[。.!?！？\n]/)[0].slice(0, 20),
@@ -973,20 +1182,54 @@ export function createMockApi(
       const { seat, promptId, cards } = PublishRequest.parse(request);
       const holder = holders[persona];
       if (seat !== SEAT || !holder) throw new MockApiError("forbidden");
+      // Like the route: an added card gets its import's guard again (an edit in the review may have typed one back in).
+      const refused = cards.some(
+        (card) =>
+          card.source &&
+          shownReason(
+            [card.title, card.body, card.provenance ?? ""].join("\n"),
+            card.flags.secret,
+          ),
+      );
+      if (refused) throw new MockApiError("unredacted");
       const noteIds = cards.map((_card, i) =>
         i === 0 && promptId === mockIds.keyPrompt ? mockIds.liveNote : newId(),
       );
       cards.forEach((card, i) => {
         state.published.push({
           id: noteIds[i],
+          seat,
           title: card.title,
           scope: card.scope,
           status: "live",
           lang: card.lang,
           author: persona,
         });
+        state.sources.set(noteIds[i], {
+          note: {
+            id: noteIds[i],
+            kind: card.kind,
+            title: card.title,
+            body: card.body,
+            ...(card.deadline_date && { deadlineDate: card.deadline_date }),
+            lang: card.lang,
+            byline: holder.byline,
+          },
+          seat,
+          termOrder: Number(holder.term),
+          scope: card.scope,
+          author: persona,
+        });
+        // 「更新する」: the old note leaves the guide while this one stands, as superseded_by does (0010).
+        if (card.supersedes && !state.replacedBy.has(card.supersedes)) {
+          state.replacedBy.set(card.supersedes, noteIds[i]);
+        }
       });
       const waiting = promptId ? state.waiting.get(promptId) : undefined;
+      // Like publish.ts: the cards name a handover prompt they answer, never a newcomer's question.
+      if (promptId && !waiting) {
+        for (const id of noteIds) state.answered.set(id, promptId);
+      }
       const reanswered: string[] = [];
       if (waiting) {
         state.waiting.delete(waiting.promptId);
@@ -1032,7 +1275,47 @@ export function createMockApi(
               askCount: prompt.askers.length,
             }))
           : [];
-      return reply({ prompts: [...demand, gapPrompt, corePrompt].slice(0, 3) });
+      // The seed's gap prompt first, then those 「先輩に聞く」 added, as every holder reads them.
+      const gaps = [...state.gaps].map(
+        ([text, id]): HandoverPrompt => ({
+          id,
+          text,
+          reason: "gap",
+          askCount: 0,
+        }),
+      );
+      // Like GET /api/handover/prompts: a gap or core prompt the caller answered in a note they haven't withdrawn isn't
+      // asked again (a later holder still is).
+      const answered = new Set(
+        [...state.answered]
+          .filter(
+            ([noteId]) =>
+              !state.withdrawn.has(noteId) &&
+              state.sources.get(noteId)?.author === persona,
+          )
+          .map(([, promptId]) => promptId),
+      );
+      return reply({
+        prompts: [...demand, ...gaps, corePrompt]
+          .filter((prompt) => !answered.has(prompt.id))
+          .slice(0, 3),
+      });
+    },
+
+    // Like add_gap_prompt (0009) behind the route: a holder of the seat only, text the guard lets through, and the same
+    // open text twice is one prompt.
+    async gap(request) {
+      const { seat, text } = GapRequest.parse(request);
+      if (seat !== SEAT) {
+        throw new MockApiError(
+          mockOtherSeatViews[seat] ? "forbidden" : "not_found",
+        );
+      }
+      if (!holders[persona]) throw new MockApiError("forbidden");
+      if (shownReason(text)) throw new MockApiError("unredacted");
+      const promptId = state.gaps.get(text) ?? newId();
+      state.gaps.set(text, promptId);
+      return reply({ promptId });
     },
 
     async readers(query) {
@@ -1082,15 +1365,92 @@ export function createMockApi(
       return reply({ withdrawnAt });
     },
 
+    // Newest first, as GET /api/me/notes lists them (created_at descending, lib/engine/notes.ts).
     async myNotes() {
       return reply({
-        notes: notesOf(persona).map(
-          ({ author: _author, ...note }): MyNote => ({
-            ...note,
-            status: state.withdrawn.has(note.id) ? "withdrawn" : "live",
-          }),
-        ),
+        notes: notesOf(persona)
+          .toReversed()
+          .map(
+            ({ author: _author, ...note }): MyNote => ({
+              ...note,
+              status: state.withdrawn.has(note.id) ? "withdrawn" : "live",
+            }),
+          ),
       });
+    },
+
+    // Like the notes policy: a note out of the persona's scope, a withdrawn one and a missing one are all not_found.
+    async note(noteId) {
+      const id = NoteId.parse(noteId);
+      const source = state.sources.get(id) ?? seedSources.get(id);
+      if (!source || state.withdrawn.has(id) || !mayRead(persona, source)) {
+        throw new MockApiError("not_found");
+      }
+      return reply(source.note);
+    },
+
+    // Like GET /api/seats/[slug]/guide: the seat's notes the persona may read that still stand, newest term first; for
+    // a holder, the gap and core prompts that no such note names (the mock checks no coverage, so openChecked is always
+    // true); and the persona's own questions at the seat, newest first, each with its answer while a sentence stands.
+    async guide(slug) {
+      const seat = SeatSlug.parse(slug);
+      if (seat !== SEAT && !mockOtherSeatViews[seat]) {
+        throw new MockApiError("not_found");
+      }
+      // A live note of the seat the persona may read: it names a prompt even once replaced, and is listed while it stands.
+      const live = (source: SourceNote) =>
+        source.seat === seat &&
+        !state.withdrawn.has(source.note.id) &&
+        mayRead(persona, source);
+      const kinds = NoteKind.options;
+      const notes = [...seedSources.values(), ...state.sources.values()]
+        .filter((source) => live(source) && stands(source.note.id))
+        .sort(
+          (a, b) =>
+            b.termOrder - a.termOrder ||
+            kinds.indexOf(a.note.kind) - kinds.indexOf(b.note.kind) ||
+            (a.note.id < b.note.id ? -1 : a.note.id > b.note.id ? 1 : 0),
+        )
+        .map(({ note, termOrder }): GuideNote => ({ ...note, termOrder }));
+
+      const named = new Set(
+        [...state.answered]
+          .filter(([noteId]) => {
+            const source = state.sources.get(noteId);
+            return source !== undefined && live(source);
+          })
+          .map(([, promptId]) => promptId),
+      );
+      // The seed's gap prompt, those 「先輩に聞く」 added, then the checklist, as holders of the seat read them.
+      const prompts: GuideOpen[] = [
+        ...[...state.gaps].map(
+          ([text, id]): GuideOpen => ({ id, text, reason: "gap" }),
+        ),
+        { id: corePrompt.id, text: corePrompt.text, reason: "core" },
+      ];
+      const texts = new Set<string>();
+      const open =
+        seat === SEAT && holders[persona]
+          ? prompts.filter((prompt) => {
+              if (named.has(prompt.id) || texts.has(prompt.text)) return false;
+              texts.add(prompt.text);
+              return true;
+            })
+          : [];
+
+      const asked = state.asked
+        .filter(
+          (question) => question.persona === persona && question.seat === seat,
+        )
+        .toReversed()
+        .slice(0, 20)
+        .map(({ persona: _persona, seat: _seat, ...question }): GuideAsked => {
+          const saved = state.answers.get(question.questionId);
+          const answer =
+            saved?.asker === persona ? standingAnswer(saved.result) : undefined;
+          return { ...question, ...(answer && { answer }) };
+        });
+      return reply({ notes, open, openChecked: true, asked });
     },
 
     subscribe(channel, onRow) {

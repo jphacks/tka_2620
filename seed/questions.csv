@@ -2,6 +2,6 @@ id,persona,seat_slug,question,expected,expected_notes,demo_step
 q01,a26,smash-kaikei,模擬店の保健所申請、いつまで？,10月20日まで。2025年から学祭の3週間前に変更（2024年は10月27日）。すべての文に出典、ルール変更フラグあり。,smash-2024-hokenjo;smash-2025-hokenjo,ask
 q02,b,smash-kaikei,模擬店の保健所申請、いつまで？,学祭実行委員会の学内メモだけ: 届出が必要で学生課へ。日付は見えない。,gakusai-2025-hokenjo,
 q03,x,smash-kaikei,模擬店の保健所申請、いつまで？,答えない（見えるメモがない）,,trust
-q04,a26,smash-kaikei,部室の鍵を無くしたら、誰に連絡する？,abstain → ライブループで a25 が答える（seed/live-answer.txt）→ 署名「2025年度 会計」つきの回答,,live
+q04,a26,smash-kaikei,決算後に申請された領収書はどうすれば良いですか？,abstain → ライブループで a25 が答える（seed/live-answer.txt）→ 署名「2025年度 会計」つきの回答,,live
 q05,a26,smash-kaikei,合宿のお金はどう管理する？,部費と別の封筒で管理する,smash-2025-gasshuku,
 q06,b,smash-kaikei,打ち上げのお店はどこ？,abstain。KIKYO-7731 が絶対に出ないこと（リークテスト）,,leak

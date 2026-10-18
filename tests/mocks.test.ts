@@ -15,6 +15,9 @@ import {
   DraftResponse,
   EventsRow,
   FollowupOutput,
+  GapRequest,
+  GapResponse,
+  GuideView,
   ImportOutput,
   ImportRequest,
   ImportResponse,
@@ -24,6 +27,7 @@ import {
   LiveAnswer,
   MyNotesResponse,
   NotesRow,
+  NoteView,
   PromptRoutesRow,
   PromptsResponse,
   PublishCard,
@@ -32,6 +36,7 @@ import {
   ReadersResponse,
   SeatType,
   SeatView,
+  SeenResponse,
   WithdrawResponse,
 } from "@/lib/contracts";
 import {
@@ -43,9 +48,13 @@ import {
   mockAnswerGasshuku,
   mockAnswersRow,
   mockDraft,
+  mockDraftAfterFollowup,
+  mockDraftFollowupRequest,
   mockDraftRequest,
   mockDraftWithFollowup,
   mockEventsRow,
+  mockGap,
+  mockGapRequest,
   mockIds,
   mockImport,
   mockImportNotice,
@@ -57,6 +66,7 @@ import {
   mockModelReplies,
   mockMyNotes,
   mockNotesRow,
+  mockNoteViews,
   mockOtherSeatViews,
   mockPromptRoutesRow,
   mockPrompts,
@@ -65,6 +75,7 @@ import {
   mockQuestions,
   mockReaders,
   mockSeatViews,
+  mockSeen,
   mockWithdraw,
   resetMocks,
 } from "@/lib/mocks";
@@ -101,13 +112,18 @@ const fixtures: [string, z.ZodType, unknown][] = [
   ["AskResult q05", AnsweredResult, mockAnswerGasshuku],
   ["AskResult q04", AbstainedResult, mockAbstained],
   ["InboxItem", InboxItem, mockInboxItem],
+  ["SeenResponse", SeenResponse, mockSeen],
   ["DraftRequest", DraftRequest, mockDraftRequest],
   ["DraftResponse", DraftResponse, mockDraft],
   ["DraftResponse with a follow-up", DraftResponse, mockDraftWithFollowup],
+  ["DraftRequest in the reply round", DraftRequest, mockDraftFollowupRequest],
+  ["DraftResponse after a follow-up", DraftResponse, mockDraftAfterFollowup],
   ["PublishRequest", PublishRequest, mockPublishRequest],
   ["PublishResponse", PublishResponse, mockPublish],
   ["LiveAnswer", LiveAnswer, mockLiveAnswer],
   ["PromptsResponse", PromptsResponse, mockPrompts],
+  ["GapRequest", GapRequest, mockGapRequest],
+  ["GapResponse", GapResponse, mockGap],
   ...Object.values(mockReaders).map((count): [string, z.ZodType, unknown] => [
     "ReadersResponse",
     ReadersResponse,
@@ -128,6 +144,11 @@ const fixtures: [string, z.ZodType, unknown][] = [
   ["PromptRoutesRow", PromptRoutesRow, mockPromptRoutesRow],
   ["AnswersRow", AnswersRow, mockAnswersRow],
   ["NotesRow", NotesRow, mockNotesRow],
+  ...mockNoteViews.map((note): [string, z.ZodType, unknown] => [
+    `NoteView ${note.id}`,
+    NoteView,
+    note,
+  ]),
   ["EventsRow", EventsRow, mockEventsRow],
   ["AnswerOutput", AnswerOutput, mockModelReplies.answer],
   ["DraftOutput", DraftOutput, mockModelReplies.draft],
@@ -251,6 +272,32 @@ describe("the mocks follow the seed", () => {
     }
   });
 
+  it("open the cited notes as seed/notes.csv has them", () => {
+    for (const note of mockNoteViews) {
+      const row = notes.find((seed) => seed.id === note.id);
+      // Compared field by field as booleans, so a failure names the note and the field, never a body or a canary.
+      const same = {
+        kind: note.kind === row?.kind,
+        title: note.title === row?.title,
+        body: note.body === row?.body,
+        deadline: (note.deadlineDate ?? "") === row?.deadline_date,
+        term: note.byline.slice(0, 4) === row?.term_label,
+        noCanary: !row?.canary,
+      };
+      expect(
+        same,
+        `${note.id} differs from seed/notes.csv: update lib/mocks.ts`,
+      ).toEqual({
+        kind: true,
+        title: true,
+        body: true,
+        deadline: true,
+        term: true,
+        noCanary: true,
+      });
+    }
+  });
+
   it("contain no canary string", () => {
     const canaries = [
       ...notes.map((note) => note.canary ?? ""),
@@ -327,6 +374,24 @@ describe("createMockApi", () => {
     stopAnswers();
   });
 
+  it("doesn't ask a holder again what they answered through the handover, until they withdraw it", async () => {
+    const senpai = createMockApi("a25", { latencyMs: 0 });
+    const newcomer = createMockApi("a26", { latencyMs: 0 });
+    const core = mockPrompts.prompts.find((prompt) => prompt.reason === "core");
+    if (!core) throw new Error("mockPrompts has no core prompt");
+    const asked = async (api: ReturnType<typeof createMockApi>) =>
+      (await api.prompts({ seat })).prompts.map((prompt) => prompt.id);
+
+    const { noteIds } = await senpai.publish({
+      ...mockPublishRequest,
+      promptId: core.id,
+    });
+    expect(await asked(senpai)).not.toContain(core.id);
+    expect(await asked(newcomer)).toContain(core.id); // a later holder still is
+    await senpai.withdraw(noteIds[0]);
+    expect(await asked(senpai)).toContain(core.id);
+  });
+
   it("drops a withdrawn note from every answer and pushes the change", async () => {
     const newcomer = createMockApi("a26", { latencyMs: 0 });
     const senpai = createMockApi("a25", { latencyMs: 0 });
@@ -364,11 +429,86 @@ describe("createMockApi", () => {
     const view = await outsider.seat(seat);
     expect(view.viewer.isHolder).toBe(false);
     expect(view.upcoming).toEqual([]);
-    expect(
-      await outsider.ask({ seat, question: mockQuestions.q01 }),
-    ).toMatchObject({ status: "abstained", routedTo: 0 });
+    const asked = await outsider.ask({ seat, question: mockQuestions.q01 });
+    expect(asked).toMatchObject({ status: "abstained", routedTo: 0 });
+    expect(asked).not.toHaveProperty("promptId"); // no seat, so no prompt (route_question)
     expect((await outsider.inbox({ seat })).items).toEqual([]);
     expect((await outsider.myNotes()).notes).toEqual([]);
+  });
+
+  it("creates no prompt for a holder's question that reaches nobody, as ask_question does", async () => {
+    // a25 is the seat's only reachable holder, and an asker never reaches themselves.
+    const senpai = createMockApi("a25", { latencyMs: 0 });
+    const asked = await senpai.ask({ seat, question: mockQuestions.q04 });
+    expect(asked).toMatchObject({ status: "abstained", routedTo: 0 });
+    expect(asked).not.toHaveProperty("promptId");
+    expect((await senpai.inbox({ seat })).items).toEqual([]);
+    // Nothing waits for a25's question, so the newcomer's same question still starts the prompt a25 answers.
+    const newcomer = createMockApi("a26", { latencyMs: 0 });
+    expect(
+      await newcomer.ask({ seat, question: mockQuestions.q04 }),
+    ).toMatchObject({ promptId: mockIds.keyPrompt, routedTo: 1 });
+  });
+
+  it("abstains naming no prompt once every note an answer cited is withdrawn, as the answers trigger does", async () => {
+    const newcomer = createMockApi("a26", { latencyMs: 0 });
+    const answers: unknown[] = [];
+    const stop = newcomer.subscribe("answers", (row) => answers.push(row));
+    await newcomer.ask({ seat, question: mockQuestions.q01 });
+    await createMockApi("a25", { latencyMs: 0 }).withdraw("smash-2025-hokenjo");
+    await createMockApi("a24", { latencyMs: 0 }).withdraw("smash-2024-hokenjo");
+    await vi.waitFor(() => expect(answers).toHaveLength(2));
+    expect(AnswersRow.parse(answers[1]).payload).toEqual({
+      status: "abstained",
+      questionId: mockIds.q01,
+      routedTo: 0,
+    });
+    stop();
+  });
+
+  it("records when a25 first opens a slip, and lets nobody else", async () => {
+    const newcomer = createMockApi("a26", { latencyMs: 0 });
+    const senpai = createMockApi("a25", { latencyMs: 0 });
+    const asked = await newcomer.ask({ seat, question: mockQuestions.q04 });
+    if (asked.status !== "abstained" || !asked.promptId) {
+      throw new Error("q04 should reach a25's inbox");
+    }
+    const first = await senpai.seen({ promptId: asked.promptId });
+    expect(SeenResponse.safeParse(first).success).toBe(true);
+    expect(await senpai.seen({ promptId: asked.promptId })).toEqual(first);
+    await expect(
+      newcomer.seen({ promptId: asked.promptId }),
+    ).rejects.toMatchObject({ error: "not_found" });
+  });
+
+  it("asks one follow-up for an answer without a date, and none in the reply round", async () => {
+    const senpai = createMockApi("a25", { latencyMs: 0 });
+    expect(
+      await senpai.draft({ ...mockDraftFollowupRequest, followup: undefined }),
+    ).toEqual(mockDraftWithFollowup);
+    expect(await senpai.draft(mockDraftFollowupRequest)).toEqual(
+      mockDraftAfterFollowup,
+    );
+  });
+
+  it("opens a cited note only within the persona's scope, and not once it's withdrawn", async () => {
+    const outcome = (persona: "a26" | "b" | "x", id: string) =>
+      createMockApi(persona, { latencyMs: 0 })
+        .note(id)
+        .then(
+          () => "readable",
+          (error: unknown) => ApiError.parse(error).error,
+        );
+    const hokenjo = await createMockApi("a26", { latencyMs: 0 }).note(
+      "smash-2025-hokenjo",
+    );
+    expect(hokenjo.byline).toBe("2025年度 会計");
+    expect(await outcome("b", "smash-2025-hokenjo")).toBe("not_found");
+    expect(await outcome("x", "smash-2025-hokenjo")).toBe("not_found");
+    expect(await outcome("b", "gakusai-2025-hokenjo")).toBe("readable");
+    expect(await outcome("x", "gakusai-2025-hokenjo")).toBe("not_found");
+    await createMockApi("a25", { latencyMs: 0 }).withdraw("smash-2025-hokenjo");
+    expect(await outcome("a26", "smash-2025-hokenjo")).toBe("not_found");
   });
 
   it("rejects what the real API would reject", async () => {
@@ -382,5 +522,156 @@ describe("createMockApi", () => {
     await expect(
       newcomer.import({ ...mockImportRequest, text: "電話は 03-0000-0000" }),
     ).rejects.toMatchObject({ error: "unredacted" });
+  });
+
+  it("adds a missing item as a gap prompt once, for holders of the seat only", async () => {
+    const newcomer = createMockApi("a26", { latencyMs: 0 });
+    expect(await newcomer.gap(mockGapRequest)).toEqual(mockGap);
+    const text = mockImport.missing[0].prompt;
+    const added = await newcomer.gap({ seat, text });
+    expect(added.promptId).not.toBe(mockGap.promptId);
+    expect(
+      await createMockApi("a25", { latencyMs: 0 }).gap({ seat, text }),
+    ).toEqual(added);
+    const { prompts } = await createMockApi("a24", { latencyMs: 0 }).prompts({
+      seat,
+    });
+    expect(prompts.map((prompt) => [prompt.reason, prompt.text])).toEqual([
+      ["gap", mockGapRequest.text],
+      ["gap", text],
+      ["core", mockPrompts.prompts[2].text],
+    ]);
+    for (const [persona, code] of [
+      ["x", "forbidden"],
+      ["b", "forbidden"],
+    ] as const) {
+      await expect(
+        createMockApi(persona, { latencyMs: 0 }).gap({ seat, text }),
+      ).rejects.toMatchObject({ error: code });
+    }
+    for (const refused of [
+      "[電話番号] に聞く",
+      "メンバーA に聞く",
+      "加藤さんに聞く",
+      "https://forms.gle/AbCdEf を見る",
+    ]) {
+      await expect(newcomer.gap({ seat, text: refused })).rejects.toMatchObject(
+        { error: "unredacted" },
+      );
+    }
+  });
+
+  it("refuses an added card that the review let someone type a URL back into, like the route", async () => {
+    const senpai = createMockApi("a25", { latencyMs: 0 });
+    const [drafted] = mockImport.cards;
+    const sent = {
+      ...drafted,
+      scope: "successor" as const,
+      provenance: "LINEグループ・2025年3月",
+    };
+    await expect(
+      senpai.publish({
+        seat,
+        cards: [
+          { ...sent, body: "申請は https://forms.gle/AbCdEf から出す。" },
+        ],
+      }),
+    ).rejects.toMatchObject({ error: "unredacted" });
+    expect(
+      (await senpai.publish({ seat, cards: [sent] })).noteIds,
+    ).toHaveLength(1);
+  });
+
+  it("gives the guide like the route: the notes each persona reads, what isn't written for holders, their own questions", async () => {
+    const newcomer = createMockApi("a26", { latencyMs: 0 });
+    const outsider = createMockApi("x", { latencyMs: 0 });
+    const first = GuideView.parse(await newcomer.guide(seat));
+    expect(first.notes.map((note) => note.id)).toEqual([
+      "smash-2025-hokenjo",
+      "smash-2025-gasshuku",
+      "smash-2024-hokenjo",
+    ]);
+    expect(first.open.map((prompt) => prompt.id)).toEqual([
+      mockIds.gapPrompt,
+      mockIds.corePrompt,
+    ]);
+    expect(first).toMatchObject({ openChecked: true, asked: [] });
+    expect(GuideView.parse(await outsider.guide(seat))).toEqual({
+      notes: [],
+      open: [],
+      openChecked: true,
+      asked: [],
+    });
+
+    await newcomer.ask({ seat, question: mockQuestions.q01 });
+    await newcomer.ask({ seat, question: mockQuestions.q04 });
+    const { asked } = GuideView.parse(await newcomer.guide(seat));
+    expect(asked.map((item) => item.questionId)).toEqual([
+      mockIds.q04,
+      mockIds.q01,
+    ]);
+    expect(asked[0]).not.toHaveProperty("answer"); // nobody has answered q04 yet
+    expect(asked[1].answer).toEqual(mockAnswer);
+    expect((await outsider.guide(seat)).asked).toEqual([]);
+    await expect(newcomer.guide("no-such-seat")).rejects.toMatchObject({
+      error: "not_found",
+    });
+  });
+
+  it("leaves a replaced or withdrawn note out of the guide and its answers, and takes an update back", async () => {
+    const newcomer = createMockApi("a26", { latencyMs: 0 });
+    await newcomer.ask({ seat, question: mockQuestions.q01 });
+    // 「更新する」 with 2026's notice: the 2025 note is history.
+    const {
+      noteIds: [notice],
+    } = await newcomer.publish({
+      seat,
+      cards: [
+        {
+          ...mockImportNotice.cards[0],
+          scope: "successor",
+          supersedes: "smash-2025-hokenjo",
+        },
+      ],
+    });
+    let guide = await newcomer.guide(seat);
+    expect(guide.notes.map((note) => note.id)).toEqual([
+      notice,
+      "smash-2025-gasshuku",
+      "smash-2024-hokenjo",
+    ]);
+    const cited = guide.asked[0].answer?.sentences.flatMap((sentence) =>
+      sentence.citations.map((citation) => citation.noteId),
+    );
+    expect(cited).toEqual(["smash-2024-hokenjo"]);
+    expect(guide.asked[0].answer?.ruleChange).toBeUndefined();
+
+    await newcomer.withdraw(notice);
+    guide = await newcomer.guide(seat);
+    expect(guide.notes.map((note) => note.id)).toContain("smash-2025-hokenjo");
+    expect(guide.asked[0].answer).toEqual(mockAnswer);
+  });
+
+  it("leaves out of the guide a prompt answered in a note the persona reads", async () => {
+    await createMockApi("a25", { latencyMs: 0 }).publish({
+      ...mockPublishRequest,
+      promptId: mockIds.corePrompt,
+    });
+    const open = async (persona: "a24" | "a25" | "a26") =>
+      (await createMockApi(persona, { latencyMs: 0 }).guide(seat)).open.map(
+        (prompt) => prompt.id,
+      );
+    expect(await open("a25")).toEqual([mockIds.gapPrompt]);
+    expect(await open("a26")).toEqual([mockIds.gapPrompt]); // a26 reads a25's note for the next treasurers
+    expect(await open("a24")).toEqual([mockIds.gapPrompt, mockIds.corePrompt]);
+  });
+
+  it("shows the live loop's answer in the newcomer's guide once it is published, without `live`", async () => {
+    const newcomer = createMockApi("a26", { latencyMs: 0 });
+    await newcomer.ask({ seat, question: mockQuestions.q04 });
+    await createMockApi("a25", { latencyMs: 0 }).publish(mockPublishRequest);
+    const [q04] = (await newcomer.guide(seat)).asked;
+    const { live: _live, ...answer } = mockLiveAnswer;
+    expect(q04.answer).toEqual(answer);
   });
 });

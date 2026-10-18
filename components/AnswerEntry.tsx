@@ -1,0 +1,279 @@
+"use client";
+// docs/DESIGN.md → AnswerEntry: the question again in blue, then the answer in Klee One on the ruled grid, a mini
+// stamp after every sentence for each note it rests on. Tapping a stamp opens the source note under its sentence,
+// read as the viewer (GET /api/notes/[id]), so the notes policy decides what opens.
+// Dates carry the highlighter, except the one a rule change replaced (the highlighter is for dates that matter);
+// a rule change is a red-pen margin note (a red bracket left of the sentence and 「2025年に変更」 after its stamps,
+// on the same line). Each sentence keeps the answer's lang, which can differ from the notes' (answers are written in
+// the asker's language); the UI text inside it keeps the page's.
+import { useLocale, useTranslations } from "next-intl";
+import { type ReactNode, useEffect, useId, useState } from "react";
+import { kindMarks } from "@/components/marks";
+import {
+  type AnsweredResult,
+  type AnswerSentence,
+  type Api,
+  ApiError,
+  type Citation,
+  type NoteView,
+} from "@/lib/contracts";
+
+// Reading a note needs only this from the viewer's client (createApi, or createMockApi on mocks).
+type NoteReader = Pick<Api, "note">;
+
+// The term label's digits, last two: 「2025」→25, 「2025秋」→25 (the mini stamp holds 「25」).
+const stampDigits = (termLabel: string) =>
+  (termLabel.match(/\d/g)?.join("") ?? "").slice(-2);
+
+const MONTHS = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
+// Dates in a sentence: 2025年10月20日, 10月20日, 2025/10/20, 10/20, October 20(, 2025).
+const DATE = new RegExp(
+  `(?:\\d{4}年)?\\d{1,2}月\\d{1,2}日|(?<!\\d)(?:\\d{4}/)?\\d{1,2}/\\d{1,2}(?!\\d)|(?:${MONTHS.join("|")}) \\d{1,2}(?:, \\d{4})?`,
+  "g",
+);
+
+// A date as month/day (10月27日 → 10/27), the form of the engine's rule-change summary.
+function monthDay(date: string): string {
+  const parts = date.match(/(\d{1,2})月(\d{1,2})日$|(\d{1,2})\/(\d{1,2})$/);
+  if (parts) {
+    const [month, day] = parts[1] ? [parts[1], parts[2]] : [parts[3], parts[4]];
+    return `${Number(month)}/${Number(day)}`;
+  }
+  const [name, day] = date.split(/[ ,]+/);
+  return `${MONTHS.indexOf(name) + 1}/${Number(day)}`;
+}
+
+// The rule change, read for the screen: the term it changed in and, from the summary (lib/engine/rule-change.ts:
+// 「10/27 → 10/20」), the deadline it replaced and the new one. A summary in another form leaves the dates out.
+type Change = { term: string; before?: string; after?: string };
+function changeOf(answer: AnsweredResult): Change | undefined {
+  if (!answer.ruleChange) return undefined;
+  const [, before, after] =
+    answer.ruleChange.summary.match(
+      /^(\d{1,2}\/\d{1,2}) → (\d{1,2}\/\d{1,2})$/,
+    ) ?? [];
+  return { term: answer.ruleChange.termLabel, before, after };
+}
+
+// The sentence with the highlighter behind each date but the replaced one.
+function withMarker(text: string, replaced?: string): ReactNode[] {
+  const parts: ReactNode[] = [];
+  let at = 0;
+  for (const match of text.matchAll(DATE)) {
+    if (monthDay(match[0]) === replaced) continue;
+    const start = match.index ?? 0;
+    if (start > at) parts.push(text.slice(at, start));
+    parts.push(
+      <mark key={start} className="dd-marker">
+        {match[0]}
+      </mark>,
+    );
+    at = start + match[0].length;
+  }
+  if (at < text.length) parts.push(text.slice(at));
+  return parts;
+}
+
+// The sentence that carries the rule change: one resting on a note of the term it changed in, preferably the one
+// that gives the new date (another seat's note, like the festival committee's, can share the term).
+function ruleChangeIndex(answer: AnsweredResult, change?: Change): number {
+  if (!change) return -1;
+  const ofTerm = answer.sentences.map((sentence) =>
+    sentence.citations.some((citation) => citation.termLabel === change.term),
+  );
+  const withDate = answer.sentences.findIndex(
+    (sentence, i) =>
+      ofTerm[i] &&
+      [...sentence.text.matchAll(DATE)].some(
+        (match) => monthDay(match[0]) === change.after,
+      ),
+  );
+  return withDate >= 0 ? withDate : ofTerm.indexOf(true);
+}
+
+// The note an opened stamp shows, once read: the note, or why it can't be shown (gone: withdrawn, out of the viewer's
+// scope or missing, which the route doesn't tell apart).
+type Source = { noteId: string; note?: NoteView; failure?: "gone" | "failed" };
+
+function SentenceLine({
+  sentence,
+  lang,
+  land,
+  replaced,
+  changedIn,
+  api,
+}: {
+  sentence: AnswerSentence;
+  lang: string;
+  land: boolean;
+  replaced?: string;
+  changedIn?: string;
+  api: NoteReader;
+}) {
+  const t = useTranslations();
+  const locale = useLocale();
+  const [open, setOpen] = useState<Citation>();
+  const [source, setSource] = useState<Source>();
+  const sourceId = useId(); // the opened stamp controls the block under the sentence
+  const openId = open?.noteId;
+  // Every opening reads the note again, so one withdrawn since the answer came is gone at once.
+  useEffect(() => {
+    if (!openId) return;
+    let alive = true;
+    setSource({ noteId: openId });
+    api.note(openId).then(
+      (note) => {
+        if (alive) setSource({ noteId: openId, note });
+      },
+      (error: unknown) => {
+        if (!alive) return;
+        const code = ApiError.safeParse(error).data?.error;
+        setSource({
+          noteId: openId,
+          failure: code === "not_found" ? "gone" : "failed",
+        });
+      },
+    );
+    return () => {
+      alive = false;
+    };
+  }, [api, openId]);
+  const shown = source?.noteId === openId ? source : undefined;
+  // One stamp per note the sentence rests on (every sentence cites at least one retrieved note).
+  const citations = sentence.citations.filter(
+    (citation, i, all) =>
+      all.findIndex((other) => other.noteId === citation.noteId) === i,
+  );
+  // The sentence's last character (or the date it ends on) goes with its stamps and margin note, so a stamp never
+  // starts a line alone; 「。」 can't start a line either, so the character before it comes along.
+  const parts = withMarker(sentence.text, replaced);
+  const last = parts.pop();
+  const chars = typeof last === "string" ? Array.from(last) : [];
+  const tail = typeof last === "string" ? chars.pop() : last;
+  return (
+    <>
+      <p lang={lang} className={changedIn ? "dd-margin" : undefined}>
+        {parts}
+        {chars.join("")}
+        <span style={{ whiteSpace: "nowrap" }}>
+          {tail}
+          {citations.map((citation) => (
+            <button
+              key={citation.noteId}
+              type="button"
+              lang={locale}
+              aria-label={t("live.stamp", { byline: citation.byline })}
+              aria-expanded={open?.noteId === citation.noteId}
+              aria-controls={
+                open?.noteId === citation.noteId ? sourceId : undefined
+              }
+              className={`dd-mini${land ? " is-landing" : ""}`}
+              onClick={() =>
+                setOpen((current) =>
+                  current?.noteId === citation.noteId ? undefined : citation,
+                )
+              }
+            >
+              {stampDigits(citation.termLabel)}
+            </button>
+          ))}
+          {changedIn && (
+            <span className="dd-margin-note" lang={locale}>
+              {t("ask.changedIn", { term: changedIn })}
+            </span>
+          )}
+        </span>
+      </p>
+      {open && (
+        // Under its sentence, indented, every line on the 32px grid: whose note it is at once, then the note.
+        <div id={sourceId} className="dd-source" aria-live="polite">
+          <p className="dd-cap" lang={locale}>
+            {t("ask.source", { byline: open.byline })}
+          </p>
+          {shown?.note && (
+            <>
+              <p className="dd-source-title" lang={shown.note.lang}>
+                <span
+                  className="dd-kind-mark"
+                  role="img"
+                  lang={locale}
+                  aria-label={t(`kinds.${shown.note.kind}`)}
+                >
+                  {kindMarks[shown.note.kind]}
+                </span>
+                {shown.note.title}
+              </p>
+              <p lang={shown.note.lang}>
+                {withMarker(shown.note.body, replaced)}
+              </p>
+            </>
+          )}
+          {shown?.failure && (
+            <p className="dd-cap" lang={locale}>
+              {t(
+                shown.failure === "gone"
+                  ? "ask.sourceGone"
+                  : "ask.sourceFailed",
+              )}
+            </p>
+          )}
+        </div>
+      )}
+    </>
+  );
+}
+
+export function AnswerEntry({
+  question,
+  answer,
+  api,
+  land = false,
+}: {
+  question: string;
+  answer: AnsweredResult;
+  /** The viewer's client: a stamp opens its note through it, as the viewer. */
+  api: NoteReader;
+  /** The stamp-landing motion is the live loop's signature; plain answers just appear. */
+  land?: boolean;
+}) {
+  const change = changeOf(answer);
+  const changed = ruleChangeIndex(answer, change);
+  return (
+    <section>
+      <p className="dd-q" lang={answer.language}>
+        {question}
+      </p>
+      <div className="dd-ruled" lang={answer.language}>
+        {answer.sentences.map((sentence, i) => (
+          <SentenceLine
+            key={sentence.text}
+            sentence={sentence}
+            lang={answer.language}
+            land={land}
+            api={api}
+            replaced={change?.before}
+            // 「2025年に変更」: the term's year, so a term like 「2025秋」 reads the same.
+            changedIn={
+              i === changed
+                ? (change?.term.match(/\d{4}/)?.[0] ?? change?.term)
+                : undefined
+            }
+          />
+        ))}
+      </div>
+    </section>
+  );
+}

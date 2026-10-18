@@ -5,7 +5,7 @@ import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { parse } from "csv-parse/sync";
-import { embed } from "@/lib/embed";
+import { embed, noteText } from "@/lib/embed";
 
 type Status = "current" | "alumni";
 type Holding = {
@@ -142,7 +142,10 @@ const people: Person[] = [
   },
 ];
 
-// Children before parents. Every row goes, so a reset also clears live-loop questions, answers and meter events.
+// Children before parents. Every row goes, so a reset also clears live-loop questions, answers and meter events. Only
+// the test records in events stay (numbers only, readable by nobody signed in): the live-loop timings (kind "loop",
+// `pnpm test:loop` records them and then resets) and the leak test's counts (kind "leak", `pnpm test:leak`). They are
+// a record of every run, not demo data.
 const tablesInDeleteOrder = [
   ["answers", "question_id"],
   ["prompt_routes", "prompt_id"],
@@ -154,7 +157,6 @@ const tablesInDeleteOrder = [
   ["seats", "id"],
   ["groups", "id"],
   ["institutions", "id"],
-  ["events", "id"],
 ] as const;
 
 const kinds = [
@@ -185,6 +187,11 @@ type QuestionRow = Record<
   "id" | "persona" | "seat_slug" | "expected_notes",
   string
 >;
+// What every leaver should hand over, per seat type: F6's core prompts and F5's checklist (seed/README.md).
+type CorePromptRow = Record<
+  "seat_type" | "topic" | "text_ja" | "text_en",
+  string
+>;
 
 function env(name: string): string {
   const value = process.env[name];
@@ -205,7 +212,11 @@ async function readCsv<Row>(path: string): Promise<Row[]> {
   }) as Row[];
 }
 
-function validate(notes: NoteRow[], questions: QuestionRow[]): string[] {
+function validate(
+  notes: NoteRow[],
+  questions: QuestionRow[],
+  corePrompts: CorePromptRow[],
+): string[] {
   const problems: string[] = [];
   const noteIds = new Set<string>();
   for (const note of notes) {
@@ -258,6 +269,18 @@ function validate(notes: NoteRow[], questions: QuestionRow[]): string[] {
         problems.push(`${where}: expected note ${id} isn't in notes.csv`);
     }
   }
+  const topics = new Set<string>();
+  for (const prompt of corePrompts) {
+    const where = `core-prompts.csv ${prompt.seat_type}/${prompt.topic}`;
+    if (!seats.some((seat) => seat.type === prompt.seat_type)) {
+      problems.push(`${where}: no seat of type ${prompt.seat_type}`);
+    }
+    if (topics.has(where)) problems.push(`${where}: duplicate topic`);
+    topics.add(where);
+    if (!prompt.topic || !prompt.text_ja || !prompt.text_en) {
+      problems.push(`${where}: missing topic, text_ja or text_en`);
+    }
+  }
   return problems;
 }
 
@@ -304,18 +327,19 @@ async function seed() {
   // Check and embed everything before touching the database, so a bad CSV or a stopped Ollama changes nothing.
   const notes = await readCsv<NoteRow>("seed/notes.csv");
   const questions = await readCsv<QuestionRow>("seed/questions.csv");
-  const problems = validate(notes, questions);
+  const corePrompts = await readCsv<CorePromptRow>("seed/core-prompts.csv");
+  const problems = validate(notes, questions, corePrompts);
   if (problems.length > 0) {
     throw new Error(
       `seed data has ${problems.length} problem(s):\n  ${problems.join("\n  ")}`,
     );
   }
   console.log(
-    `✓ ${notes.length} notes and ${questions.length} questions are consistent`,
+    `✓ ${notes.length} notes, ${questions.length} questions and ${corePrompts.length} core prompts are consistent`,
   );
-  const vectors = await embed(notes.map((note) => note.body));
+  const vectors = await embed(notes.map(noteText));
   console.log(
-    `✓ embedded ${vectors.length} note bodies with ${env("EMBED_MODEL")}`,
+    `✓ embedded ${vectors.length} notes (title and body) with ${env("EMBED_MODEL")}`,
   );
   const labelPacks = JSON.parse(
     await readFile(new URL("../messages/ja.json", import.meta.url), "utf8"),
@@ -325,10 +349,17 @@ async function seed() {
     const { error } = await db.from(table).delete().not(column, "is", null);
     if (error) throw new Error(`delete from ${table}: ${error.message}`);
   }
+  const { error: eventsError } = await db
+    .from("events")
+    .delete()
+    .not("kind", "in", "(loop,leak)");
+  if (eventsError)
+    throw new Error(`delete from events: ${eventsError.message}`);
   const previous = await demoUsers(db);
   for (const user of previous) {
     const { error } = await db.auth.admin.deleteUser(user.id);
-    if (error) throw new Error(`delete user ${user.email}: ${error.message}`);
+    // The id, not the email: pnpm metrics shows this output too.
+    if (error) throw new Error(`delete user ${user.id}: ${error.message}`);
   }
   console.log(
     `✓ removed the previous demo data and ${previous.length} demo users`,
@@ -433,6 +464,21 @@ async function seed() {
     }),
   );
 
+  // Every seat gets its type's core prompts, in Japanese like the seed notes (text_en is for readers of the CSV).
+  await insert(
+    db,
+    "prompts",
+    seats.flatMap((seat) =>
+      corePrompts
+        .filter((prompt) => prompt.seat_type === seat.type)
+        .map((prompt) => ({
+          seat_id: seatIds.get(seat.slug),
+          kind: "core",
+          text: prompt.text_ja,
+        })),
+    ),
+  );
+
   const users = await demoUsers(db);
   const signIns = people.filter((person) => person.signIn).length;
   const rows: [string, number, string?][] = [
@@ -455,7 +501,7 @@ async function seed() {
     ["answers", await count(db, "answers")],
     ["prompts", await count(db, "prompts")],
     ["prompt_routes", await count(db, "prompt_routes")],
-    ["events", await count(db, "events")],
+    ["events", await count(db, "events"), "loop and leak test records, kept"],
   ];
   console.log("\nDatabase now:");
   for (const [name, rowCount, detail] of rows) {
