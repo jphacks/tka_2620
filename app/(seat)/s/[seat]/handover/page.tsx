@@ -1,5 +1,4 @@
-import { AddPanel } from "@/components/AddPanel";
-import { InboxPanel } from "@/components/InboxPanel";
+import { HandoverColumn } from "@/components/HandoverColumn";
 import { SeatSignIn } from "@/components/SeatSignIn";
 import { USE_MOCKS } from "@/lib/mocks";
 
@@ -13,12 +12,9 @@ export default async function HandoverPage({
       style={{ maxWidth: "640px", marginInline: "auto" }}
     >
       {/* On mocks as a25; on real data as the persona in #key=…&as=… (components/SeatSignIn.tsx).
-          残す: newcomers' questions, then 「＋ 追加」 for text, files and chats. */}
+          残す: newcomers' questions, the handover prompts, then 「＋ 追加」 for text, files and chats. */}
       {USE_MOCKS ? (
-        <div className="dd-col" style={{ gap: "var(--s-7)" }}>
-          <InboxPanel slug={seat} />
-          <AddPanel slug={seat} />
-        </div>
+        <HandoverColumn slug={seat} />
       ) : (
         <SeatSignIn slug={seat} panel="inbox" />
       )}

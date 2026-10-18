@@ -22,12 +22,15 @@ export function InboxPanel({
   onAnswer,
   mockShortcuts = true,
   closeAfterPublish = false,
+  onPublished,
   api: given,
 }: {
   slug: string;
   onAnswer?: (item: InboxItem, mode: AnswerMode) => void;
   mockShortcuts?: boolean;
   closeAfterPublish?: boolean;
+  /** An answer was published here (the handover prompts below read their list again). */
+  onPublished?: () => void;
   /** The signed-in predecessor's client (a console pane's); mocks as a25 when left out. */
   api?: Api;
 }) {
@@ -124,6 +127,7 @@ export function InboxPanel({
           api={api}
           onPublished={() => {
             load();
+            onPublished?.();
             if (!closeAfterPublish) return;
             const { promptId } = answering.item;
             setTimeout(

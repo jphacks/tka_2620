@@ -1,0 +1,307 @@
+"use client";
+// 残す's handover prompts (docs/SPEC.md → F6; #43): up to three questions for the leaver, ranked demand → gap →
+// required → core by GET /api/handover/prompts, each with why it is asked. 声で答える / 文字で答える opens VoiceAnswer
+// for that prompt; its answer is drafted into cards (POST /api/handover/draft, at most one follow-up), checked in
+// CardReview with a scope per card, and published naming the prompt (POST /api/handover/publish). An answered prompt
+// stays in the list as 「公開しました」 with the scopes it went out at, so three in a row read as done. A newcomer's
+// question routed here (prompt_routes) reads the list again; the prompts already shown keep their places.
+import { useTranslations } from "next-intl";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { CardReview } from "@/components/CardReview";
+import type { AnswerMode } from "@/components/InboxSlip";
+import { VoiceAnswer } from "@/components/VoiceAnswer";
+import type {
+  Api,
+  DraftResponse,
+  HandoverPrompt,
+  PublishCard,
+  Scope,
+  SeatView,
+} from "@/lib/contracts";
+import { createMockApi } from "@/lib/mocks";
+import { useRealtime } from "@/lib/realtime";
+
+// The prompt being answered: first the answer, then its drafted cards.
+type Open = {
+  prompt: HandoverPrompt;
+  mode: AnswerMode;
+  answer?: string;
+  draft?: DraftResponse;
+};
+
+export function HandoverPrompts({
+  slug,
+  refresh = 0,
+  onPublished,
+  api: given,
+}: {
+  slug: string;
+  /** Changes when the inbox on the same page published an answer: read the list again. */
+  refresh?: number;
+  /** Cards were published here (the inbox on the same page reads its slips again). */
+  onPublished?: () => void;
+  /** The signed-in predecessor's client; mocks as a25 when left out. */
+  api?: Api;
+}) {
+  const t = useTranslations();
+  const titleId = useId();
+  const api = useMemo(() => given ?? createMockApi("a25"), [given]);
+  const [view, setView] = useState<SeatView>();
+  const [prompts, setPrompts] = useState<HandoverPrompt[]>();
+  const [failed, setFailed] = useState(false);
+  const [open, setOpen] = useState<Open>();
+  const [busy, setBusy] = useState(false);
+  // Whether a prompt is being answered, for load() without reading it again on every keystroke's render.
+  const opened = useRef(false);
+  opened.current = open !== undefined;
+  const [trouble, setTrouble] = useState<"draft" | "publish">();
+  // The scopes each answered prompt's cards went out at, by prompt id.
+  const [published, setPublished] = useState<ReadonlyMap<string, Scope[]>>(
+    new Map(),
+  );
+
+  useEffect(() => {
+    let alive = true;
+    api.seat(slug).then(
+      (seat) => {
+        if (alive) setView(seat);
+      },
+      () => {
+        if (alive) setFailed(true);
+      },
+    );
+    return () => {
+      alive = false;
+    };
+  }, [api, slug]);
+
+  // A prompt already shown stays where it is while the server still lists it, or once it is published (the server stops
+  // listing a prompt the caller answered); new ones go below, so nothing slides in under the person's thumb.
+  const load = useCallback(async () => {
+    let next: HandoverPrompt[];
+    try {
+      ({ prompts: next } = await api.prompts({ seat: slug }));
+    } catch {
+      setFailed(true); // prompts already shown stay
+      return;
+    }
+    setFailed(false);
+    const listed = new Set(next.map((prompt) => prompt.id));
+    setPrompts((current = []) => {
+      // Until one is answered, nothing is under the person's thumb yet: the server's ranking as it is.
+      if (published.size === 0 && !opened.current) return next;
+      const kept = current.filter(
+        (prompt) => listed.has(prompt.id) || published.has(prompt.id),
+      );
+      const known = new Set(kept.map((prompt) => prompt.id));
+      return [...kept, ...next.filter((prompt) => !known.has(prompt.id))];
+    });
+  }, [api, slug, published]);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: refresh is the signal to read again
+  useEffect(() => {
+    load();
+  }, [load, refresh]);
+  useRealtime(api, "prompt_routes", () => {
+    load();
+  });
+
+  async function draft(answer: string, reply?: string) {
+    if (!open) return;
+    setBusy(true);
+    setTrouble(undefined);
+    try {
+      const next = await api.draft({
+        seat: slug,
+        promptId: open.prompt.id,
+        answer,
+        ...(reply &&
+          open.draft?.followup && {
+            followup: { question: open.draft.followup.question, answer: reply },
+          }),
+      });
+      // The reply round never asks again (F6.3).
+      setOpen({
+        ...open,
+        answer,
+        draft: reply ? { cards: next.cards } : next,
+      });
+    } catch {
+      setTrouble("draft");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function publish(cards: PublishCard[]) {
+    if (!open) return;
+    setBusy(true);
+    setTrouble(undefined);
+    try {
+      await api.publish({ seat: slug, promptId: open.prompt.id, cards });
+      setPublished((current) =>
+        new Map(current).set(
+          open.prompt.id,
+          cards.map((card) => card.scope),
+        ),
+      );
+      setOpen(undefined);
+      onPublished?.();
+    } catch {
+      setTrouble("publish");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!view && !failed) return null; // the inbox above is what the leaver came for; this follows when ready
+  const seat = view?.seat;
+  const scopeLabel = (scope: Scope) =>
+    seat
+      ? t(`seatTypes.${seat.seatType}.scope.${scope}`, {
+          seat: seat.name,
+          group: seat.group,
+          institution: seat.institution,
+        })
+      : "";
+  const reason = (prompt: HandoverPrompt) => {
+    if (!seat) return "";
+    switch (prompt.reason) {
+      case "demand":
+        return t("handover.reasonDemand", { n: prompt.askCount });
+      case "gap":
+        return t("handover.reasonGap");
+      case "required":
+        return t("handover.reasonRequired", { group: seat.group });
+      case "core":
+        return t("handover.reasonCore", { seat: seat.name });
+    }
+  };
+
+  return (
+    <section
+      className="dd-col"
+      style={{ gap: "var(--s-5)" }}
+      aria-labelledby={titleId}
+    >
+      <h2 id={titleId} className="dd-h">
+        {t("handover.promptsTitle")}
+      </h2>
+      {failed && (
+        <p style={{ margin: 0, color: "var(--ink-2)" }}>
+          {t("handover.promptsFailed")}
+        </p>
+      )}
+      {prompts?.length === 0 && (
+        <p style={{ margin: 0, color: "var(--ink-2)" }}>
+          {t("handover.promptsEmpty")}
+        </p>
+      )}
+      {seat &&
+        prompts?.map((prompt) => {
+          const scopes = published.get(prompt.id);
+          const answering = open?.prompt.id === prompt.id;
+          return (
+            <article
+              key={prompt.id}
+              className="dd-slip dd-entry"
+              aria-label={prompt.text}
+            >
+              <p className="dd-cap" style={{ margin: 0 }}>
+                {reason(prompt)}
+              </p>
+              <p className="dd-inbox-q" style={{ margin: 0 }}>
+                {prompt.text}
+              </p>
+              {scopes ? (
+                <output className="dd-live-note">
+                  {t("handover.publishedAs", {
+                    scopes: [...new Set(scopes)]
+                      .map(scopeLabel)
+                      .join(t("import.listSeparator")),
+                  })}
+                </output>
+              ) : answering ? null : (
+                <div className="dd-row" style={{ gap: "var(--s-3)" }}>
+                  <button
+                    type="button"
+                    className="dd-btn dd-btn-primary"
+                    style={{ flex: 1, minHeight: "52px" }}
+                    disabled={busy}
+                    onClick={() => {
+                      setTrouble(undefined);
+                      setOpen({ prompt, mode: "voice" });
+                    }}
+                  >
+                    {t("inbox.answerByVoice")}
+                  </button>
+                  <button
+                    type="button"
+                    className="dd-btn"
+                    style={{ flex: 1, minHeight: "52px" }}
+                    disabled={busy}
+                    onClick={() => {
+                      setTrouble(undefined);
+                      setOpen({ prompt, mode: "text" });
+                    }}
+                  >
+                    {t("inbox.answerByText")}
+                  </button>
+                </div>
+              )}
+              {answering && open && (
+                <div className="dd-col" style={{ gap: "var(--s-4)" }}>
+                  {open.draft ? (
+                    <CardReview
+                      seat={seat}
+                      cards={open.draft.cards}
+                      followup={open.draft.followup}
+                      api={api}
+                      busy={busy}
+                      onReply={(reply) => draft(open.answer ?? "", reply)}
+                      onPublish={publish}
+                    />
+                  ) : (
+                    <VoiceAnswer
+                      key={`${prompt.id}-${open.mode}`}
+                      item={{ promptId: prompt.id }}
+                      seat={slug}
+                      mode={open.mode}
+                      api={api}
+                      drafting={busy}
+                      onDraft={(answer) => draft(answer)}
+                    />
+                  )}
+                  {trouble && (
+                    <p className="dd-cap" style={{ margin: 0 }}>
+                      {t(
+                        trouble === "draft"
+                          ? "handover.draftFailed"
+                          : "voice.failed",
+                      )}
+                    </p>
+                  )}
+                  <button
+                    type="button"
+                    className="dd-link"
+                    style={{ justifySelf: "start", minHeight: "44px" }}
+                    disabled={busy}
+                    onClick={() => setOpen(undefined)}
+                  >
+                    {t("handover.cancel")}
+                  </button>
+                </div>
+              )}
+            </article>
+          );
+        })}
+    </section>
+  );
+}
