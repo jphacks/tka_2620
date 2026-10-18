@@ -8,7 +8,7 @@
 
 | Time | Screen | Kagehiro (日本語) | Nico | Ishibashi |
 |---|---|---|---|---|
-| 0–8 s | Title 「誰も書かない引き継ぎ」 + quote | 「『保健所の書類を、いつまでに出すのか誰も知らなくて、模擬店が出せなくなりかけました。』引き継ぎは、誰も書きません。」 | — | — |
+| 0–8 s | Title 「誰も書かない引き継ぎ」 + quote | 「『保健所の書類を、いつまでに出すのか誰も知らなくて、模擬店が出せなくなりかけました。』引き継ぎには、誰も書きません。」 | — | — |
 | 8–20 s | Seat page → hero question → answer with sources | 「新しい会計は、部室の席にスマホをかざして聞きます。答えは蓄積されたメモだけから。すべての文に、どの先輩のメモか書いてあり、過去との相違点も簡単に分かります。」 | Taps the NFC sticker; asks 「模擬店の保健所申請、いつまで？」 | — |
 | 20–45 s | 「歴代の会計は誰も知りません」 → phone inbox → signed answer | 「誰も知らないことは、そのように答えます。その質問は、前年の会計のスマホに届きます。」 … 「声で答えるだけで、メモになって後輩に届きます。」 | Asks 「決算後に申請された領収書はどうすれば良いですか？」、, then says **「去年の会計に、聞いてみます。」** | Phone buzzes; taps 声で答える; says the answer in `seed/live-answer.txt`; taps 公開 |
 | 45–55 s | Outsider pane empty; withdraw; meter; leak counter | 「共有する範囲は、自分で決められます。共有対象でない人には何も見えません。撤回すると、〇秒で回答から消えます。漏れは〇回中ゼロです。」 | Withdraws the cited note in a25's pane | — |
