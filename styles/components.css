@@ -277,15 +277,16 @@ span.dd-mini::after { content: none; }
   font-family: var(--font-hand); font-size: 17px; line-height: var(--s-6); letter-spacing: .02em; min-height: calc(var(--s-6) * 2); }
 .dd-voice-text::placeholder { color: var(--ink-2); }
 
-/* The answer box (inbox slips, handover prompts): the ruled hand field in a textbox, the microphone inside it at the
-   bottom right, filled --blue with the pulsing ring while listening. The field grows with the answer. */
+/* The answer box (inbox slips, handover prompts): the ruled hand field across the whole textbox, the microphone laid
+   over it at the bottom right (on the sheet, so text running under it stays out of the way), filled --blue with the
+   pulsing ring while listening. The field grows with the answer. */
 .dd-answer { position: relative; border: 1px solid var(--ink-2); border-radius: var(--r-button); background: var(--sheet);
-  min-height: 48px; box-sizing: border-box; padding: 7px calc(40px + var(--s-2)) 7px var(--s-3); }
+  min-height: 48px; box-sizing: border-box; padding: 7px var(--s-3); }
 .dd-answer:focus-within { border-color: var(--blue); box-shadow: 0 0 0 1px var(--blue); }
 .dd-answer .dd-voice-text { display: block; min-height: var(--s-6); field-sizing: content; resize: none; background-color: transparent; }
 .dd-answer .dd-voice-text:focus { outline: none; } /* the box shows focus */
 .dd-mic { position: absolute; right: 3px; bottom: 3px; width: 40px; height: 40px; border-radius: var(--r-round); border: 0;
-  background: transparent; color: var(--blue); display: grid; place-items: center; cursor: pointer; }
+  background: var(--sheet); color: var(--blue); display: grid; place-items: center; cursor: pointer; z-index: 1; }
 .dd-mic:hover { background: var(--blue-wash); }
 .dd-mic::before { content: ""; position: absolute; inset: -2px; } /* a 44px tap target around the 40px mic */
 .dd-mic.is-listening { background: var(--blue); color: var(--sheet); }

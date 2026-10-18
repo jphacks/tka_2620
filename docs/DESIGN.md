@@ -152,7 +152,7 @@ Use Japanese notebook marks, not coloured chips or emoji. Each mark is followed 
   Header 「後輩から質問が届きました」, a 「から」 field with 「2026年度 会計」, the question in Klee One 20px,
   「〇人が質問しました」, and the answer written on the slip itself (`VoiceAnswer`), so nothing has to open first.
 - **`VoiceAnswer`**: a textbox (1px `--ink-2`, `--blue` while focused) holding the answer in Klee One on ruled lines,
-  growing with it, with a round 40px microphone inside it at the bottom right: `--blue` icon, filled `--blue` while
+  growing with it and using its full width, with a round 40px microphone laid over it at the bottom right: `--blue` icon, filled `--blue` while
   listening with one ring pulsing outward in `--blue-wash`. Tap the box to type or the mic to speak; 「公開する」 appears
   below with the first word. The same box sits on each handover prompt, where the button says 「下書きを作る」.
 - **`NoteEntry`**: a note as a notebook entry: kind mark and title (UI bold), body (Klee One), date stamp
