@@ -87,10 +87,15 @@
 * 特に力を入れた部分をファイルリンク、またはcommit_idを記載してください。
 
 ## ハッカソン中に作ったもの / Built during Hack Day
-| 機能 / Feature | 内容 / What it does | コミット / Commits |
-|---|---|---|
-| F3 ライブループ / Live loop | … | [abc1234](https://github.com/jphacks/tka_2620/commit/abc1234) |
-| F2 出典つき回答 / Grounded answers | … | … |
+| 機能 / Feature | 内容 / What it does |
+|---|---|
+|[F1 公開範囲のしくみ](https://github.com/jphacks/tka_2620/issues/13)|メモの公開範囲（次の人だけ／団体／大学／一般）をデータベース側で判定し、見る人に応じて読めるメモだけが返る仕組みを導入した。|
+|[F2 出典つきの回答](https://github.com/jphacks/tka_2620/issues/18)|メモを探して全部の文に出典をつけた回答をつくり、根拠が1つも残らなければ「誰も知りません」と答え、年度で変わったルールは知らせるようにした。|
+|[F3 ライブループ](https://github.com/jphacks/tka_2620/issues/2)|後輩の答えのない質問が先輩のスマホに届き、先輩が声で答えるとその答えがメモとして残り、後輩の画面にすぐ反映されるところまでを一続きで動かせるようにした。|
+|[F4 信頼の証明](https://github.com/jphacks/tka_2620/issues/24)|部外者にはメモが一切見えないことと、撤回したメモがすべての答えから1秒足らずで消えることを、テストと数字で確かめられるようにした。|
+|[F5 すでにあるものを追加](https://github.com/jphacks/tka_2620/issues/30)|貼り付けたテキストやPDF・Word・トーク履歴から、送る前に端末の中で名前や連絡先を隠してメモを作り、書かれていないことも一覧で知らせるようにした。|
+|[F6 引き継ぎの質問](https://github.com/jphacks/tka_2620/issues/39)|先輩には「後輩が何を聞いたか」を理由つきの3つの質問として出し、声で答えるだけでメモの下書きになり、公開範囲を選んで残せるようにした。|
+|[F7 席ページと NFC の入り口](https://github.com/jphacks/tka_2620/issues/44)|部室の鍵に貼ったNFCシールをスマホでかざすと席ページが開き、歴代の会計の系譜・これからの締切・質問欄が出るようにした。|
 
 全差分 / Full diff: https://github.com/jphacks/tka_2620/compare/pre-hackday...main
 
