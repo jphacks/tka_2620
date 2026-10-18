@@ -1,20 +1,20 @@
 "use client";
 // /me/notes (自分のメモ): the signed-in holder's own notes with their scope and 「撤回する」. Withdrawing draws
 // the double line, then the entry closes and leaves — and the engine drops the note out of every answer
-// (POST /api/notes/[id]/withdraw). On mocks as last year's treasurer (a25); on real data as this tab's or this device's
-// user (components/useSeatApi.ts), so withdrawing works from a phone, not only on the console. Filters narrow the list
+// (POST /api/notes/[id]/withdraw). On mocks as last year's treasurer (a25); on real data as the account signed in on
+// this device, or the login screen in place (components/SignInGate.tsx), so withdrawing works from a phone too. Filters narrow the list
 // by status, scope ring and seat, and the order is newest or oldest first (GET /api/me/notes lists newest first).
-import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { MyNotes, type NoteSeats, seatsOf } from "@/components/MyNotes";
 import {
   COLLAPSE_MS,
   LINE_MS,
   type WithdrawPhase,
 } from "@/components/NoteEntry";
-import { useSeatApi } from "@/components/useSeatApi";
+import { SignInGate } from "@/components/SignInGate";
 import { type Api, type MyNote, Scope } from "@/lib/contracts";
+import { createMockApi, USE_MOCKS } from "@/lib/mocks";
 import { useRealtime } from "@/lib/realtime";
 
 const sleep = (ms: number) =>
@@ -25,30 +25,15 @@ type Status = MyNote["status"] | typeof ALL;
 type Order = "newest" | "oldest";
 
 export function MyNotesPanel({ seat }: { seat?: string }) {
-  const t = useTranslations();
-  const signed = useSeatApi("a25");
-  if (signed.state === "ready")
-    return <MyNotesList api={signed.api} seat={seat} />;
-  if (signed.state === "loading") {
-    return <output className="dd-cap">{t("profile.loading")}</output>;
-  }
+  const mock = useMemo(
+    () => (USE_MOCKS ? createMockApi("a25") : undefined),
+    [],
+  );
+  if (mock) return <MyNotesList api={mock} seat={seat} />;
   return (
-    <section className="dd-col" style={{ gap: "var(--s-4)" }}>
-      <h2 className="dd-h">{t("verbs.myNotes")}</h2>
-      <p style={{ margin: 0, color: "var(--ink-2)" }}>
-        {t(
-          signed.state === "signedOut" ? "profile.signedOut" : "myNotes.failed",
-        )}
-      </p>
-      {signed.state === "signedOut" && seat && (
-        <Link
-          className="dd-btn dd-btn-link"
-          href={`/s/${encodeURIComponent(seat)}`}
-        >
-          {t("profile.toSeat")}
-        </Link>
-      )}
-    </section>
+    <SignInGate>
+      {({ api }) => <MyNotesList api={api} seat={seat} />}
+    </SignInGate>
   );
 }
 
