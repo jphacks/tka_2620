@@ -1,5 +1,5 @@
 // Web Speech API dictation for the live loop (docs/SPEC.md → F3): ja-JP, continuous, and a restart after a
-// pause, so a predecessor's whole spoken answer becomes text (seed/live-answer.txt is two sentences).
+// pause, so a predecessor's whole spoken answer becomes text, even when they stop to think mid-answer.
 // The screen (components/VoiceAnswer.tsx) only draws; everything the browser needs is here.
 // SpeechRecognition is not in TypeScript's DOM lib, so only the parts we call are declared below.
 
