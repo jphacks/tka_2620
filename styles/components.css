@@ -74,6 +74,16 @@ body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(
 /* The password is the app's own word: the UI face, and the usual focus ring (a wrong password puts the focus back) */
 .dd-line { box-sizing: border-box; width: 100%; font-family: var(--font-ui); }
 
+/* Read by a screen reader, not shown: the ask panel's status line once its entry says the same (docs/DESIGN.md) */
+.dd-sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+/* 「先輩たちのメモを探しています」 under the question while its answer is on its way, in the answer's place */
+.dd-ask-status { margin: 0; }
+/* A long URL or word in a question or an answer wraps instead of widening a 390px phone */
+.dd-q, .dd-ruled { overflow-wrap: anywhere; }
+/* The inline guide takes focus when opened: the ring would frame the whole guide, so it shows on its heading's line only */
+.dd-guide-inline:focus { outline: none; }
+.dd-guide-inline:focus-visible .dd-guide-title { outline: 2px solid var(--blue); outline-offset: 4px; }
+
 /* Answer */
 .dd-q { color: var(--blue); font-weight: 700; margin: 0 0 var(--s-2); }
 .dd-live-note { color: var(--blue); font-weight: 700; margin: var(--s-2) 0 0; }
@@ -247,8 +257,9 @@ html { overscroll-behavior-y: none; }
 .dd-seat-head .dd-tag { min-height: 44px; padding: var(--s-1) var(--s-3) var(--s-1) var(--s-6); }
 .dd-seat-head .dd-tag-name { font-size: var(--text-m); line-height: 28px; }
 .dd-tag-kind { font-family: var(--font-ui); font-size: var(--text-s); font-weight: 700; color: var(--ink-2); letter-spacing: .04em; }
-/* The guide opened inline on 聞く sits under the deadlines, ruled off from them */
-.dd-guide-inline { margin-top: var(--s-3); padding-top: var(--s-5); border-top: 1px solid var(--rule); }
+/* The guide opened inline on 聞く sits under the ask panel, ruled off from it (16 + the page's 32px gap = 48); scrolled
+   to, its rule stops clear of the top edge */
+.dd-guide-inline { margin-top: var(--s-4); padding-top: var(--s-5); border-top: 1px solid var(--rule); scroll-margin-top: 56px; }
 @media print {
   /* Printing the inline guide: only the guide goes on paper, not the seat page around it */
   :root.dd-printing-guide .dd-seat-home > :not(:has(.dd-guide-inline)),
