@@ -1,12 +1,13 @@
 "use client";
 // 聞く (/s/[seat]): the club-room key and its notebook. Top to bottom:
 // 1. the key tag
-// 2. the lineage, then the deadlines coming up, above the ask field (Nico's call)
-// 3. the ask field
-// 4. right under it, the way into the whole handover guide (引き継ぎ書): a cover that opens it as a reading sheet over
-//    the page (GuideSheet), so 聞く itself never moves. Under the field rather than above it, so the field stays above
-//    the verb tabs on a 664px phone.
+// 2. the lineage, then the deadlines coming up (Nico's call)
+// 3. for someone who hasn't asked yet, the first steps
+// 4. the way into the whole handover guide (引き継ぎ書): a cover that opens it as a reading sheet over the page
+//    (GuideSheet), so 聞く itself never moves
 // 5. the answers
+// The ask field isn't in that flow: it rides fixed right above the verb tabs (AskPanel's dock, Nico's call), fading out
+// while the page scrolls.
 // It all appears once, in its place: until the seat has loaded the panel is there but unseen, so nothing jumps under a
 // finger. AskPanel loads the seat view (as a26 on mocks, as the signed-in persona on real data) and hands it up, so the
 // page reads GET /api/seats/[slug] once.
@@ -57,6 +58,7 @@ export function SeatHome({
           mockShortcuts={mockShortcuts}
           onSeat={setView}
           onSeatFailed={onSeatFailed}
+          dock
           belowField={
             view && (
               <GuideSheet

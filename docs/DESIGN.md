@@ -164,18 +164,22 @@ Use Japanese notebook marks, not coloured chips or emoji. Each mark is followed 
   highlighter (`--marker` behind the text, slightly taller than the x-height, no rounded ends).
   A rule change is a red-pen margin note: a red bracket left of the sentence and 「2025年に変更」 in red UI text right
   after its stamp, on the same line.
-- **聞く, top to bottom:** `SeatHeader`, then `LineageRail` (代々の会計), then `UpcomingList` (これからの締切), then the ask
-  field, then the guide's cover (`GuideSheet`), then the answers (the first steps, or the answers and 「これまでの質問」).
-  - Who came before, then what's due, above the field (Nico's call): the seat's story first, then the question.
-  - The cover sits right under the field, not above it, so the field stays above the verb tabs on a 390×664 phone.
-  - Asking one question and reading everything sit side by side.
+- **聞く, top to bottom:** `SeatHeader`, then `LineageRail` (代々の会計), then `UpcomingList` (これからの締切), then the first
+  steps (for someone who hasn't asked yet), the guide's cover (`GuideSheet`), and the answers and 「これまでの質問」.
+  - Who came before, then what's due (Nico's call): the seat's story first, then the questions.
+  - The ask field isn't in that flow: it is **docked** right above the verb tabs (`AskDock`, Nico's call), in the page's
+    640px column, on the paper at 72% like the tabs, so it is always in reach. While the page scrolls it fades out (160ms)
+    and stops taking taps; 300ms after the scrolling stops it fades back in (200ms). It never fades while focus is in it,
+    so typing, and a phone's keyboard scrolling the page up to it, keep it on screen. What went wrong with it (a question
+    that didn't go out, the seat that didn't load, with 「もう一度ためす」) sits right above it, in the dock.
+  - The page leaves room for the dock: its end, and an answer brought into view, stop above the dock as well as the
+    tabs. The console's newcomer pane keeps the field in place, at the top of its pane.
 - **AskPanel's status line**: one always-present line for a screen reader, never shown: 「先輩たちのメモを探しています」, then
   the outcome (an answer, 「誰も知りません。…に届けました」, 「いま、…が答えました」). On screen the searching line sits under the
   new question, in `--ink-2`, where the answer will be (the only sign that 聞く is working), and the answer takes its place, so
   nothing jumps; the new entry comes into view as it is added (smoothly, unless the device asks for less motion). The
   field appears once, in place: 聞く keeps the panel unseen until the seat has loaded. A load that fails offers
-  「もう一度ためす」 (`RetryLine`). A question that didn't go out says so right under the field, above the first steps, comes
-  into view, and is back in the field to send again.
+  「もう一度ためす」 (`RetryLine`). A question that didn't go out says so right next to the field (above it in the dock; under it in the console's pane), and is back in the field to send again.
 - **First steps** on 聞く: someone who hasn't asked anything at the seat yet sees 「たとえば」 and three questions others ask at
   this kind of seat (the label pack's `seatTypes.<type>.examples`) as blue text buttons in the hand; a tap puts one in the
   field to read or change, never sends it. Gone after the first question; never on the console.

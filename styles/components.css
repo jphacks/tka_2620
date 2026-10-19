@@ -67,6 +67,18 @@ body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(
 /* On a narrow phone the placeholder (「先輩たちに聞いてみましょう」) fits whole: the hand shrinks with the screen, never under
    16px (iOS zooms into a smaller field) */
 @media (max-width: 480px) { .dd-ask input { font-size: clamp(16px, 4.5vw, 20px); } } /* room to spare at 320, 375 and 390 */
+/* The ask field docked right above the verb tabs on 聞く (AskDock; Nico's call): always in reach, in the page's 640px
+   column, on the paper at 72% like the tabs. While the page scrolls it fades out and stops taking taps; it fades back in
+   300ms after the scrolling stops, and never fades while focus is in it. What went wrong with it sits right above it. */
+.dd-ask-dock { position: fixed; z-index: 1; inset-inline: 0; bottom: calc(52px + env(safe-area-inset-bottom)); max-width: 640px;
+  margin-inline: auto; box-sizing: border-box; display: grid; gap: var(--s-2); padding: var(--s-2) var(--s-4);
+  background: color-mix(in srgb, var(--paper) 72%, transparent); transition: opacity 200ms ease-out; }
+@media (min-width: 600px) { .dd-ask-dock { padding-inline: var(--s-5); } } /* the page's 24px gutter */
+.dd-ask-dock.is-scrolling:not(:focus-within) { opacity: 0; pointer-events: none; transition-duration: 160ms; }
+@media (prefers-reduced-transparency: reduce) { .dd-ask-dock { background: var(--paper); } }
+/* Room for it on 聞く: the page's end, and an answer brought into view, stop above the dock as well as the tabs */
+:root:has(.dd-verbs):has(.dd-ask-dock) { scroll-padding-bottom: calc(52px + 60px + var(--s-4) + env(safe-area-inset-bottom)); }
+:root:has(.dd-ask-dock) .dd-with-verbs { padding-bottom: calc(52px + 60px + var(--s-3) + env(safe-area-inset-bottom)); }
 /* A console pane is a 390px phone inside a wide window, where the rules above (by the window's width) never apply: the
    hand is 18px there, so the placeholder fits whole on the projector (238 of 253px). */
 .dd-pane .dd-ask input { font-size: 18px; }
