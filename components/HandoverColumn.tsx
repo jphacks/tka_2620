@@ -1,6 +1,6 @@
 "use client";
-// 残す on /s/<seat>/handover: newcomers' questions, then the handover prompts with 「＋ 追加」 beside their heading (Nico's
-// call: left-aligned with the cards, the slip opening right there, under the heading). No title on screen (Nico's call):
+// 残す on /s/<seat>/handover: newcomers' questions, then the handover prompts with 「＋ 追加」 at their heading row's right
+// end (Nico's call: aligned with the cards, its subtitle under it, the slip opening right there). No title on screen (Nico's call):
 // the verb tab says where you are; the h1 is there for a screen reader. A newcomer's question shows once, on its inbox
 // slip: the prompts below leave out what the inbox holds, and publishing in one has the other read its list again. Only
 // the seat's holders get 「＋ 追加」. The sections appear together, in place, once the seat, the inbox and the prompts

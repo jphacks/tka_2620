@@ -68,10 +68,11 @@ describe("readSource: chats get roles wherever they arrive", () => {
       "Discord",
       "山田太郎 — 2024/04/12 21:03\n部費の集金は5/10までにお願いします\n佐藤花子 — 2024/04/12 21:05\n了解です、振込先を教えてください\n山田太郎 — 2024/04/12 21:07\nみなと銀行の普通口座です\n佐藤花子 — 2024/04/12 21:09\nありがとうございます",
     ],
-  ])("reads a %s chat pasted on either tab as a chat with its speakers", (_, raw) => {
-    for (const tab of ["text", "chat"] as const) {
-      const source = readSource(raw, tab);
-      if (source?.kind !== "chat") throw new Error(`expected a chat on ${tab}`);
+  ])("reads a %s chat pasted as either choice as a chat with its speakers", (_, raw) => {
+    for (const mode of ["text", "chat"] as const) {
+      const source = readSource(raw, mode);
+      if (source?.kind !== "chat")
+        throw new Error(`expected a chat as ${mode}`);
       expect(speakers(source.messages).map(({ name }) => name)).toEqual([
         "山田太郎",
         "佐藤花子",
@@ -117,7 +118,39 @@ describe("readSource: chats get roles wherever they arrive", () => {
   it("reads two people saying one thing each, as 名前: 本文, as a doc whose preview shows the names", () => {
     const raw =
       "山田: 部費は5/10までにお願いします\n佐藤: 振込先を教えてください";
-    expect(readSource(raw, "text")).toEqual({ kind: "text", text: raw });
+    const read = readSource(raw, "text");
+    expect(read).toMatchObject({ kind: "text", text: raw });
+  });
+
+  // 「トークとして読む」: a pasted doc with lines like 名前: 本文 keeps them read as messages, and read as a chat each
+  // speaker becomes a role, so neither name goes out.
+  it("keeps the messages of a doc with 名前: 本文 lines, for 「トークとして読む」, and hides the names as a chat", () => {
+    const raw =
+      "加藤一樹: 部費は5/10までにお願いします\n高橋美咲: 振込先を教えてください";
+    const read = readSource(raw, "text");
+    if (read?.kind !== "text" || !read.messages)
+      throw new Error("expected a doc with messages");
+    expect(speakers(read.messages).map(({ name }) => name)).toEqual([
+      "加藤一樹",
+      "高橋美咲",
+    ]);
+    const roles = Object.fromEntries(
+      speakers(read.messages).map(({ name }, index) => [
+        name,
+        `メンバー${memberLetter(index)}`,
+      ]),
+    );
+    const { text } = redactChat(read.messages, { roles, keepAll: true });
+    expect(text).not.toContain("加藤");
+    expect(text).not.toContain("高橋");
+    expect(text).toContain("5/10");
+    // 「コピーしたメッセージ」 reads the same text as a chat straight away.
+    expect(readSource(raw, "chat")?.kind).toBe("chat");
+  });
+
+  it("offers no chat reading for a doc where nobody speaks", () => {
+    const plain = "部費の集金は5/10までです\n振込先はみなと銀行の普通口座です";
+    expect(readSource(plain, "text")).toEqual({ kind: "text", text: plain });
   });
 
   it("keeps the seed handover doc, Word file and notice as text", async () => {
@@ -127,8 +160,13 @@ describe("readSource: chats get roles wherever they arrive", () => {
       (await extractFile(file("handover-2024.sample.docx"))).text,
       (await extractFile(file("notice-2026.sample.pdf"))).text,
     ];
+    // Their field labels (部費: …) may read as speakers, so a pasted copy offers 「トークとして読む」; a file never does
+    // (AddSlip.readFile shows the doc and leaves the messages out).
     for (const doc of docs) {
-      expect(readSource(doc, "text")).toEqual({ kind: "text", text: doc });
+      expect(readSource(doc, "text")).toMatchObject({
+        kind: "text",
+        text: doc,
+      });
     }
   });
 
@@ -171,11 +209,34 @@ describe("readSource: WhatsApp exports are chats too (F5.2, #32)", () => {
     }
   });
 
-  it("reads one WhatsApp line on トーク履歴, but keeps a doc with one schedule line in that shape", () => {
+  it("reads one WhatsApp line as 「コピーしたメッセージ」, but keeps a doc with one schedule line in that shape", () => {
     const sparse = `16/10/2025, 17:03 - 加藤 健: 部費の集金について\n${"長い説明の続き\n".repeat(12)}`;
     expect(speakers(whatsapp(sparse, "chat").messages)).toHaveLength(1);
     const doc = `${HANDOVER}\n2025/10/16 17:00 - 学生課: 臨時営業届を提出`;
     expect(readSource(doc, "text")).toMatchObject({ kind: "text" });
+  });
+
+  // An export with a single message after its system lines (a stamp, no speaker), dropped on ファイル, which reads every
+  // file as a doc first: its speaker must still get a role, never go out as text.
+  it.each([
+    [
+      "Android, Japanese",
+      "2025/10/16 17:00 - メッセージと通話はエンドツーエンドで暗号化されています。このチャットの外にいる人は、WhatsAppでさえも、それを読んだり聞いたりすることはできません。\n2025/10/16 17:01 - 加藤 健がグループ「会計」を作成しました\n2025/10/16 17:03 - 加藤 健: 部費は5/10までにお願いします",
+    ],
+    [
+      "Android, English",
+      "16/10/2025, 17:00 - Messages and calls are end-to-end encrypted. No one outside of this chat, not even WhatsApp, can read or listen to them.\n16/10/2025, 17:03 - 加藤 健: 部費は5/10までにお願いします",
+    ],
+  ])("reads a WhatsApp export with one message after its system lines (%s) as a chat, even as a doc", (_, raw) => {
+    const source = whatsapp(raw, "text");
+    expect(speakers(source.messages).map(({ name }) => name)).toEqual([
+      "加藤 健",
+    ]);
+    const { text } = redactChat(source.messages, {
+      roles: { "加藤 健": "メンバーA" },
+      keepAll: true,
+    });
+    expect(text).not.toContain("加藤");
   });
 
   it("reads a WhatsApp message with continuation lines pasted into 貼り付け", () => {
@@ -279,7 +340,7 @@ describe("readSource: chats that can't be read safely are refused", () => {
     expect(readSource(rows, "chat")).toEqual({ kind: "notChat" });
   });
 
-  it("refuses a chat with nobody speaking on トーク履歴, which stays a doc on 貼り付け", () => {
+  it("refuses a chat with nobody speaking as 「コピーしたメッセージ」, which stays a doc as 「資料」", () => {
     const plain =
       "部費の集金は5/10までにお願いします\n振込先はみなと銀行の普通口座です";
     expect(readSource(plain, "chat")).toEqual({ kind: "noSpeakers" });

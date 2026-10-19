@@ -142,7 +142,9 @@ They are the shared acceptance tests for F2–F4, and `lib/mocks.ts` is built fr
 
 ## Adding knowledge: text, files and chats (F5)
 Club knowledge lives in old documents, forms, notices and, most of all, group chats. Daidai takes all of them
-through one path that keeps people out of the notes, at the start and at any time afterwards.
+through one path that keeps people out of the notes, at the start and at any time afterwards. 「＋ 追加」 has two tabs:
+貼り付け (a doc, or 「コピーしたメッセージ」 from any chat app, whose speakers then get roles) and ファイル (any file below,
+a chat export included: LINE and WhatsApp exports are recognised by their form, on any tab or dropped on the page).
 
 **Sources (files, official exports or copy-paste only; no scraping, no unofficial APIs, no bots in groups this weekend)**
 | Source | How the person gets the text | Parser |

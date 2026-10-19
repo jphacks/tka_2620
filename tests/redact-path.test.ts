@@ -86,11 +86,11 @@ describe("what the browser sends for each made-up file in seed/", () => {
     }
   });
 
-  it("sends the chat the same when it's pasted into either tab, and the handover pasted as text", () => {
+  it("sends the chat the same when it's pasted as either choice, and the handover pasted as text", () => {
     const chat = sample("chat-line.sample.txt");
     const sent = chat.sends.map(({ body }) => body).join("\n");
-    for (const tab of ["text", "chat"] as const) {
-      const pasted = addPaste("chat", chat.raw, SEAT, tab);
+    for (const pasteAs of ["text", "chat"] as const) {
+      const pasted = addPaste("chat", chat.raw, SEAT, pasteAs);
       expect(pasted.sends.map(({ body }) => body).join("\n") === sent).toBe(
         true,
       );
@@ -104,6 +104,22 @@ describe("what the browser sends for each made-up file in seed/", () => {
     expect(handover.sends.map(({ request }) => request.kind)).toEqual(["text"]);
     expect(handover.sends.flatMap(({ body }) => inBody(body))).toEqual([]);
   });
+
+  // 「トークとして読む」: two people saying one thing each read as a doc first; read as a chat, neither name is sent.
+  it("sends no speaker's name once a doc with 名前: 本文 lines is read as a chat", () => {
+    const raw =
+      "加藤一樹: 部費は5/10までにお願いします\n高橋美咲: 振込先を教えてください";
+    const asDoc = addPaste("lines", raw, SEAT, "text");
+    expect(asDoc.sends.map(({ request }) => request.kind)).toEqual(["text"]);
+    const asChat = addPaste("lines", raw, SEAT, "text", { asChat: true });
+    expect(asChat.sends.length).toBeGreaterThan(0);
+    for (const { request, body } of asChat.sends) {
+      expect(request.kind).toBe("chat");
+      expect(body).not.toContain("加藤");
+      expect(body).not.toContain("高橋");
+    }
+    expect(asChat.sends.flatMap(({ body }) => inBody(body))).toEqual([]);
+  });
 });
 
 // tests/browser-send.ts copies these lines of the slip, the preview and the client, down to the two that decide what
@@ -112,11 +128,15 @@ describe("what the browser sends for each made-up file in seed/", () => {
 const COPIED: Record<string, string[]> = {
   "components/AddSlip.tsx": [
     'fileType === "txt" ? await extractTextFile(file) : await extractFile(file);',
-    'fileType === "txt" && tab === "chat" ? "chat" : "text",',
+    'const next = readSource(text, "text");',
     'if (!next) throw new IngestError("no_text");',
     'if (next.kind !== "text") return setProblem(next.kind);',
     'if (text.length > MAX_TEXT_CHARS) throw new IngestError("too_large");',
-    'const next = readSource(draft, tab === "chat" ? "chat" : "text");',
+    "const next = readSource(draft, pasteAs);",
+    'show({ kind: "text", text: next.text }, "text");',
+    'setAsChat({ kind: "chat", platform: "paste", messages: next.messages });',
+    'if (next.messages && (fileType === "txt" || fileType === "md"))',
+    'show(asChat, source.kind === "file" ? "file" : "text");',
     "await api.import(importRequest(slug, source, text, redaction))",
     'return { seat, kind: "text", text, redaction };',
     'return { seat, kind: "file", fileType: source.fileType, text, redaction };',

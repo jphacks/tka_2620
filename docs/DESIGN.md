@@ -206,10 +206,12 @@ Use Japanese notebook marks, not coloured chips or emoji. Each mark is followed 
   on its slip (the prompts leave out what the inbox holds); a new one is read out in one line
   (「後輩から質問が届きました（2026年度 会計）：…」), and the inbox reads itself again when the phone wakes or comes back
   online. Each answer box is described by its question, keeps its draft when its drafted cards are put away (やめる), and
-  dictates in the question's (or the page's) language. 「＋ 追加」 sits right after the 「引き継ぎの質問」 heading, on its line
-  and left-aligned with the cards below (Nico's call). One caption line under them says what it adds
-  (「いつでも追加できます。最初は、去年の資料やトーク履歴から始めましょう」), and the slip opens right there, above the cards.
-  「＋ 追加」 shows only to the seat's holders; others read why in that line.
+  dictates in the question's (or the page's) language. 「＋ 追加」 sits at the right end of the 「引き継ぎの質問」 row, aligned
+  with the cards' right edge (Nico's call).
+  - Its subtitle, right-aligned under it, says in one short line what it adds: 「去年の資料・トーク履歴」. A full
+    sentence under the heading would have read as being about the questions.
+  - The slip opens right there, above the cards.
+  - 「＋ 追加」 shows only to the seat's holders. Others read why, in a line under the heading.
   自分のメモ shows no title either. あなた's h1 and the guide's title are `--text-l`, one step above their 20px section
   headings.
 - **`VoiceAnswer`**: a textbox (1px `--ink-2`, `--blue` while focused) holding the answer in Klee One on ruled lines,
@@ -244,9 +246,15 @@ Use Japanese notebook marks, not coloured chips or emoji. Each mark is followed 
   still say what was left in, in full words (「絞り込み：すべての種類、2025年度 会計」).
 - **`ScopeRings`**: four concentric rings drawn in 1.5px `--blue`; the chosen ring fills with `--blue-wash`.
   Labels from the seat's label pack. `ReaderCount` beside it: 「12人が読めます」 in figures; no avatar stack.
-- **`AddPanel`** (「＋ 追加」, beside the prompts' heading on 残す): a slip with three index tabs, 貼り付け · ファイル ·
-  トーク履歴; `FileDrop` is a dashed
-  `--rule` area; then `RedactionPreview`, the drafted `NoteEntry`s, `DuplicateHint`, `MissingList`.
+- **`AddPanel`** (「＋ 追加」, beside the prompts' heading on 残す): a slip with two index tabs, 貼り付け · ファイル.
+  - **貼り付け:** a two-way choice above the box (`.dd-choices`, side by side when they fit): 「資料」 (the default) or
+    「コピーしたメッセージ」, which reads every speaker as a chat's, so their names get roles. The box keeps what was
+    typed across the choice.
+  - **ファイル:** one `FileDrop` (a dashed `--rule` area) for a PDF, Word or text file and for a LINE or WhatsApp export.
+    An export is read as a chat by its form, here or dropped anywhere on the page.
+  - Then `RedactionPreview`, the drafted `NoteEntry`s, `DuplicateHint` and `MissingList`.
+  - A chat guessed from a doc offers 「トークではなく資料として読む」. A pasted doc with lines like 名前: 本文 offers the
+    other way, 「トークとして読む」, with one `--ink-2` line saying why.
 - **`RedactionPreview`**: counts line 「名前 12件・電話番号 2件を隠しました」 with the numbers in `--green`, speaker rows
   with role pickers, the scrollable text with blackout bars, the consent checkbox, 「この内容だけを送る」.
 - **`DuplicateHint`**: a red-pen note on the drafted entry, 「似たメモがあります：保健所申請の締切（2025年度 会計）」,

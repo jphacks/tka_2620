@@ -39,17 +39,25 @@ import { createMockApi } from "@/lib/mocks";
 // component's state and go with 「やり直す」, 「閉じる」 or a sent request. Nothing here is logged. What comes back is
 // reviewed in ImportReview (steps 8–10): the missing list, then the drafted notes to publish.
 
-type Tab = "text" | "file" | "chat";
+// Two tabs: 貼り付け (a doc, or messages copied from a chat app, by the choice above the box) and ファイル (a PDF, Word or
+// text file, or a LINE or WhatsApp export: the router reads an export as a chat by its form, on any tab or dropped
+// anywhere on the page).
+type Tab = "text" | "file";
 const TABS = [
   { tab: "text", label: "tabDoc" },
   { tab: "file", label: "tabFile" },
-  { tab: "chat", label: "tabChat" },
+] as const;
+// What the pasted text is: 「資料」 reads a chat only when it's clearly one (readSource "text"); 「コピーしたメッセージ」
+// reads every speaker as a chat's, so their names get roles (readSource "chat").
+type PasteAs = "text" | "chat";
+const PASTE_AS = [
+  { as: "text", label: "pasteAsDoc" },
+  { as: "chat", label: "pasteAsChat" },
 ] as const;
 
 // What the picker offers; iOS greys out files whose type isn't listed.
 const FILE_ACCEPT =
   ".pdf,.docx,.txt,.md,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown";
-const CHAT_ACCEPT = ".txt,text/plain";
 
 type Problem =
   | "tooLarge"
@@ -132,11 +140,14 @@ export function AddSlip({
   const round = useRef(0);
   const handledDrop = useRef(0);
   const [tab, setTab] = useState<Tab>("text");
+  const [pasteAs, setPasteAs] = useState<PasteAs>("text");
   const [draft, setDraft] = useState("");
   const [source, setSource] = useState<Source>();
   const [sourceId, setSourceId] = useState(0);
   // The doc a guessed chat came as, for 「トークではなく資料として読む」.
   const [asDoc, setAsDoc] = useState<Source>();
+  // The messages a pasted doc holds (名前: 本文, someone speaking), for 「トークとして読む」.
+  const [asChat, setAsChat] = useState<Source>();
   const [reading, setReading] = useState(false);
   const [problem, setProblem] = useState<Problem>();
   const [roleChoices, setRoleChoices] = useState<string[]>([]);
@@ -180,6 +191,7 @@ export function AddSlip({
   const begin = useCallback(() => {
     setSource(undefined);
     setAsDoc(undefined);
+    setAsChat(undefined);
     setProblem(undefined);
     setFailed(undefined);
     setResult(undefined);
@@ -209,10 +221,7 @@ export function AddSlip({
             ? await extractTextFile(file)
             : await extractFile(file);
         if (mine !== round.current) return;
-        const next = readSource(
-          text,
-          fileType === "txt" && tab === "chat" ? "chat" : "text",
-        );
+        const next = readSource(text, "text");
         if (!next) throw new IngestError("no_text");
         const asFile: Source = {
           kind: "file",
@@ -223,10 +232,18 @@ export function AddSlip({
         };
         if (next.kind === "chat") {
           if (next.doc !== undefined) setAsDoc(asFile);
-          return show(next, "chat");
+          return show(next, "file");
         }
         if (next.kind !== "text") return setProblem(next.kind);
         if (text.length > MAX_TEXT_CHARS) throw new IngestError("too_large");
+        // A text file of copied messages (名前: 本文) is offered the chat reading, as a paste is; a PDF or Word file
+        // isn't, where field labels would offer it on every file.
+        if (next.messages && (fileType === "txt" || fileType === "md"))
+          setAsChat({
+            kind: "chat",
+            platform: "paste",
+            messages: next.messages,
+          });
         show(asFile, "file");
       } catch (error) {
         if (mine === round.current) setProblem(problemOf(error, fileType));
@@ -234,7 +251,7 @@ export function AddSlip({
         if (mine === round.current) setReading(false);
       }
     },
-    [tab, begin, show],
+    [begin, show],
   );
 
   // A file dropped on the page (AddPanel), read once.
@@ -280,13 +297,15 @@ export function AddSlip({
 
   function check() {
     begin();
-    const next = readSource(draft, tab === "chat" ? "chat" : "text");
+    const next = readSource(draft, pasteAs);
     if (!next) return;
     if (next.kind === "chat") {
       if (next.doc !== undefined) setAsDoc({ kind: "text", text: next.doc });
-      show(next, "chat");
-    } else if (next.kind === "text") {
       show(next, "text");
+    } else if (next.kind === "text") {
+      if (next.messages)
+        setAsChat({ kind: "chat", platform: "paste", messages: next.messages });
+      show({ kind: "text", text: next.text }, "text");
     } else {
       setProblem(next.kind);
     }
@@ -438,8 +457,19 @@ export function AddSlip({
               onAsDoc={
                 asDoc &&
                 (() => {
+                  // Back the other way stays possible: the chat it was read as.
+                  if (source.kind === "chat") setAsChat(source);
                   setAsDoc(undefined);
                   show(asDoc, asDoc.kind === "file" ? "file" : "text");
+                })
+              }
+              onAsChat={
+                asChat &&
+                (() => {
+                  // Back the other way stays possible: the doc or file it came as, on its own tab.
+                  if (source.kind !== "chat") setAsDoc(source);
+                  setAsChat(undefined);
+                  show(asChat, source.kind === "file" ? "file" : "text");
                 })
               }
             />
@@ -470,7 +500,7 @@ export function AddSlip({
                 >
                   {t(`import.${problem}`)}
                 </p>
-                {tab !== "text" && PASTE_INSTEAD.has(problem) && (
+                {tab === "file" && PASTE_INSTEAD.has(problem) && (
                   <button
                     type="button"
                     className="dd-link"
@@ -487,19 +517,38 @@ export function AddSlip({
                 {t("import.reading")}
               </output>
             )}
-            {tab !== "text" && (
+            {tab === "file" && (
               <FileDrop
-                hint={t(tab === "chat" ? "import.dropChat" : "import.dropFile")}
+                hint={t("import.dropFile")}
                 pickLabel={t("import.pickFile")}
-                accept={tab === "chat" ? CHAT_ACCEPT : FILE_ACCEPT}
+                accept={FILE_ACCEPT}
                 over={dragging}
                 onFile={readFile}
               />
             )}
-            {tab !== "file" && (
+            {tab === "text" && (
               <div className="dd-col" style={{ gap: "var(--s-2)" }}>
+                {/* A doc, or messages copied from a chat app: the box keeps what was typed either way */}
+                <fieldset className="dd-choices dd-choices-row">
+                  <legend className="dd-label">{t("import.pasteAs")}</legend>
+                  {PASTE_AS.map((item) => (
+                    <label key={item.as} className="dd-choice">
+                      <input
+                        type="radio"
+                        name={`${ids}-paste-as`}
+                        value={item.as}
+                        checked={pasteAs === item.as}
+                        onChange={() => {
+                          begin();
+                          setPasteAs(item.as);
+                        }}
+                      />
+                      {t(`import.${item.label}`)}
+                    </label>
+                  ))}
+                </fieldset>
                 <label className="dd-label" htmlFor={`${ids}-draft`}>
-                  {t(tab === "chat" ? "import.pasteChat" : "import.paste")}
+                  {t(pasteAs === "chat" ? "import.pasteChat" : "import.paste")}
                 </label>
                 {/* Raw text: no spell check (Chrome's enhanced one sends it to a server), no autofill memory. */}
                 <textarea
