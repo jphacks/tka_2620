@@ -4,7 +4,8 @@
 // the double line, then the entry closes and leaves — and the engine drops the note out of every answer
 // (POST /api/notes/[id]/withdraw). On mocks as last year's treasurer (a25); on real data as the account signed in on
 // this device, or the login screen in place (components/SignInGate.tsx), so withdrawing works from a phone too. Filters narrow the list
-// by status, scope ring and seat, and the order is newest or oldest first (GET /api/me/notes lists newest first).
+// by scope ring and seat, and the order is newest or oldest first (GET /api/me/notes lists newest first). The list is
+// what's live; a withdrawn note joins the fold at its end (MyNotes), now and after a reload alike.
 import { useTranslations } from "next-intl";
 import { useEffect, useMemo, useState } from "react";
 import { matches } from "@/components/guide";
@@ -40,7 +41,6 @@ const SR_ONLY = {
   whiteSpace: "nowrap",
 } as const;
 const ALL = "all";
-type Status = MyNote["status"] | typeof ALL;
 type Order = "newest" | "oldest";
 
 export function MyNotesPanel({ seat }: { seat?: string }) {
@@ -78,7 +78,6 @@ function MyNotesList({
     id: string;
     phase: WithdrawPhase;
   }>();
-  const [status, setStatus] = useState<Status>(ALL);
   const [scope, setScope] = useState<Scope | typeof ALL>(ALL);
   // The seat the page came from (?seat=) first; every seat of the author's notes is one choice away.
   const [atSeat, setAtSeat] = useState<string>(seat ?? ALL);
@@ -136,7 +135,12 @@ function MyNotesList({
     setWithdrawing({ id: noteId, phase: "collapse" });
     await sleep(COLLAPSE_MS);
     const gone = notes?.find((note) => note.id === noteId);
-    setNotes((previous) => previous?.filter((note) => note.id !== noteId));
+    // It joins the fold of withdrawn notes, as a reload would show it (GET /api/me/notes still lists it)
+    setNotes((previous) =>
+      previous?.map((note) =>
+        note.id === noteId ? { ...note, status: "withdrawn" } : note,
+      ),
+    );
     setWithdrawing(undefined);
     // The entry and its button are gone: focus goes to the page's heading, and a screen reader hears what happened. The
     // page doesn't scroll up to it: the notes below the withdrawn one stay where the eye is.
@@ -167,7 +171,6 @@ function MyNotesList({
     atSeat !== ALL && (slugs.includes(atSeat) || seats[atSeat]) ? atSeat : ALL;
   const shown = notes.filter(
     (note) =>
-      (status === ALL || note.status === status) &&
       (scope === ALL || note.scope === scope) &&
       (seatFilter === ALL || note.seat === seatFilter) &&
       matches(query, note.title),
@@ -178,7 +181,6 @@ function MyNotesList({
     seats[seatFilter === ALL ? slugs[0] : seatFilter] ??
     Object.values(seats)[0];
   const filtered =
-    status !== ALL ||
     scope !== ALL ||
     (seatFilter !== ALL && slugs.length > 1) ||
     query.trim() !== "";
@@ -199,18 +201,6 @@ function MyNotesList({
           onChange={(event) => setQuery(event.target.value)}
         />
       </div>
-      <label>
-        <span className="dd-cap">{t("filter.status")}</span>
-        <select
-          className="dd-select"
-          value={status}
-          onChange={(event) => setStatus(event.target.value as Status)}
-        >
-          <option value={ALL}>{t("filter.allStatus")}</option>
-          <option value="live">{t("filter.live")}</option>
-          <option value="withdrawn">{t("myNotes.withdrawn")}</option>
-        </select>
-      </label>
       <label>
         <span className="dd-cap">{t("filter.scope")}</span>
         <select
@@ -267,7 +257,7 @@ function MyNotesList({
       <div className="dd-filter-count">
         <output aria-live="polite">
           {t.rich("filter.shown", {
-            n: ordered.length,
+            n: ordered.filter((note) => note.status !== "withdrawn").length,
             fig: (chunks) => <span className="dd-fig">{chunks}</span>,
           })}
         </output>
@@ -276,7 +266,6 @@ function MyNotesList({
             type="button"
             className="dd-link dd-filter-reset"
             onClick={() => {
-              setStatus(ALL);
               setScope(ALL);
               setAtSeat(ALL);
               setQuery("");
