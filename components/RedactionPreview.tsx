@@ -25,6 +25,7 @@ export function RedactionPreview({
   sending,
   onSend,
   onAsDoc,
+  onAsChat,
 }: {
   source: Source;
   /** The seat's label-pack roles (部長, 会計 …), offered after each speaker's default メンバーA/B/C. */
@@ -33,6 +34,8 @@ export function RedactionPreview({
   onSend: (text: string, redaction: RedactionCounts) => void;
   /** A chat guessed from what came as a doc: read it as the doc instead (its names then show, to be hidden by hand). */
   onAsDoc?: () => void;
+  /** A pasted doc with lines like 名前: 本文: read them as a chat instead, so each speaker gets a role. */
+  onAsChat?: () => void;
 }) {
   const t = useTranslations("import");
   const ids = useId();
@@ -174,6 +177,7 @@ export function RedactionPreview({
             type="button"
             className="dd-link"
             style={{ justifySelf: "start", minHeight: "44px" }}
+            disabled={sending}
             onClick={onAsDoc}
           >
             {t("asDoc")}
@@ -200,8 +204,9 @@ export function RedactionPreview({
         className="dd-phrase"
         style={{ margin: 0, fontWeight: 700 }}
       >
+        {/* Names that would go out as they are: say so, never 「隠すものは見つかりませんでした」 */}
         {kinds.length === 0
-          ? t("hiddenNone")
+          ? t(onAsChat ? "asChatWarn" : "hiddenNone")
           : t.rich("hiddenList", {
               list: () =>
                 kinds.map(({ kind, count }, index) => (
@@ -217,6 +222,21 @@ export function RedactionPreview({
                 )),
             })}
       </p>
+      {onAsChat && (
+        <p className="dd-phrase" style={{ margin: 0 }}>
+          {kinds.length > 0 && `${t("asChatWarn")} `}
+          {t("asChatHint")}{" "}
+          <button
+            type="button"
+            className="dd-link"
+            style={{ minHeight: "44px" }}
+            disabled={sending}
+            onClick={onAsChat}
+          >
+            {t("asChat")}
+          </button>
+        </p>
+      )}
       {people.length > 0 && (
         <p style={{ margin: 0 }}>
           <span className="dd-cap">{t("speakers")}</span>{" "}
@@ -300,9 +320,12 @@ export function RedactionPreview({
           {preview?.body}
         </section>
       </div>
-      <p className="dd-cap" style={{ margin: 0 }}>
-        {t(source.kind === "file" ? "notStored" : "staysHere")}
-      </p>
+      {/* 「名前や連絡先は、この端末の外に出ません」 isn't true of names that would go out: left out while the chat reading is offered */}
+      {!(onAsChat && source.kind !== "file") && (
+        <p className="dd-cap" style={{ margin: 0 }}>
+          {t(source.kind === "file" ? "notStored" : "staysHere")}
+        </p>
+      )}
       {tooLong && (
         <p className="dd-cap" style={{ margin: 0 }}>
           {t("tooLong")}

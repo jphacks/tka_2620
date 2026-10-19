@@ -1,18 +1,32 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
+import { AskRequest } from "@/lib/contracts";
+
+// The contract's limit (500 characters): the field stops there, so a pasted page can't go out only to fail with
+// 「もう一度聞いてください」, which asking again wouldn't fix.
+const MAX_QUESTION = AskRequest.shape.question.maxLength ?? undefined;
 
 // A single writing line and a blue 聞く button (docs/DESIGN.md → AskField). Not a chat box.
 export function AskField({
   onAsk,
   busy = false,
+  suggestion,
 }: {
   onAsk: (question: string) => void;
   busy?: boolean;
+  /** An example the person tapped: it goes into the field to read or change, and is sent only with 聞く. */
+  suggestion?: { text: string };
 }) {
   const t = useTranslations();
   const [question, setQuestion] = useState("");
+  const field = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (!suggestion) return;
+    setQuestion(suggestion.text);
+    field.current?.focus();
+  }, [suggestion]);
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -20,14 +34,19 @@ export function AskField({
     if (!text || busy) return;
     onAsk(text);
     setQuestion("");
+    // Back to the field, also when 聞く was pressed: the button is off while the answer comes, and focus mustn't fall
+    // to the page.
+    field.current?.focus();
   }
 
   return (
     <form className="dd-ask" onSubmit={submit}>
       <input
+        ref={field}
         type="text"
         value={question}
         onChange={(event) => setQuestion(event.target.value)}
+        maxLength={MAX_QUESTION}
         placeholder={t("ask.placeholder")}
         aria-label={t("ask.placeholder")}
         enterKeyHint="send"

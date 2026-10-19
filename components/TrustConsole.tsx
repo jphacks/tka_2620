@@ -7,11 +7,14 @@
 // answer lands back in a26's pane (F4.1, #25). The outsider's pane shows what x can see of the seat: nothing.
 // Each pane runs on its own client (ConsoleSignIn: three signed-in personas, or the mocks), so every view is that
 // persona's own and RLS decides what each one gets.
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AbstainEntry } from "@/components/AbstainEntry";
 import { AnswerEntry } from "@/components/AnswerEntry";
+import { AppIcon } from "@/components/AppIcon";
 import { AskPanel } from "@/components/AskPanel";
+import { LanguageToggle, ThemeToggle } from "@/components/DisplayToggles";
 import { InboxPanel } from "@/components/InboxPanel";
 import { LeakCounter } from "@/components/LeakCounter";
 import { MeasuredNumbers } from "@/components/MeasuredNumbers";
@@ -190,7 +193,8 @@ export function TrustConsole({
         if (loadId.current !== loaded) return;
         if (pending.current) pending.current.api = false;
         tryStop();
-        // a25's pane drops the note: the double line finishes drawing, then the entry closes and leaves.
+        // a25's pane drops the note: the double line finishes drawing, then the entry closes and leaves, as on
+        // 自分のメモ, whose 状態 starts at 公開中.
         await sleep(Math.max(0, LINE_MS - (performance.now() - clicked)));
         if (loadId.current !== loaded) return;
         setWithdrawing({ id: noteId, phase: "collapse" });
@@ -226,11 +230,21 @@ export function TrustConsole({
     >
       <header
         className="dd-row"
-        style={{ justifyContent: "space-between", alignItems: "baseline" }}
+        style={{ justifyContent: "space-between", alignItems: "center" }}
       >
-        <h1 className="dd-h" style={{ fontSize: "var(--text-xxl)", margin: 0 }}>
-          {t("console.title")}
-        </h1>
+        {/* The app's mark in the top left, as on every screen: the way to the start page */}
+        <div className="dd-row" style={{ gap: "var(--s-3)" }}>
+          <Link href="/" className="dd-bar-home" title={t("bar.home")}>
+            <AppIcon />
+            <span className="dd-sr-only">{t("home.title")}</span>
+          </Link>
+          <h1
+            className="dd-h"
+            style={{ fontSize: "var(--text-xxl)", margin: 0 }}
+          >
+            {t("console.title")}
+          </h1>
+        </div>
         <div className="dd-row" style={{ gap: "var(--s-5)" }}>
           <WithdrawMeter ms={shownMs} running={meter.running} />
           <LeakCounter leaks={metrics?.leaks} />
@@ -244,6 +258,11 @@ export function TrustConsole({
               {t("console.signOut")}
             </button>
           )}
+          {/* As on every seat page: the language and the theme */}
+          <nav className="dd-console-tools" aria-label={t("bar.label")}>
+            <LanguageToggle />
+            <ThemeToggle />
+          </nav>
         </div>
       </header>
       {loadFailed && (
@@ -265,6 +284,7 @@ export function TrustConsole({
               slug={SEAT}
               mockShortcuts={false}
               api={newcomerApi}
+              history={false}
             />
             <div className="dd-col" style={{ gap: 0 }}>
               {answer?.status === "answered" && (

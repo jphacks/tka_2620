@@ -303,6 +303,13 @@ export function isWhatsAppLine(line: string): boolean {
   return Boolean(whatsAppHead(line.normalize("NFKC"))?.speaker);
 }
 
+// A line with WhatsApp's stamp, a speaker's or not: an export may open with system lines that have none
+// (メッセージと通話はエンドツーエンドで暗号化されています。, created group …), for finding where its messages begin
+// (components/redaction.ts).
+export function isWhatsAppStamp(line: string): boolean {
+  return whatsAppHead(line.normalize("NFKC")) !== null;
+}
+
 // How many lines parseLine would read as LINE messages, for the same: tab rows, and space rows after a date line.
 export function lineRows(raw: string): number {
   let day = false;

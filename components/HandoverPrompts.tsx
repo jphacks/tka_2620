@@ -8,6 +8,7 @@
 // first answer only newcomers' questions join them.
 import { useTranslations } from "next-intl";
 import {
+  type ReactNode,
   useCallback,
   useEffect,
   useId,
@@ -18,6 +19,7 @@ import {
 import { CardReview } from "@/components/CardReview";
 import { DateStamp } from "@/components/DateStamp";
 import { mergePrompts } from "@/components/handover";
+import { RetryLine } from "@/components/RetryLine";
 import { VoiceAnswer } from "@/components/VoiceAnswer";
 import type {
   Api,
@@ -49,23 +51,61 @@ export function HandoverPrompts({
   slug,
   refresh = 0,
   onPublished,
+  hidden,
+  onLoaded,
+  view,
+  seatFailed = false,
+  onSeatRetry,
   api: given,
+  action,
+  note,
+  panel,
 }: {
   slug: string;
   /** Changes when the inbox on the same page published an answer: read the list again. */
   refresh?: number;
   /** Cards were published here (the inbox on the same page reads its slips again). */
   onPublished?: () => void;
+  /** Questions the inbox above already shows: one place per newcomer's question. */
+  hidden?: ReadonlySet<string>;
+  /** The seat and the prompts have been read once, whether that worked or not (残す shows its sections together then).
+   * Stable. */
+  onLoaded?: () => void;
+  /** The seat, read once by the page (HandoverColumn) for the prompts and 「＋ 追加」 alike. */
+  view?: SeatView;
+  /** The seat didn't load: the prompts say so, and their retry reads it again (onSeatRetry). */
+  seatFailed?: boolean;
+  onSeatRetry?: () => void;
   /** The signed-in predecessor's client; mocks as a25 when left out. */
   api?: Api;
+  /** At the heading row's right end, aligned with the cards' right edge: 「＋ 追加」 (AddPanel's button). */
+  action?: ReactNode;
+  /** One line under the heading row (AddPanel's: the button's subtitle, or why not). */
+  note?: ReactNode;
+  /** Opened under the heading, above the cards (AddPanel's slip). */
+  panel?: ReactNode;
 }) {
   const t = useTranslations();
   const titleId = useId();
+  // The heading row, the same while loading and once loaded, so 「＋ 追加」 keeps its place: the heading with the action
+  // right after it, the line under them, then what the action opened.
+  const head = (
+    <>
+      <div className="dd-col" style={{ gap: "var(--s-1)" }}>
+        <div className="dd-section-head">
+          <h2 id={titleId} className="dd-h">
+            {t("handover.promptsTitle")}
+          </h2>
+          {action}
+        </div>
+        {note}
+      </div>
+      {panel}
+    </>
+  );
   const api = useMemo(() => given ?? createMockApi("a25"), [given]);
-  const [view, setView] = useState<SeatView>();
   const [prompts, setPrompts] = useState<HandoverPrompt[]>();
   // The seat view and the prompts fail apart: either one says the questions couldn't be read.
-  const [seatFailed, setSeatFailed] = useState(false);
   const [failed, setFailed] = useState(false);
   const [open, setOpen] = useState<Open>();
   const [busy, setBusy] = useState(false);
@@ -73,25 +113,12 @@ export function HandoverPrompts({
   const opened = useRef<string | undefined>(undefined);
   opened.current = open?.prompt.id;
   const [trouble, setTrouble] = useState<keyof typeof TROUBLE>();
+  // What was said or typed for each prompt, so やめる on its drafted cards gives the answer back instead of a blank box.
+  const [answers, setAnswers] = useState<Readonly<Record<string, string>>>({});
   // The scopes each answered prompt's cards went out at, by prompt id.
   const [published, setPublished] = useState<ReadonlyMap<string, Scope[]>>(
     new Map(),
   );
-
-  useEffect(() => {
-    let alive = true;
-    api.seat(slug).then(
-      (seat) => {
-        if (alive) setView(seat);
-      },
-      () => {
-        if (alive) setSeatFailed(true);
-      },
-    );
-    return () => {
-      alive = false;
-    };
-  }, [api, slug]);
 
   // Prompts already shown keep their places, so nothing slides in under the person's thumb (components/handover.ts →
   // mergePrompts).
@@ -113,6 +140,11 @@ export function HandoverPrompts({
   useEffect(() => {
     load();
   }, [load, refresh]);
+  const loaded =
+    (view !== undefined || seatFailed) && (prompts !== undefined || failed);
+  useEffect(() => {
+    if (loaded) onLoaded?.();
+  }, [loaded, onLoaded]);
   useRealtime(api, "prompt_routes", () => {
     load();
   });
@@ -127,6 +159,7 @@ export function HandoverPrompts({
     const followup = reply ? open?.draft?.followup : undefined;
     const current: Open =
       open?.prompt.id === prompt.id ? open : { prompt, answer };
+    setAnswers((all) => ({ ...all, [prompt.id]: answer }));
     setOpen(current);
     setBusy(true);
     setTrouble(undefined);
@@ -180,7 +213,21 @@ export function HandoverPrompts({
     }
   }
 
-  if (!view && !seatFailed) return null; // the inbox above is what the leaver came for; this follows when ready
+  // The inbox above is what the leaver came for; this section keeps its place (heading and a line) until it's ready, so
+  // nothing below jumps when it arrives.
+  if (!view && !seatFailed) {
+    return (
+      <section
+        className="dd-col"
+        style={{ gap: "var(--s-5)" }}
+        aria-labelledby={titleId}
+      >
+        {head}
+        <output className="dd-cap">{t("profile.loading")}</output>
+      </section>
+    );
+  }
+  const shownPrompts = prompts?.filter((prompt) => !hidden?.has(prompt.id));
   const seat = view?.seat;
   const termLabel = view?.viewer.termLabel; // what publishing signs with
   const scopeLabel = (scope: Scope) =>
@@ -211,21 +258,23 @@ export function HandoverPrompts({
       style={{ gap: "var(--s-5)" }}
       aria-labelledby={titleId}
     >
-      <h2 id={titleId} className="dd-h">
-        {t("handover.promptsTitle")}
-      </h2>
+      {head}
       {(failed || seatFailed) && (
-        <p style={{ margin: 0, color: "var(--ink-2)" }}>
-          {t("handover.promptsFailed")}
-        </p>
+        <RetryLine
+          message={t("handover.promptsFailed")}
+          onRetry={() => {
+            if (seatFailed) onSeatRetry?.();
+            load();
+          }}
+        />
       )}
-      {prompts?.length === 0 && (
+      {shownPrompts?.length === 0 && (
         <p style={{ margin: 0, color: "var(--ink-2)" }}>
           {t("handover.promptsEmpty")}
         </p>
       )}
       {seat &&
-        prompts?.map((prompt) => {
+        shownPrompts?.map((prompt) => {
           const scopes = published.get(prompt.id);
           const answering = open?.prompt.id === prompt.id;
           return (
@@ -278,7 +327,7 @@ export function HandoverPrompts({
                     onPublish={publish}
                   />
                   {trouble && (
-                    <p className="dd-cap" style={{ margin: 0 }}>
+                    <p role="alert" className="dd-cap" style={{ margin: 0 }}>
                       {t(TROUBLE[trouble])}
                     </p>
                   )}
@@ -300,12 +349,14 @@ export function HandoverPrompts({
                     item={{ promptId: prompt.id }}
                     seat={slug}
                     api={api}
+                    initialText={answers[prompt.id]}
+                    describedBy={`${titleId}-${prompt.id}`}
                     drafting={busy && answering}
                     locked={open !== undefined && !answering}
                     onDraft={(answer) => draft(prompt, answer)}
                   />
                   {answering && trouble && (
-                    <p className="dd-cap" style={{ margin: 0 }}>
+                    <p role="alert" className="dd-cap" style={{ margin: 0 }}>
                       {t(TROUBLE[trouble])}
                     </p>
                   )}

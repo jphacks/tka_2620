@@ -7,6 +7,11 @@
   },
   "seatTypes": {
     "club_role": {
+      "examples": {
+        "one": "模擬店の保健所申請、いつまで？",
+        "two": "領収書はいつまでに出せばいい？",
+        "three": "部費の口座はどう引き継ぐ？"
+      },
       "seat": "役職",
       "term": "{term}年度",
       "byline": "{term}年度 {seat}",
@@ -22,6 +27,11 @@
       "roles": "部長・副部長・会計・副会計・顧問・学生課"
     },
     "exchange_route": {
+      "examples": {
+        "one": "寮の申し込みはいつまで？",
+        "two": "履修登録で気をつけることは？",
+        "three": "着いてすぐにする手続きは？"
+      },
       "seat": "留学ルート",
       "term": "{term}",
       "byline": "{term} 交換留学生",
@@ -37,6 +47,11 @@
       "roles": "前の留学生・派遣先の担当者・国際課・指導教員"
     },
     "lab_duty": {
+      "examples": {
+        "one": "装置の予約はどうする？",
+        "two": "消耗品はどこに発注する？",
+        "three": "メンテナンスはどのくらいの間隔？"
+      },
       "seat": "担当",
       "term": "{term}",
       "byline": "{term} {seat}",
@@ -53,7 +68,15 @@
     }
   },
   "ask": {
+    "examplesLead": "たとえば",
+    "earlierTitle": "これまでの質問",
+    "newAnswer": "新しい答え",
+    "newAnswers": "先輩から新しい答えが{n}件届いています",
+    "abstainedStatus": "{nobody}{routed}",
+    "noAnswerYet": "まだ答えはありません。答えが届くと、ここに出ます。",
     "placeholder": "先輩たちに聞いてみましょう",
+    "searching": "先輩たちのメモを探しています",
+    "found": "先輩たちのメモに答えがありました",
     "sources": "根拠になったメモ",
     "disagreement": "{term}にルールが変わりました",
     "outdated": "古い？",
@@ -64,10 +87,15 @@
     "sourceGone": "このメモは今は読めません。",
     "sourceFailed": "メモを読み込めませんでした。閉じて、もう一度開いてください。",
     "source": "根拠：{byline}のメモ",
-    "seatFailed": "この席を読み込めませんでした。通信を確かめて、このページを開き直してください。",
+    "seatFailed": "この席を読み込めませんでした。通信を確かめて、もう一度ためしてください。",
     "failed": "質問を送れませんでした。もう一度聞いてください。"
   },
+  "retry": {
+    "action": "もう一度ためす"
+  },
   "abstain": {
+    "noOneReachable": "いま質問を受け取れる先輩がいないため、届けていません。",
+    "notHolder": "先輩に質問を届けられるのは、この席を担当した人だけです。",
     "routed": "この質問を次の引き継ぎに追加しました。"
   },
   "handover": {
@@ -95,7 +123,7 @@
     "critical": "大事なメモにする（{group}が管理します）",
     "publishedAs": "公開しました：{scopes}",
     "promptsEmpty": "いまは答える質問はありません。",
-    "promptsFailed": "質問を読み込めませんでした。通信を確かめて、このページを開き直してください。",
+    "promptsFailed": "質問を読み込めませんでした。通信を確かめて、もう一度ためしてください。",
     "cancel": "やめる"
   },
   "withdraw": {
@@ -125,6 +153,8 @@
     "label": "表示とあなた",
     "darkScreen": "暗い画面",
     "you": "あなた",
+    "signedOut": "この端末ではログインしていません",
+    "mock": "見本のデータで表示しています。ログインはありません。",
     "home": "はじめのページへ",
     "language": {
       "ja": "日本語",
@@ -143,14 +173,9 @@
     "openConsole": "コンソールを開く"
   },
   "profile": {
-    "title": "あなた",
     "loading": "読み込んでいます",
-    "noSeat": "席のページの「あなた」から開いてください。",
-    "failed": "読み込めませんでした。通信を確かめて、このページを開き直してください。",
     "notHolder": "{seat}を担当したことはありません",
-    "place": "この席の<fig>{n}</fig>代目です",
-    "noteCounts": "公開中 <fig>{live}</fig>件、撤回済み <fig>{withdrawn}</fig>件",
-    "openNotes": "自分のメモを開く"
+    "place": "この席の<fig>{n}</fig>代目です"
   },
   "measured": {
     "title": "測定の内訳",
@@ -183,36 +208,41 @@
     "allStatus": "すべて",
     "live": "公開中",
     "scope": "読める人",
-    "allScopes": "すべての範囲",
+    "allScopes": "すべて",
     "seat": "席",
-    "allSeats": "すべての席",
+    "allSeats": "すべて",
     "newest": "新しい順",
     "oldest": "古い順"
   },
   "guide": {
+    "loading": "席を開いています",
     "titlePlain": "引き継ぎ書",
     "title": "{seat}の引き継ぎ書",
-    "open": "引き継ぎ書を開く",
     "close": "引き継ぎ書を閉じる",
+    "coverLead": "先輩たちが残したメモを、一冊にまとめて読めます",
+    "read": "読む",
     "where": "{group}（{institution}）",
     "asOf": "{date}時点",
     "counts": "メモ <fig>{notes}</fig>件、まだ書かれていないこと <fig>{open}</fig>件",
     "rules": "あなたが読めるメモだけをまとめています。撤回されたメモと、新しいメモに更新されたメモは入りません。保存した写しは、あとでメモが撤回されても残ります。",
     "toolsLabel": "書き出す",
     "print": "印刷・PDFで保存",
+    "saveShort": "保存",
     "saveText": "テキストで保存（.md）",
     "exportHint": "いま表示している内容を、絞り込みも含めて書き出します。ファイルはこの端末に保存され、どこにも送られません。",
     "saved": "{name} を保存しました",
     "kind": "種類",
     "byline": "書いた人",
-    "allKinds": "すべての種類",
-    "allBylines": "すべての先輩",
+    "allKinds": "すべて",
+    "allBylines": "すべて",
     "sorts": {
-      "newest": "新しい年度から",
-      "oldest": "古い年度から",
-      "deadline": "締切が近い順"
+      "newest": "新しい順",
+      "oldest": "古い順",
+      "deadline": "締切順"
     },
     "filteredNote": "絞り込み：{kind}、{byline}",
+    "filteredAllKinds": "すべての種類",
+    "filteredAllBylines": "すべての先輩",
     "noNotes": "この席には、あなたが読めるメモがまだありません。",
     "deadline": "締切 {date}",
     "openTitle": "まだ書かれていないこと",
@@ -231,7 +261,22 @@
     "sentenceBy": "{text}（{byline}）",
     "bylineSeparator": "、",
     "source": "最新の内容：{url}",
-    "failed": "引き継ぎ書を読み込めませんでした。通信を確かめて、このページを開き直してください。"
+    "failed": "引き継ぎ書を読み込めませんでした。通信を確かめて、もう一度ためしてください。"
+  },
+  "meta": {
+    "app": "代々",
+    "template": "%s｜代々",
+    "home": "代々｜知識は人ではなく、席に受け継がれる。",
+    "description": "先輩たちが席に残したメモに聞ける、引き継ぎのノート。誰も知らないことは、去年の担当に届きます。",
+    "seat": "{seat}（{group}）",
+    "seatDescription": "{group}の{seat}の席。先輩たちが残したメモに聞けます。",
+    "ask": "聞く",
+    "handover": "残す・{seat}（{group}）",
+    "handoverPlain": "残す",
+    "guide": "{seat}の引き継ぎ書（{group}）",
+    "guidePlain": "引き継ぎ書",
+    "notes": "自分のメモ",
+    "console": "信頼の証明"
   },
   "onkuri": {
     "credit": "{n}人の先輩が、あなたの質問{q}個に答えました。次はあなたの番です！"
@@ -263,7 +308,7 @@
     "offline": "ログインを確かめられませんでした。通信を確かめて、もう一度ためしてください。",
     "retry": "もう一度ためす",
     "signedInAs": "{account}でログインしています",
-    "switch": "切り替える",
+    "switch": "アカウントを切り替える",
     "signingOut": "ログアウトしています"
   },
   "kinds": {
@@ -274,13 +319,18 @@
     "unwritten_rule": "暗黙のルール"
   },
   "myNotes": {
+    "withdrawnNote": "「{title}」を撤回しました。どの回答にも出ません。",
+    "noneLive": "公開中のメモはありません。",
+    "whereWithdrawn": "撤回したメモは、状態を「撤回済み」にすると見られます。",
+    "noneWithdrawn": "撤回したメモはありません。",
     "used": "このメモは{n}回、回答に使われました",
     "empty": "まだメモはありません。",
     "withdrawn": "撤回済み",
-    "failed": "メモを読み込めませんでした。ページを開き直してください。",
+    "failed": "メモを読み込めませんでした。通信を確かめて、もう一度ためしてください。",
     "withdrawFailed": "撤回できませんでした。もう一度「撤回する」を押してください。"
   },
   "inbox": {
+    "announce": "後輩から質問が届きました（{from}）：{question}",
     "title": "後輩からの質問",
     "arrived": "後輩から質問が届きました",
     "from": "から",
@@ -291,7 +341,7 @@
     "listening": "聞いています…",
     "publish": "公開する",
     "empty": "まだ質問は届いていません。",
-    "failed": "質問を読み込めませんでした。通信を確かめて、このページを開き直してください。"
+    "failed": "質問を読み込めませんでした。通信を確かめて、もう一度ためしてください。"
   },
   "voice": {
     "title": "答えを残す",
@@ -316,7 +366,8 @@
     "stamp": "{byline}のメモ"
   },
   "import": {
-    "title": "資料・ファイル・トーク履歴から追加",
+    "holdersOnly": "資料やトーク履歴を追加できるのは、この席を担当した人だけです。",
+    "title": "資料・トーク履歴から追加",
     "paste": "去年の引き継ぎ資料を貼り付けてください",
     "extract": "メモにする",
     "notStored": "元の資料やファイルは保存されません",
@@ -324,8 +375,6 @@
     "missingItem": "{topic}が書かれていません",
     "askLeaver": "先輩に聞く",
     "tabDoc": "貼り付け",
-    "tabChat": "トーク履歴",
-    "dropChat": "LINE・\u2060WhatsApp のトーク履歴（.txt）をここに置いてください",
     "speakers": "話している人",
     "rolePick": "役割を選ぶ",
     "member": "メンバー{letter}",
@@ -337,9 +386,9 @@
     "provenance": "{platform}・{month}",
     "blocked": "個人の情報が含まれていたため、このメモは作りませんでした",
     "add": "＋ 追加",
-    "anytime": "いつでも追加できます。最初は、去年の資料やトーク履歴から始めましょう",
+    "addWhat": "去年の資料・トーク履歴",
     "tabFile": "ファイル",
-    "dropFile": "PDF・Word・テキストファイルをここに置いてください（10MBまで）",
+    "dropFile": "PDF・Word・テキストファイル、LINE・\u2060WhatsApp のトーク履歴（.txt）をここに置いてください（10MBまで）",
     "pickFile": "ファイルを選ぶ",
     "fileRead": "{name}（{pages}ページ）を読み込みました",
     "scanned": "文字を読み取れないPDFです。文字をコピーして貼り付けてください",
@@ -352,12 +401,15 @@
     "close": "閉じる",
     "check": "送る内容を確認する",
     "pasteChat": "Slack・X・Instagram などからコピーしたメッセージを貼り付けてください",
+    "pasteAs": "貼り付けるもの",
+    "pasteAsDoc": "資料",
+    "pasteAsChat": "コピーしたメッセージ",
     "reading": "読み込んでいます",
     "fileReadText": "{name}を読み込みました",
     "unreadable": "このファイルは読めませんでした。文字をコピーして貼り付けてください",
     "unsupported": "PDF・Word（.docx）・テキスト（.txt・.md）のファイルを選んでください",
     "notChat": "トーク履歴として読めませんでした。LINE・\u2060WhatsApp の .txt か、コピーしたメッセージを使ってください",
-    "noSpeakers": "話している人を見つけられませんでした。資料として「貼り付け」から追加し、名前は「ほかに隠す言葉」に入れてください",
+    "noSpeakers": "話している人を見つけられませんでした。「資料」として貼り付けて、名前は「ほかに隠す言葉」に入れてください",
     "toPaste": "貼り付けに切り替える",
     "again": "やり直す",
     "another": "別の資料を追加する",
@@ -381,6 +433,9 @@
     "messageCount": "{count}件",
     "rolesDone": "この役割で隠す",
     "asDoc": "トークではなく資料として読む",
+    "asChat": "トークとして読む",
+    "asChatWarn": "「名前: 本文」のような行があります。このままだと、その名前も送られます。",
+    "asChatHint": "トークとして読むと、話している人を役職に置き換えます。",
     "changeRoles": "役割を選び直す",
     "hideMoreHint": "「、」で区切って入力してください",
     "hiddenList": "<list></list>を隠しました",

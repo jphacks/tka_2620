@@ -1,7 +1,21 @@
+import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 import { HandoverColumn } from "@/components/HandoverColumn";
 import { SeatSignIn } from "@/components/SeatSignIn";
 import { VerbTabs } from "@/components/VerbTabs";
 import { USE_MOCKS } from "@/lib/mocks";
+import { seatNames } from "@/lib/seat-title";
+
+export async function generateMetadata({
+  params,
+}: PageProps<"/s/[seat]/handover">): Promise<Metadata> {
+  const { seat } = await params;
+  const [t, names] = await Promise.all([
+    getTranslations("meta"),
+    seatNames(seat),
+  ]);
+  return { title: names ? t("handover", names) : t("handoverPlain") };
+}
 
 export default async function HandoverPage({
   params,

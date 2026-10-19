@@ -26,6 +26,7 @@ import {
   sortNotes,
 } from "@/components/guide";
 import { kindMarks } from "@/components/marks";
+import { RetryLine } from "@/components/RetryLine";
 import { SignInGate } from "@/components/SignInGate";
 import { plannerDate, tokyoToday } from "@/components/seat-page";
 import { UpcomingList } from "@/components/UpcomingList";
@@ -66,15 +67,20 @@ export function HandoverGuide({ slug }: { slug: string }) {
   );
 }
 
-// The guide itself, for the signed-in client: its own page (/s/[seat]/guide) or, inline, under the deadlines on 聞く.
+// The guide itself, for the signed-in client: its own page (/s/[seat]/guide) or, inline, in the reading sheet on 聞く
+// (components/GuideSheet.tsx).
 export function Guide({
   slug,
   api,
   inline = false,
+  onPrint,
 }: {
   slug: string;
   api: Api;
   inline?: boolean;
+  /** Inline, 印刷・PDFで保存 prints through the sheet, which first takes the guide out of the top layer, so every page of
+   * it goes on paper. Left out, the page itself prints. */
+  onPrint?: () => void;
 }) {
   const Title = inline ? "h2" : "h1";
   const t = useTranslations();
@@ -83,9 +89,11 @@ export function Guide({
   const [view, setView] = useState<SeatView>();
   const [guide, setGuide] = useState<GuideView>();
   const [failed, setFailed] = useState(false);
+  const [loadTry, setLoadTry] = useState(0); // the retry button reads again
   const [filter, setFilter] = useState<GuideFilter>(START);
   const [saved, setSaved] = useState<string>();
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: loadTry is the retry button's way to read again
   useEffect(() => {
     let alive = true;
     Promise.all([api.seat(slug), api.guide(slug)]).then(
@@ -101,20 +109,30 @@ export function Guide({
     return () => {
       alive = false;
     };
-  }, [api, slug]);
+  }, [api, slug, loadTry]);
 
   if (failed) {
     return (
       <section className="dd-col" style={{ gap: "var(--s-4)" }}>
-        <Title className="dd-h dd-guide-title">{t("guide.titlePlain")}</Title>
-        <p style={{ margin: 0, color: "var(--ink-2)" }}>{t("guide.failed")}</p>
+        {!inline && (
+          <Title className="dd-h dd-guide-title">{t("guide.titlePlain")}</Title>
+        )}
+        <RetryLine
+          message={t("guide.failed")}
+          onRetry={() => {
+            setFailed(false);
+            setLoadTry((n) => n + 1);
+          }}
+        />
       </section>
     );
   }
   if (!view || !guide) {
     return (
       <section className="dd-col" style={{ gap: "var(--s-4)" }}>
-        <Title className="dd-h dd-guide-title">{t("guide.titlePlain")}</Title>
+        {!inline && (
+          <Title className="dd-h dd-guide-title">{t("guide.titlePlain")}</Title>
+        )}
         <output className="dd-cap">{t("profile.loading")}</output>
       </section>
     );
@@ -150,11 +168,18 @@ export function Guide({
   const asOf = t("guide.asOf", {
     date: format.dateTime(new Date(), { dateStyle: "long" }),
   });
+  // The printout and the export say what was left in, in full words (「すべての種類」), not the select's short 「すべて」.
   const filterNote = filtered
     ? [
         t("guide.filteredNote", {
-          kind: kindWord(filter.kind),
-          byline: filter.byline === ALL ? t("guide.allBylines") : filter.byline,
+          kind:
+            filter.kind === ALL
+              ? t("guide.filteredAllKinds")
+              : kindWord(filter.kind),
+          byline:
+            filter.byline === ALL
+              ? t("guide.filteredAllBylines")
+              : filter.byline,
         }),
         query ? t("filter.searched", { query }) : "",
       ].join("")
@@ -229,14 +254,131 @@ export function Guide({
   }
 
   const openCount = guide.open.length + waiting.length;
+  const paperOnly = inline ? " dd-print-only" : "";
+
+  // Export: the page's first tools on its own; in the sheet on 聞く, after the notes (read first, then save; the sheet's
+  // header has 保存 too).
+  const tools = (
+    <section
+      className="dd-col dd-noprint"
+      style={{ gap: "var(--s-3)" }}
+      aria-label={t("guide.toolsLabel")}
+    >
+      <div className="dd-row" style={{ gap: "var(--s-3)" }}>
+        <button
+          type="button"
+          className="dd-btn dd-btn-primary"
+          onClick={() => (onPrint ? onPrint() : window.print())}
+        >
+          {t("guide.print")}
+        </button>
+        <button type="button" className="dd-btn" onClick={exportMarkdown}>
+          {t("guide.saveText")}
+        </button>
+      </div>
+      <p className="dd-cap" style={{ margin: 0 }} aria-live="polite">
+        {saved ? t("guide.saved", { name: saved }) : t("guide.exportHint")}
+      </p>
+    </section>
+  );
+  // Filter and order: inline on 聞く, folded under one 44px line until asked for, so the notes come first.
+  const filterBox = (
+    <fieldset className="dd-filter">
+      <legend className={inline ? "dd-h dd-sr-only" : "dd-h"}>
+        {t("filter.title")}
+      </legend>
+      <div className="dd-filter-search">
+        <label className="dd-cap" htmlFor="guide-search">
+          {t("filter.search")}
+        </label>
+        <input
+          id="guide-search"
+          type="search"
+          className="dd-input"
+          value={filter.query ?? ""}
+          placeholder={t("filter.searchNotes")}
+          onChange={(event) =>
+            setFilter({ ...filter, query: event.target.value })
+          }
+        />
+      </div>
+      <label>
+        <span className="dd-cap">{t("guide.kind")}</span>
+        <select
+          className="dd-select"
+          value={filter.kind}
+          onChange={(event) =>
+            setFilter({ ...filter, kind: event.target.value as KindFilter })
+          }
+        >
+          {[ALL, ...KINDS].map((kind) => (
+            <option key={kind} value={kind}>
+              {kindWord(kind as KindFilter)}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label>
+        <span className="dd-cap">{t("guide.byline")}</span>
+        <select
+          className="dd-select"
+          value={filter.byline}
+          onChange={(event) =>
+            setFilter({ ...filter, byline: event.target.value })
+          }
+        >
+          <option value={ALL}>{t("guide.allBylines")}</option>
+          {bylines.map((byline) => (
+            <option key={byline} value={byline}>
+              {byline}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label>
+        <span className="dd-cap">{t("filter.sort")}</span>
+        <select
+          className="dd-select"
+          value={filter.sort}
+          onChange={(event) =>
+            setFilter({ ...filter, sort: event.target.value as GuideSort })
+          }
+        >
+          {SORTS.map((sort) => (
+            <option key={sort} value={sort}>
+              {t(`guide.sorts.${sort}`)}
+            </option>
+          ))}
+        </select>
+      </label>
+      <div className="dd-filter-count">
+        <output aria-live="polite">
+          {t.rich("filter.shown", {
+            n: shown.length,
+            fig: (chunks) => <span className="dd-fig">{chunks}</span>,
+          })}
+        </output>
+        {filtered && (
+          <button
+            type="button"
+            className="dd-link dd-filter-reset"
+            onClick={() => setFilter({ ...START, sort: filter.sort })}
+          >
+            {t("filter.clear")}
+          </button>
+        )}
+      </div>
+    </fieldset>
+  );
 
   return (
     <div className="dd-col dd-guide" style={{ gap: "var(--s-6)" }}>
       <header className="dd-col" style={{ gap: "var(--s-2)" }}>
-        <Title className="dd-h dd-guide-title">
+        {/* In the sheet on 聞く, its header and the key tag already say these: paper only */}
+        <Title className={`dd-h dd-guide-title${paperOnly}`}>
           {t("guide.title", { seat: seat.name })}
         </Title>
-        <p style={{ margin: 0 }}>
+        <p className={paperOnly.trim() || undefined} style={{ margin: 0 }}>
           <span className="dd-seat-group">{seat.group}</span>
           <br />
           <span className="dd-cap">{seat.institution}</span>
@@ -253,124 +395,34 @@ export function Guide({
         <p className="dd-cap dd-guide-rules">{t("guide.rules")}</p>
       </header>
 
-      <section
-        className="dd-col dd-noprint"
-        style={{ gap: "var(--s-3)" }}
-        aria-label={t("guide.toolsLabel")}
-      >
-        <div className="dd-row" style={{ gap: "var(--s-3)" }}>
-          <button
-            type="button"
-            className="dd-btn dd-btn-primary"
-            onClick={() => {
-              // Inline on 聞く, the page around the guide stays off the paper (styles/components.css → print).
-              const root = document.documentElement;
-              root.classList.add("dd-printing-guide");
-              window.addEventListener(
-                "afterprint",
-                () => root.classList.remove("dd-printing-guide"),
-                { once: true },
-              );
-              window.print();
-            }}
-          >
-            {t("guide.print")}
-          </button>
-          <button type="button" className="dd-btn" onClick={exportMarkdown}>
-            {t("guide.saveText")}
-          </button>
-        </div>
-        <p className="dd-cap" style={{ margin: 0 }} aria-live="polite">
-          {saved ? t("guide.saved", { name: saved }) : t("guide.exportHint")}
-        </p>
-      </section>
+      {!inline && tools}
 
-      <fieldset className="dd-filter">
-        <legend className="dd-h">{t("filter.title")}</legend>
-        <div className="dd-filter-search">
-          <label className="dd-cap" htmlFor="guide-search">
-            {t("filter.search")}
-          </label>
-          <input
-            id="guide-search"
-            type="search"
-            className="dd-input"
-            value={filter.query ?? ""}
-            placeholder={t("filter.searchNotes")}
-            onChange={(event) =>
-              setFilter({ ...filter, query: event.target.value })
-            }
-          />
-        </div>
-        <label>
-          <span className="dd-cap">{t("guide.kind")}</span>
-          <select
-            className="dd-select"
-            value={filter.kind}
-            onChange={(event) =>
-              setFilter({ ...filter, kind: event.target.value as KindFilter })
-            }
-          >
-            {[ALL, ...KINDS].map((kind) => (
-              <option key={kind} value={kind}>
-                {kindWord(kind as KindFilter)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          <span className="dd-cap">{t("guide.byline")}</span>
-          <select
-            className="dd-select"
-            value={filter.byline}
-            onChange={(event) =>
-              setFilter({ ...filter, byline: event.target.value })
-            }
-          >
-            <option value={ALL}>{t("guide.allBylines")}</option>
-            {bylines.map((byline) => (
-              <option key={byline} value={byline}>
-                {byline}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          <span className="dd-cap">{t("filter.sort")}</span>
-          <select
-            className="dd-select"
-            value={filter.sort}
-            onChange={(event) =>
-              setFilter({ ...filter, sort: event.target.value as GuideSort })
-            }
-          >
-            {SORTS.map((sort) => (
-              <option key={sort} value={sort}>
-                {t(`guide.sorts.${sort}`)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <div className="dd-filter-count">
-          <output aria-live="polite">
-            {t.rich("filter.shown", {
-              n: shown.length,
-              fig: (chunks) => <span className="dd-fig">{chunks}</span>,
-            })}
-          </output>
-          {filtered && (
-            <button
-              type="button"
-              className="dd-link dd-filter-reset"
-              onClick={() => setFilter({ ...START, sort: filter.sort })}
+      {inline ? (
+        <details className="dd-filter-fold dd-noprint">
+          <summary>
+            <span>{t("filter.title")}</span>
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              width="20"
+              height="20"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
             >
-              {t("filter.clear")}
-            </button>
-          )}
-        </div>
-      </fieldset>
+              <path d="m6 9 6 6 6-6" />
+            </svg>
+          </summary>
+          {filterBox}
+        </details>
+      ) : (
+        filterBox
+      )}
       {filterNote && <p className="dd-cap dd-print-only">{filterNote}</p>}
 
+      {/* In the sheet on 聞く too: the guide is the whole handover, deadlines first */}
       <UpcomingList items={upcoming} />
 
       {guide.notes.length === 0 && (
@@ -496,6 +548,8 @@ export function Guide({
           ))}
         </section>
       )}
+
+      {inline && tools}
 
       <p className="dd-cap dd-print-only">
         {t("guide.source", { url: `/s/${slug}/guide` })}

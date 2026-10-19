@@ -7,6 +7,11 @@
   },
   "seatTypes": {
     "club_role": {
+      "examples": {
+        "one": "When is the health-office deadline for the food stall?",
+        "two": "By when do receipts have to be in?",
+        "three": "How is the club's bank account handed over?"
+      },
       "seat": "role",
       "term": "{term}",
       "byline": "{term} {seat}",
@@ -22,6 +27,11 @@
       "roles": "President, Vice president, Treasurer, Deputy treasurer, Advisor, Student affairs office"
     },
     "exchange_route": {
+      "examples": {
+        "one": "When is the dorm application due?",
+        "two": "What should I watch out for in course registration?",
+        "three": "What do I need to do right after arriving?"
+      },
       "seat": "exchange route",
       "term": "{term}",
       "byline": "{term} exchange student",
@@ -37,6 +47,11 @@
       "roles": "Previous exchange student, Host university contact, International office, Supervisor"
     },
     "lab_duty": {
+      "examples": {
+        "one": "How do I book the instrument?",
+        "two": "Where do I order consumables?",
+        "three": "How often is maintenance due?"
+      },
       "seat": "duty",
       "term": "{term}",
       "byline": "{term} {seat}",
@@ -53,7 +68,15 @@
     }
   },
   "ask": {
-    "placeholder": "Ask the people who held this seat",
+    "examplesLead": "For example",
+    "earlierTitle": "Your earlier questions",
+    "newAnswer": "New answer",
+    "newAnswers": "New answers from your predecessors: {n}",
+    "abstainedStatus": "{nobody} {routed}",
+    "noAnswerYet": "No answer yet. It will appear here when one comes.",
+    "placeholder": "Ask your predecessors",
+    "searching": "Looking through your predecessors' notes",
+    "found": "Found an answer in your predecessors' notes",
     "sources": "Notes this answer is based on",
     "disagreement": "The rule changed in {term}",
     "outdated": "Outdated?",
@@ -64,10 +87,15 @@
     "sourceGone": "This note can't be read now.",
     "sourceFailed": "Couldn't load this note. Close it and open it again.",
     "source": "Source: a note by {byline}",
-    "seatFailed": "Couldn't load this seat. Check your connection and reopen this page.",
+    "seatFailed": "Couldn't open this seat. Check the connection and try again.",
     "failed": "Couldn't send your question. Ask it again."
   },
+  "retry": {
+    "action": "Try again"
+  },
   "abstain": {
+    "noOneReachable": "No predecessor can take questions right now, so it wasn't sent.",
+    "notHolder": "Only the seat's holders can send a question to their predecessors.",
     "routed": "Added to the next handover."
   },
   "handover": {
@@ -95,7 +123,7 @@
     "critical": "Mark as important (kept by {group})",
     "publishedAs": "Published: {scopes}",
     "promptsEmpty": "Nothing to answer right now.",
-    "promptsFailed": "Couldn't load the questions. Check your connection and reopen this page.",
+    "promptsFailed": "Couldn't load the questions. Check your connection and try again.",
     "cancel": "Cancel"
   },
   "withdraw": {
@@ -125,6 +153,8 @@
     "label": "Display and you",
     "darkScreen": "Dark screen",
     "you": "You",
+    "signedOut": "No one is signed in on this device",
+    "mock": "This shows sample data. There is no sign-in.",
     "home": "To the start page",
     "language": {
       "ja": "日本語",
@@ -143,14 +173,9 @@
     "openConsole": "Open the console"
   },
   "profile": {
-    "title": "You",
     "loading": "Loading",
-    "noSeat": "Open this page with “You” on a seat's page.",
-    "failed": "Couldn't load this. Check the connection and reopen the page.",
     "notHolder": "You have never held {seat}",
-    "place": "Holder no. <fig>{n}</fig> of this seat",
-    "noteCounts": "<fig>{live}</fig> live, <fig>{withdrawn}</fig> withdrawn",
-    "openNotes": "Open my notes"
+    "place": "Holder no. <fig>{n}</fig> of this seat"
   },
   "measured": {
     "title": "What the checks measured",
@@ -172,7 +197,7 @@
   "filter": {
     "title": "Filter and order",
     "sort": "Order",
-    "shown": "Showing <fig>{n}</fig> notes",
+    "shown": "Showing <fig>{n}</fig> {n, plural, one {note} other {notes}}",
     "clear": "Clear the filter",
     "search": "Search",
     "searchNotes": "Search titles, text and who wrote it",
@@ -183,36 +208,41 @@
     "allStatus": "All",
     "live": "Live",
     "scope": "Who can read",
-    "allScopes": "Every scope",
+    "allScopes": "All",
     "seat": "Seat",
-    "allSeats": "Every seat",
+    "allSeats": "All",
     "newest": "Newest first",
     "oldest": "Oldest first"
   },
   "guide": {
+    "loading": "Opening the seat",
     "titlePlain": "Handover guide",
     "title": "Handover guide: {seat}",
-    "open": "Open the handover guide",
     "close": "Close the handover guide",
+    "coverLead": "Every note your predecessors left, put together to read",
+    "read": "Read",
     "where": "{group} ({institution})",
     "asOf": "As of {date}",
     "counts": "<fig>{notes}</fig> notes, <fig>{open}</fig> things not written yet",
     "rules": "Only the notes you may read are here. Withdrawn notes and notes replaced by a newer one are left out. A saved copy keeps what it shows even if a note is withdrawn later.",
     "toolsLabel": "Export",
     "print": "Print or save as PDF",
+    "saveShort": "Save",
     "saveText": "Save as text (.md)",
     "exportHint": "Exports what this page shows, filters included. The file is saved on this device and sent nowhere.",
     "saved": "Saved {name}",
     "kind": "Kind",
     "byline": "Written by",
-    "allKinds": "All kinds",
-    "allBylines": "Every predecessor",
+    "allKinds": "All",
+    "allBylines": "All",
     "sorts": {
-      "newest": "Newest term first",
-      "oldest": "Oldest term first",
-      "deadline": "Nearest deadline first"
+      "newest": "Newest",
+      "oldest": "Oldest",
+      "deadline": "Deadline"
     },
     "filteredNote": "Filtered: {kind}, {byline}",
+    "filteredAllKinds": "All kinds",
+    "filteredAllBylines": "Every predecessor",
     "noNotes": "There are no notes here that you may read yet.",
     "deadline": "Deadline {date}",
     "openTitle": "Not written yet",
@@ -231,7 +261,22 @@
     "sentenceBy": "{text} ({byline})",
     "bylineSeparator": ", ",
     "source": "Latest version: {url}",
-    "failed": "Couldn't load the handover guide. Check the connection and reopen this page."
+    "failed": "Couldn't load the handover guide. Check the connection and try again."
+  },
+  "meta": {
+    "app": "Daidai",
+    "template": "%s | Daidai",
+    "home": "Daidai | Knowledge passes down with the seat, not the person.",
+    "description": "A handover notebook for each seat: ask what your predecessors left. What nobody knows reaches last year's holder.",
+    "seat": "{seat} ({group})",
+    "seatDescription": "The {seat} seat of {group}: ask what your predecessors left.",
+    "ask": "Ask",
+    "handover": "Hand over: {seat} ({group})",
+    "handoverPlain": "Hand over",
+    "guide": "Handover guide: {seat} ({group})",
+    "guidePlain": "Handover guide",
+    "notes": "My notes",
+    "console": "Trust proof"
   },
   "onkuri": {
     "credit": "{n} senpai answered {q} of your questions. Your turn!"
@@ -274,13 +319,18 @@
     "unwritten_rule": "Unwritten rule"
   },
   "myNotes": {
+    "withdrawnNote": "Withdrew “{title}”. It no longer appears in any answer.",
+    "noneLive": "No live notes.",
+    "whereWithdrawn": "To see withdrawn notes, set Status to \"Withdrawn\".",
+    "noneWithdrawn": "No withdrawn notes.",
     "used": "This note was used in {n} answers",
     "empty": "You haven't written any notes yet.",
     "withdrawn": "Withdrawn",
-    "failed": "Couldn't load your notes. Reopen this page.",
+    "failed": "Couldn't load your notes. Check the connection and try again.",
     "withdrawFailed": "Couldn't withdraw the note. Press Withdraw again."
   },
   "inbox": {
+    "announce": "A newcomer asked ({from}): {question}",
     "title": "Questions from newcomers",
     "arrived": "A newcomer asked you something",
     "from": "From",
@@ -291,7 +341,7 @@
     "listening": "Listening…",
     "publish": "Publish",
     "empty": "No questions yet.",
-    "failed": "Couldn't load the questions. Check your connection and reopen this page."
+    "failed": "Couldn't load the questions. Check your connection and try again."
   },
   "voice": {
     "title": "Leave the answer",
@@ -316,7 +366,8 @@
     "stamp": "Note by {byline}"
   },
   "import": {
-    "title": "Add from docs, files and chats",
+    "holdersOnly": "Only the seat's holders can add documents or chats here.",
+    "title": "Add docs and chats",
     "paste": "Paste last year's handover doc",
     "extract": "Turn into notes",
     "notStored": "The original document or file is not stored",
@@ -324,8 +375,6 @@
     "missingItem": "No {topic} in the doc",
     "askLeaver": "Ask your predecessors",
     "tabDoc": "Paste",
-    "tabChat": "Chat history",
-    "dropChat": "Drop a LINE or WhatsApp chat export (.txt) here",
     "speakers": "People in this chat",
     "rolePick": "Choose a role",
     "member": "Member {letter}",
@@ -337,9 +386,9 @@
     "provenance": "{platform} · {month}",
     "blocked": "Not created: it contained personal information",
     "add": "+ Add",
-    "anytime": "You can add at any time. Start with last year's docs or chat history",
+    "addWhat": "Last year's docs and chats",
     "tabFile": "File",
-    "dropFile": "Drop a PDF, Word or text file here (up to 10 MB)",
+    "dropFile": "Drop a PDF, Word or text file, or a LINE or WhatsApp chat export (.txt), here (up to 10 MB)",
     "pickFile": "Choose a file",
     "fileRead": "Read {name} ({pages} pages)",
     "scanned": "This PDF has no readable text. Copy the text and paste it instead",
@@ -352,12 +401,15 @@
     "close": "Close",
     "check": "Check what will be sent",
     "pasteChat": "Paste messages you copied from Slack, X, Instagram or elsewhere",
+    "pasteAs": "What you're pasting",
+    "pasteAsDoc": "A document",
+    "pasteAsChat": "Copied messages",
     "reading": "Reading",
     "fileReadText": "Read {name}",
     "unreadable": "This file couldn't be read. Copy the text and paste it instead",
     "unsupported": "Choose a PDF, Word (.docx) or text (.txt, .md) file",
     "notChat": "This couldn't be read as a chat. Use a LINE or WhatsApp .txt export or messages you copied",
-    "noSpeakers": "No one speaking was found. Add it as a document under \"Paste\" and put any names in \"Other words to hide\"",
+    "noSpeakers": "No one speaking was found. Paste it as \"A document\" and put any names in \"Other words to hide\"",
     "toPaste": "Switch to Paste",
     "again": "Start over",
     "another": "Add another document",
@@ -381,6 +433,9 @@
     "messageCount": "{count, plural, one {# message} other {# messages}}",
     "rolesDone": "Hide names behind these roles",
     "asDoc": "Not a chat: read it as a document",
+    "asChat": "Read it as a chat",
+    "asChatWarn": "Some lines look like \"Name: message\". As it is, those names would be sent too.",
+    "asChatHint": "Read as a chat, each speaker is replaced by a role.",
     "changeRoles": "Change the roles",
     "hideMoreHint": "Separate words with commas",
     "hiddenList": "Hidden: <list></list>",

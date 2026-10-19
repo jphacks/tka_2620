@@ -32,7 +32,8 @@ const uuid = (n: number) =>
 
 // The scripted reads, in the order the guide makes them on each table: notes answers the seat's notes first, then the
 // notes naming a prompt (a holder with prompts) or the cited notes (answered questions), so each test scripts one of
-// the two. search_notes answers once per prompt left. The caller holds nothing unless `held` says so.
+// the two. search_notes answers once per prompt left, seat_lineage once per seat of the cited notes. The caller holds
+// nothing unless `held` says so.
 type Script = {
   seat?: Result;
   notes?: Result[];
@@ -41,6 +42,7 @@ type Script = {
   prompts?: Result;
   answers?: Result;
   search?: Result[];
+  lineage?: Result[];
   embed?: (texts: string[]) => Promise<number[][]>;
 };
 
@@ -54,7 +56,7 @@ function guide(script: Script = {}) {
       prompts: [script.prompts ?? ok([])],
       answers: [script.answers ?? ok([])],
     },
-    { search_notes: script.search ?? [] },
+    { search_notes: script.search ?? [], seat_lineage: script.lineage ?? [] },
   );
   const embedded: string[][] = [];
   const embed =
@@ -427,11 +429,26 @@ describe("guideAsCaller: the caller's questions", () => {
     live: { byline: "古い署名" },
     ...extra,
   });
-  const bylines = (...notes: [string, string][]) =>
-    ok(notes.map(([id, byline]) => ({ id, byline })));
+  // The cited notes as the caller reads them now: byline, seat and term.
+  const bylines = (...notes: [string, string, string, number][]) =>
+    ok(
+      notes.map(([id, byline, seat_id, term_order]) => ({
+        id,
+        byline,
+        seat_id,
+        term_order,
+      })),
+    );
+  // Smash 会計's terms, as seat_lineage() gives them: oldest first, never who held them.
+  const smashTerms = ok(
+    [2024, 2025, 2026].map((term) => ({
+      term_label: String(term),
+      term_order: term,
+    })),
+  );
 
   it("lists them newest first, each answer checked again: a sentence on a note the caller can't read goes, and the rule change with it", async () => {
-    const { run, calls } = guide({
+    const { run, calls, rpcCalls } = guide({
       questions: ok([
         question(Q1, "answered", "2026-10-18T03:00:00+00:00"),
         question(Q2, "waiting", "2026-10-18T02:00:00+00:00", "部費はいくら？"),
@@ -450,10 +467,16 @@ describe("guideAsCaller: the caller's questions", () => {
         ok([]),
         // smash-2025-hokenjo doesn't come back: withdrawn, replaced, expired or out of the caller's scope.
         bylines(
-          ["smash-2024-hokenjo", "2024年度 会計"],
-          ["gakusai-2025-hokenjo", "2025年度 模擬店担当"],
+          ["smash-2024-hokenjo", "2024年度 会計", SMASH_KAIKEI, 2024],
+          [
+            "gakusai-2025-hokenjo",
+            "2025年度 模擬店担当",
+            GAKUSAI_MOGITEN,
+            2025,
+          ],
         ),
       ],
+      lineage: [smashTerms, ok([{ term_label: "2025", term_order: 2025 }])],
     });
     const view = GuideView.parse(await run());
     expect(view.asked).toEqual([
@@ -472,7 +495,7 @@ describe("guideAsCaller: the caller's questions", () => {
                 {
                   noteId: "smash-2024-hokenjo",
                   byline: "2024年度 会計",
-                  termLabel: "2025",
+                  termLabel: "2024", // the lineage's, not the saved 2025
                 },
               ],
             },
@@ -510,7 +533,7 @@ describe("guideAsCaller: the caller's questions", () => {
     ]);
     // Every cited note once, of any seat, as search_notes would find it for an answer.
     expect(calls.notes[1]).toEqual([
-      ["select", "id, byline"],
+      ["select", "id, byline, seat_id, term_order"],
       [
         "in",
         "id",
@@ -520,9 +543,14 @@ describe("guideAsCaller: the caller's questions", () => {
       ["is", "superseded_by", null],
       ["or", "valid_until.is.null,valid_until.gte.2026-10-18"],
     ]);
+    // Each seat's lineage once, for the terms of the notes that came back.
+    expect(rpcCalls).toEqual([
+      ["seat_lineage", { seat: SMASH_KAIKEI }],
+      ["seat_lineage", { seat: GAKUSAI_MOGITEN }],
+    ]);
   });
 
-  it("keeps the rule change while every sentence stands, takes the bylines from the notes, never `live`, and the question's own id", async () => {
+  it("keeps the rule change while every sentence stands, takes the bylines and terms from the notes, never `live`, and the question's own id", async () => {
     const { run } = guide({
       questions: ok([question(Q1, "answered", "2026-10-18T03:00:00+00:00")]),
       answers: ok([
@@ -535,10 +563,11 @@ describe("guideAsCaller: the caller's questions", () => {
       notes: [
         ok([]),
         bylines(
-          ["smash-2024-hokenjo", "2024年度 会計"],
-          ["smash-2025-hokenjo", "2025年度 会計"],
+          ["smash-2024-hokenjo", "2024年度 会計", SMASH_KAIKEI, 2024],
+          ["smash-2025-hokenjo", "2025年度 会計", SMASH_KAIKEI, 2025],
         ),
       ],
+      lineage: [smashTerms],
     });
     const [asked] = GuideView.parse(await run()).asked;
     expect(asked.answer?.questionId).toBe(Q1);
@@ -549,9 +578,12 @@ describe("guideAsCaller: the caller's questions", () => {
     expect(asked.answer).not.toHaveProperty("live");
     expect(
       asked.answer?.sentences.flatMap((sentence) =>
-        sentence.citations.map((citation) => citation.byline),
+        sentence.citations.map(({ byline, termLabel }) => [byline, termLabel]),
       ),
-    ).toEqual(["2024年度 会計", "2025年度 会計"]);
+    ).toEqual([
+      ["2024年度 会計", "2024"],
+      ["2025年度 会計", "2025"],
+    ]);
   });
 
   it("shows no answer once no sentence stands, for an abstain, or for a payload that doesn't read", async () => {

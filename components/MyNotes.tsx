@@ -2,8 +2,10 @@
 // 自分のメモ (docs/DESIGN.md → three verbs): the author's notes with their scope and 「撤回する」. Presentational:
 // the page (MyNotesPanel) and the console (TrustConsole) each own the withdrawal state machine and pass it in.
 // Each note says its scope in the words of the seat it was written at (MyNote.seat), so seats holds those seats.
+// The list is every note it is given, in place: the page's 状態 select picks which (公開中 by default; すべて and 撤回済み
+// list withdrawn notes too, their titles crossed out). No fold (Nico's call: as before).
 import { useTranslations } from "next-intl";
-import type { ReactNode } from "react";
+import { type ReactNode, useCallback } from "react";
 import { NoteEntry, type WithdrawPhase } from "@/components/NoteEntry";
 import type { Api, MyNote, SeatView } from "@/lib/contracts";
 
@@ -24,6 +26,7 @@ export function MyNotes({
   onWithdraw,
   tools,
   emptyText,
+  headingLevel = 2,
 }: {
   notes: MyNote[];
   seats: NoteSeats;
@@ -35,36 +38,46 @@ export function MyNotes({
   tools?: ReactNode;
   /** What an empty list says when the author has notes the filter hides. */
   emptyText?: string;
+  /** 1 on /me/notes, where this is the page and its h1 is for a screen reader only (the verb tab says where you are,
+   * Nico's call); 2 inside the console's pane, shown, since a pane has no tabs. */
+  headingLevel?: 1 | 2;
 }) {
   const t = useTranslations();
+  // A withdrawal that failed says so above the list: it comes into view, as the author may be far down the list.
+  const intoView = useCallback((node: HTMLElement | null) => {
+    node?.scrollIntoView({ block: "nearest" });
+  }, []);
+  const entry = (note: MyNote) =>
+    seats[note.seat] ? (
+      <NoteEntry
+        key={note.id}
+        note={note}
+        seat={seats[note.seat]}
+        phase={withdrawing?.id === note.id ? withdrawing.phase : undefined}
+        onWithdraw={() => onWithdraw(note.id)}
+        disabled={withdrawing !== undefined}
+        titleLevel={headingLevel === 1 ? 2 : 3}
+      />
+    ) : null;
   return (
     <section
       className="dd-col"
       style={{ gap: "var(--s-5)" }}
       aria-label={t("verbs.myNotes")}
     >
-      <h2 className="dd-h">{t("verbs.myNotes")}</h2>
+      {headingLevel === 1 ? (
+        <h1 className="dd-sr-only">{t("verbs.myNotes")}</h1>
+      ) : (
+        <h2 className="dd-h">{t("verbs.myNotes")}</h2>
+      )}
       {tools}
       {withdrawFailed && (
-        <p role="alert" style={{ margin: 0 }}>
+        <p ref={intoView} role="alert" style={{ margin: 0 }}>
           {t("myNotes.withdrawFailed")}
         </p>
       )}
       <div className="dd-col" style={{ gap: "var(--s-4)" }} aria-live="polite">
-        {notes.map((note) =>
-          seats[note.seat] ? (
-            <NoteEntry
-              key={note.id}
-              note={note}
-              seat={seats[note.seat]}
-              phase={
-                withdrawing?.id === note.id ? withdrawing.phase : undefined
-              }
-              onWithdraw={() => onWithdraw(note.id)}
-              disabled={withdrawing !== undefined}
-            />
-          ) : null,
-        )}
+        {notes.map(entry)}
         {notes.length === 0 && (
           <p className="dd-cap" style={{ margin: 0 }}>
             {emptyText ?? t("myNotes.empty")}

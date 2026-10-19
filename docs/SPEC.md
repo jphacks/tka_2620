@@ -142,7 +142,9 @@ They are the shared acceptance tests for F2–F4, and `lib/mocks.ts` is built fr
 
 ## Adding knowledge: text, files and chats (F5)
 Club knowledge lives in old documents, forms, notices and, most of all, group chats. Daidai takes all of them
-through one path that keeps people out of the notes, at the start and at any time afterwards.
+through one path that keeps people out of the notes, at the start and at any time afterwards. 「＋ 追加」 has two tabs:
+貼り付け (a doc, or 「コピーしたメッセージ」 from any chat app, whose speakers then get roles) and ファイル (any file below,
+a chat export included: LINE and WhatsApp exports are recognised by their form, on any tab or dropped on the page).
 
 **Sources (files, official exports or copy-paste only; no scraping, no unofficial APIs, no bots in groups this weekend)**
 | Source | How the person gets the text | Parser |
@@ -209,8 +211,8 @@ through one path that keeps people out of the notes, at the start and at any tim
 - A note from a chat is the author's own note, so it can be withdrawn like any other.
 
 ## Handover guide 引き継ぎ書 (export; not in the 90-second demo)
-The handover nobody writes, put together from what the predecessors left, at `/s/[seat]/guide` (opened from 聞く and
-from `/me`; not a fourth verb). One read as the viewer (`GET /api/seats/[slug]/guide`, RLS decides): the deadlines
+The handover nobody writes, put together from what the predecessors left, at `/s/[seat]/guide` (opened from 聞く; not
+a fourth verb). One read as the viewer (`GET /api/seats/[slug]/guide`, RLS decides): the deadlines
 coming up, every live note they may read by kind with its date stamp, what isn't written yet (for holders: gap,
 required and core prompts no note names or covers; never a demand prompt), and their own questions with the answers
 that still stand. A filter (kind, who wrote it by byline, order) shapes the page and the export alike: print / PDF
@@ -222,8 +224,8 @@ says that a saved copy keeps today's version even if a note is withdrawn later.
 - `/s/[seat]/handover`: 残す — newcomers' questions (live inbox), handover prompts, 「＋ 追加」 (text, files, chats)
 - `/s/[seat]/guide`: the handover guide 引き継ぎ書 (notes the viewer may read, what isn't written yet, the viewer's
   own questions; print / PDF and Markdown export in the browser)
-- `/me`: who you are at the seat (seat and term)
-- `/me/notes`: 自分のメモ (scope and withdrawal)
+- `/me`: redirects to `/me/notes` (keeping `?seat=`)
+- `/me/notes`: 自分のメモ (who you are at the seat, then your notes: scope and withdrawal)
 - `/console`: three persona panes (a26 newcomer, a25 last year's treasurer, x outsider), meter, leak counter, reset
 - Seat routes live in the route group `app/(seat)/` (the URL has no `(seat)` segment).
 
@@ -277,6 +279,7 @@ type AskResult =
 //       open: { id: string; text: string; reason: "gap" | "required" | "core" }[]; openChecked: boolean; asked: { questionId: string; text: string; lang: Lang; askedAt: string; answer?: AskResult }[] }
 //   the handover guide (引き継ぎ書), as the caller (RLS): the seat's live, current notes they may read; for a holder, the prompts no note they read names
 //   or covers (openChecked false: the check failed, open is empty); their own questions, newest first, each answer ("answered", no live) checked again
+// GET  /api/seats/[slug]/asked           → { asked }   (the guide's asked alone, as the caller, checked the same way but with no embedding: 聞く after a reload or a closed tab)
 // Any error                              → { error: "invalid_request" | "unauthorized" | "forbidden" | "not_found" | "unredacted" | "unavailable" }
 // Realtime `notes` → { id, status }; `events` → { id, kind, payload: Record<string, number>, created_at }
 ```
@@ -288,8 +291,8 @@ type AskResult =
   or a closed tab stays signed in; a console pane keeps its own under its own storage key. Only the demo
   accounts sign in (`DemoAccount` and `DEMO_EMAIL` in `lib/contracts.ts`, the emails `scripts/seed.ts` creates). The
   demo password is typed on the device and goes to Supabase Auth only, never into client code or a `NEXT_PUBLIC_*`
-  variable. Signing out ends this device's session only (`scope: "local"`; the default would also sign the demo phone
-  out), and clears it from the device even offline. Nobody signs up: "Allow new users to sign up" is off in Supabase
+  variable. Signing out (「アカウントを切り替える」 in 「あなた」's menu in the bar) ends this device's session only
+  (`scope: "local"`; the default would also sign the demo phone out), and clears it from the device even offline. Nobody signs up: "Allow new users to sign up" is off in Supabase
   Auth and email is the only sign-in method, since the anon key is public (`tests/sign-in.test.ts` checks both).
   `pnpm demo:reset` recreates the demo users, so every device signs in again after a reset: `signedIn` checks a
   stored session with Supabase Auth and clears one it no longer knows.

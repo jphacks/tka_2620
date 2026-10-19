@@ -17,6 +17,7 @@ import {
   type Api,
   ApiError,
   type ApiErrorCode,
+  AskedView,
   AskResult,
   DEMO_EMAIL,
   DemoAccount,
@@ -65,6 +66,11 @@ async function answer<S extends z.ZodType>(
   return parsed.data;
 }
 
+// A read (GET) that hasn't answered in 20 s has stalled (venue Wi-Fi): it fails as unavailable, so the screen shows its
+// retry instead of loading forever. Writes have no limit: drafting an answer can take a while, and cutting it off here
+// wouldn't stop the server. A phone too old for AbortSignal.timeout (iOS before 16) simply waits, as before.
+const READ_TIMEOUT_MS = 20_000;
+
 // Each channel is the table of the same name (supabase/migrations: the supabase_realtime publication sends inserts
 // and updates only). Rows are checked like answers; a row that doesn't match is dropped, never shown.
 const ROWS: { [C in keyof RealtimeRows]: z.ZodType<RealtimeRows[C]> } = {
@@ -92,14 +98,26 @@ export function createApi(db: SupabaseClient, userId?: string): Api {
     if (!token || someoneElse(data.session)) {
       throw new ApiClientError("unauthorized");
     }
-    const response = await fetch(path, {
-      method: body === undefined ? "GET" : "POST",
-      headers: {
-        authorization: `Bearer ${token}`,
-        ...(body === undefined ? {} : { "content-type": "application/json" }),
-      },
-      body: body === undefined ? undefined : JSON.stringify(body),
-    });
+    const read = body === undefined;
+    let response: Response;
+    try {
+      response = await fetch(path, {
+        method: read ? "GET" : "POST",
+        headers: {
+          authorization: `Bearer ${token}`,
+          ...(read ? {} : { "content-type": "application/json" }),
+        },
+        body: body === undefined ? undefined : JSON.stringify(body),
+        ...(read && typeof AbortSignal.timeout === "function"
+          ? { signal: AbortSignal.timeout(READ_TIMEOUT_MS) }
+          : {}),
+      });
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "TimeoutError") {
+        throw new ApiClientError("unavailable"); // the stalled read, cut off
+      }
+      throw error;
+    }
     return answer(response, schema);
   }
   const query = (params: Record<string, string>) =>
@@ -130,6 +148,8 @@ export function createApi(db: SupabaseClient, userId?: string): Api {
       call(NoteView, `/api/notes/${encodeURIComponent(noteId)}`),
     guide: (slug) =>
       call(GuideView, `/api/seats/${encodeURIComponent(slug)}/guide`),
+    asked: (slug) =>
+      call(AskedView, `/api/seats/${encodeURIComponent(slug)}/asked`),
     subscribe(channel, onRow) {
       let open = true;
       const subscription = db

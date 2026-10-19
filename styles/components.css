@@ -67,12 +67,42 @@ body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(
 /* On a narrow phone the placeholder (「先輩たちに聞いてみましょう」) fits whole: the hand shrinks with the screen, never under
    16px (iOS zooms into a smaller field) */
 @media (max-width: 480px) { .dd-ask input { font-size: clamp(16px, 4.5vw, 20px); } } /* room to spare at 320, 375 and 390 */
+/* The ask field docked right above the verb tabs on 聞く (AskDock; Nico's call): always in reach, in the page's 640px
+   column, on the paper at 88% like the chosen tab, so the page under it doesn't show through in fragments. While the
+   reader scrolls it fades out and stops taking taps; it fades back in 300ms after the scrolling stops, and never fades
+   while focus is in it. What went wrong with it sits right above it, on solid paper so it reads clearly. */
+.dd-ask-dock { position: fixed; z-index: 1; inset-inline: 0; bottom: calc(52px + env(safe-area-inset-bottom)); max-width: 640px;
+  margin-inline: auto; box-sizing: border-box; display: grid; gap: var(--s-2); padding: var(--s-2) var(--s-4);
+  background: color-mix(in srgb, var(--paper) 88%, transparent); transition: opacity 200ms ease-out; }
+.dd-ask-dock:has([role="alert"]) { background: var(--paper); }
+@media (min-width: 600px) { .dd-ask-dock { padding-inline: var(--s-5); } } /* the page's 24px gutter */
+.dd-ask-dock.is-scrolling:not(:focus-within) { opacity: 0; pointer-events: none; transition-duration: 160ms; }
+@media (prefers-reduced-transparency: reduce) { .dd-ask-dock { background: var(--paper); } }
+/* Room for it on 聞く: the page's end, and an answer brought into view, stop above the dock as well as the tabs. The dock
+   measures itself into --ask-dock-h (AskDock), so the room grows with it while it holds an alert. */
+:root:has(.dd-verbs):has(.dd-ask-dock) { scroll-padding-bottom: calc(52px + var(--ask-dock-h, 60px) + var(--s-4) + env(safe-area-inset-bottom)); }
+:root:has(.dd-ask-dock) .dd-with-verbs { padding-bottom: calc(52px + var(--ask-dock-h, 60px) + var(--s-3) + env(safe-area-inset-bottom)); }
 /* A console pane is a 390px phone inside a wide window, where the rules above (by the window's width) never apply: the
    hand is 18px there, so the placeholder fits whole on the projector (238 of 253px). */
 .dd-pane .dd-ask input { font-size: 18px; }
 @media (max-width: 340px) { .dd-ask input { letter-spacing: 0; padding-inline: 0; } }
 /* The password is the app's own word: the UI face, and the usual focus ring (a wrong password puts the focus back) */
 .dd-line { box-sizing: border-box; width: 100%; font-family: var(--font-ui); }
+
+/* Read by a screen reader, not shown: the ask panel's status line once its entry says the same (docs/DESIGN.md) */
+.dd-sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+/* 「先輩たちのメモを探しています」 under the question while its answer is on its way, in the answer's place */
+.dd-ask-status { margin: 0; }
+/* A long URL or word in a question or an answer wraps instead of widening a 390px phone */
+.dd-q, .dd-ruled { overflow-wrap: anywhere; }
+
+/* 「新しい答え」 over an earlier question answered while the tab was closed: blue, as everything that is for you */
+.dd-new-answer { margin: 0; color: var(--blue); font-weight: 700; font-size: 13px; letter-spacing: .04em; }
+
+/* First steps on 聞く: three example questions under the field, blue text buttons on their own 44px lines */
+.dd-examples { display: grid; gap: var(--s-1); }
+.dd-examples ul { list-style: none; margin: 0; padding: 0; display: grid; }
+.dd-example { min-height: 44px; text-align: start; font-family: var(--font-hand); font-size: 17px; text-decoration-thickness: 1px; }
 
 /* Answer */
 .dd-q { color: var(--blue); font-weight: 700; margin: 0 0 var(--s-2); }
@@ -130,18 +160,41 @@ a.dd-tab { display: grid; place-items: center; text-decoration: none; }
    the page scrolls to (a focused field, an answer that just arrived) stops above them */
 /* The page ends where its content ends: no rubber-band bounce past the end (or the top) that would pull blank paper
    out from under the fixed verb tabs. */
-html { overscroll-behavior-y: none; }
+html { overscroll-behavior-y: none; scrollbar-gutter: stable; } /* a classic scrollbar's room is kept, so pages and the guide sheet never shift sideways */
 /* only the tabs' own 52px and a 12px gap: scrolled to the end, the last element sits just above the tabs, no blank paper */
 .dd-with-verbs { padding-bottom: calc(52px + var(--s-3) + env(safe-area-inset-bottom)); }
 :root:has(.dd-verbs) { scroll-padding-bottom: calc(52px + var(--s-4) + env(safe-area-inset-bottom)); }
+/* Changing verb tabs (PageTurn → slideTo; Nico's call): the page slides out to one side while the chosen one slides in
+   from the other, by the tabs' order (forward = to the right), 300ms easing out. While it runs, the top bar and the tabs
+   carry their own view-transition names, so they stay put above it and the tab's highlight moves across. Under
+   prefers-reduced-motion there is no slide at all (slideTo leaves the link alone). */
+:root[data-slide] .dd-bar { view-transition-name: dd-bar; }
+:root[data-slide] .dd-verbs { view-transition-name: dd-verbs; }
+:root[data-slide]::view-transition-old(root),
+:root[data-slide]::view-transition-new(root) { animation-duration: 300ms; animation-timing-function: cubic-bezier(.2, .7, .2, 1); animation-fill-mode: both; }
+:root[data-slide="forward"]::view-transition-old(root) { animation-name: dd-slide-out-left; }
+:root[data-slide="forward"]::view-transition-new(root) { animation-name: dd-slide-in-right; }
+:root[data-slide="back"]::view-transition-old(root) { animation-name: dd-slide-out-right; }
+:root[data-slide="back"]::view-transition-new(root) { animation-name: dd-slide-in-left; }
+:root[data-slide]::view-transition-group(dd-bar),
+:root[data-slide]::view-transition-group(dd-verbs) { animation-duration: 300ms; }
+@keyframes dd-slide-out-left { to { transform: translateX(-100%); } }
+@keyframes dd-slide-in-right { from { transform: translateX(100%); } }
+@keyframes dd-slide-out-right { to { transform: translateX(100%); } }
+@keyframes dd-slide-in-left { from { transform: translateX(-100%); } }
 
 /* SeatBar: a quiet row above every seat page, in the page's 640px column: the language and theme switches, then 「あなた」
    (docs/DESIGN.md → SeatBar). Every item is a 44px target. */
-.dd-bar { display: flex; justify-content: flex-end; align-items: center; gap: var(--s-2); max-width: 640px; margin-inline: auto; box-sizing: border-box; padding: var(--s-2) var(--s-4) 0; }
+/* 8px under it too, before the page begins (Nico's call: a little more room under the bar) */
+.dd-bar { display: flex; justify-content: flex-end; align-items: center; gap: var(--s-2); max-width: 640px; margin-inline: auto; box-sizing: border-box; padding: var(--s-2) var(--s-4); }
 @media (min-width: 600px) { .dd-bar { padding-inline: var(--s-5); } } /* the page's 24px gutter */
 /* 「代々」, the bar's way to the start page: the wordmark pushes the switches to the right */
-.dd-bar-home { margin-right: auto; display: inline-flex; align-items: center; justify-content: center; min-height: 44px; min-width: 44px; box-sizing: border-box; padding-inline: var(--s-1); color: var(--blue); font-weight: 700; letter-spacing: .12em; text-decoration: none; }
-.dd-bar-home:hover { text-decoration: underline; text-underline-offset: 3px; }
+/* The app's mark (the folded note with 々) on the left of every bar, in place of the word 「代々」 (Nico's call): a 44px
+   link to the start page (on the start page itself a plain mark), the mark 32px square */
+.dd-bar-home, .dd-bar-mark { margin-right: auto; display: inline-flex; align-items: center; justify-content: center; min-height: 44px; min-width: 44px; box-sizing: border-box; padding-inline: var(--s-1); border-radius: var(--r-button); }
+.dd-bar-home:hover { background: var(--blue-wash); }
+.dd-app-icon { display: block; width: 32px; height: 32px; }
+.dd-console .dd-app-icon { width: 40px; height: 40px; } /* beside the console's 39px title on the projector */
 /* The start page (/): the name, one line, then its two ways in, each a heading, a sentence and its button, ruled apart */
 .dd-home { gap: var(--s-6); padding-top: var(--s-5); }
 .dd-home-title { margin: 0; font-size: var(--text-xxl); line-height: 1.2; letter-spacing: .12em; }
@@ -160,13 +213,28 @@ html { overscroll-behavior-y: none; }
   :root:not([data-theme="light"]) .dd-when-light { display: none; }
   :root:not([data-theme="light"]) .dd-when-dark { display: block; }
 }
-/* 「あなた」: the lineage rail's dashed blank tag for the viewer, lying down; solid on /me itself */
-.dd-you { display: inline-grid; place-items: center; min-width: 44px; min-height: 44px; box-sizing: border-box; padding: 0 var(--s-3); border: 1.5px dashed var(--blue); border-radius: var(--r-tag); color: var(--blue);
-  font-weight: 700; letter-spacing: .04em; font-feature-settings: "palt"; text-decoration: none; }
-.dd-you:hover { background: var(--blue-wash); }
-.dd-you[aria-current="page"] { border-style: solid; background: var(--blue-wash); }
+/* 「あなた」: the account on this device. A key tag's shape lying down, but outlined solid like the theme button beside it,
+   with a chevron: a control that opens a menu, unlike the dashed 「あなた」 tags on the lineage rail and 自分のメモ's
+   card. Open, it fills with --blue-wash and the chevron points up. */
+.dd-you { display: inline-flex; align-items: center; justify-content: center; gap: 2px; min-width: 44px; min-height: 44px; box-sizing: border-box; padding: 0 var(--s-3); border: 1.5px solid var(--blue); border-radius: var(--r-tag); color: var(--blue);
+  background: none; font: inherit; font-weight: 700; letter-spacing: .04em; font-feature-settings: "palt"; text-decoration: none; cursor: pointer; }
+.dd-you:hover, .dd-you:active { background: var(--blue-wash); }
+.dd-you[aria-expanded="true"] { background: var(--blue-wash); }
+.dd-you[aria-expanded="true"] svg { transform: rotate(180deg); }
+/* 「あなた」's menu (AccountMenu): a small slip in the top layer, just under the bar at the right edge of the page's
+   column: who is signed in on this device, then 「アカウントを切り替える」 across its width. Small (Nico's call): 264px,
+   13px text, the button 36px tall, its tap area still 44px. */
+.dd-account { position: fixed; inset: auto; top: 56px; right: max(var(--s-4), calc((100% - 640px) / 2 + var(--s-4))); margin: 0;
+  width: min(264px, calc(100% - 2 * var(--s-4))); box-sizing: border-box; padding: var(--s-3); color: var(--ink);
+  font-size: var(--text-xs); line-height: 20px; }
+@media (min-width: 600px) { .dd-account { right: max(var(--s-5), calc((100% - 640px) / 2 + var(--s-5))); } }
+/* 100%, not 100vw: the viewport without a classic scrollbar, so the slip stays flush with its tag where one takes room */
+.dd-account:popover-open { display: grid; gap: var(--s-2); }
+.dd-account p { margin: 0; }
+.dd-account .dd-btn { position: relative; min-height: 36px; padding-inline: var(--s-3); font-size: var(--text-xs); }
+.dd-account .dd-btn::before { content: ""; position: absolute; inset: -6px 0; } /* a 44px tap area around the 36px button (from its padding box, so 6px past the 1.5px border) */
 
-/* /me: the viewer's dashed tag beside their byline, group and institution */
+/* 自分のメモ's top (YouCard): the viewer's dashed tag beside their byline, group and institution */
 .dd-me { display: flex; gap: var(--s-4); align-items: flex-start; }
 .dd-me .dd-ltag { flex: none; }
 .dd-me-byline { margin: 0; font-size: var(--text-m); line-height: 30px; font-weight: 700; font-feature-settings: "palt"; letter-spacing: .04em; word-break: auto-phrase; }
@@ -178,6 +246,9 @@ html { overscroll-behavior-y: none; }
 .dd-measured dt { color: var(--ink-2); }
 .dd-measured dd { margin: 0; overflow-wrap: anywhere; }
 
+/* The console's way home and display switches, at the end of its title row */
+.dd-console-tools { display: flex; align-items: center; gap: var(--s-2); }
+
 /* Console on a laptop: the panes stay phone-sized and side by side, never taller than the window leaves room for, so
    the whole proof is on one screen (844px at 1920×1080, 556px on a 1366×768 laptop; each pane scrolls inside). 212px:
    the page's padding, the title row, 「測定の内訳」 and the pane labels. The row scrolls sideways when the window is
@@ -188,11 +259,19 @@ html { overscroll-behavior-y: none; }
 
 /* Filter and order (the handover guide, 自分のメモ): labelled 44px selects in a light frame, as many per line as fit
    (one under another on a 320px phone), then the count of what shows and the way back to everything. Never printed. */
-.dd-filter { margin: 0; padding: var(--s-1) var(--s-3) var(--s-3); border: 1px solid var(--rule); border-radius: var(--r-slip); display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: var(--s-2) var(--s-3); }
-.dd-filter > label:nth-of-type(odd):last-of-type { grid-column: 1 / -1; } /* a lone last select: the whole row, no hole */
+/* The search on its own line, then the selects side by side on one line (Nico's call): three to a row, each labelled
+   above, so its options can be short (「すべて」); a fourth (自分のメモ's 席) starts the next row and fills it. Two to a row
+   below 380px (a 375px iPhone, a 360px Android), where a third would cut 「新しい順」. */
+.dd-filter { margin: 0; padding: var(--s-1) var(--s-3) var(--s-3); border: 1px solid var(--rule); border-radius: var(--r-slip); display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s-2); }
+.dd-filter > label:nth-of-type(3n+1):last-of-type { grid-column: 1 / -1; } /* a lone last select: the whole row, no hole */
+@media (max-width: 379px) {
+  .dd-filter { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .dd-filter > label:nth-of-type(3n+1):last-of-type { grid-column: auto; }
+  .dd-filter > label:nth-of-type(odd):last-of-type { grid-column: 1 / -1; }
+}
 .dd-filter legend { padding: 0 var(--s-1); font-size: 16px; }
 .dd-filter label { display: grid; gap: var(--s-1); }
-.dd-filter .dd-select { width: 100%; min-height: 44px; font-size: 16px; } /* 16px: iOS zooms into a smaller field */
+.dd-filter .dd-select { width: 100%; min-height: 44px; font-size: 16px; text-overflow: ellipsis; } /* 16px: iOS zooms into a smaller field; a long choice (「2025年度 会計」) ends in … once picked */
 .dd-filter-count { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0 var(--s-4); min-height: 44px; }
 .dd-filter-reset { min-height: 44px; }
 /* A link that reads as a button (a calm state's way back), at its own width */
@@ -201,9 +280,10 @@ html { overscroll-behavior-y: none; }
 
 /* Handover guide (引き継ぎ書, /s/[seat]/guide): the header, the export buttons and the filter (never printed), the notes
    as NoteEntry slips, and what isn't written yet as blank lines (空欄) with a dashed stamp outline at the end */
-.dd-guide-title { font-size: var(--text-l); line-height: 1.3; }
+/* あなた's h1 and the guide's title: one size above the sections' 20px headings. 残す and 自分のメモ show no title (Nico's
+   call): the verb tab says where you are, and their h1 is for a screen reader. */
+.dd-page-title, .dd-guide-title { font-size: var(--text-l); line-height: 1.3; }
 .dd-guide-rules { margin: 0; }
-.dd-guide-link { justify-self: start; display: inline-flex; align-items: center; min-height: 44px; font-weight: 700; }
 .dd-guide-body { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .dd-gaps { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s-2); }
 .dd-gaps li { display: grid; grid-template-columns: 1fr auto; column-gap: var(--s-3); align-items: center; padding-block: var(--s-2); border-bottom: 1px solid var(--rule); }
@@ -247,13 +327,67 @@ html { overscroll-behavior-y: none; }
 .dd-seat-head .dd-tag { min-height: 44px; padding: var(--s-1) var(--s-3) var(--s-1) var(--s-6); }
 .dd-seat-head .dd-tag-name { font-size: var(--text-m); line-height: 28px; }
 .dd-tag-kind { font-family: var(--font-ui); font-size: var(--text-s); font-weight: 700; color: var(--ink-2); letter-spacing: .04em; }
-/* The guide opened inline on 聞く sits under the deadlines, ruled off from them */
-.dd-guide-inline { margin-top: var(--s-3); padding-top: var(--s-5); border-top: 1px solid var(--rule); }
+/* The way into the handover guide on 聞く (GuideSheet), right under the ask field: the guide as a slip
+   that says what it is (its title, one line on what's inside) and what a tap does (読む ›). The whole slip is the
+   button; it opens the guide as a reading sheet. A blue spine on its left edge says it's a bound book you can open, not
+   one more note slip. */
+.dd-guide-cover { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; column-gap: var(--s-3);
+  width: 100%; min-height: 64px; padding: var(--s-3) var(--s-4); border-left: 4px solid var(--blue); text-align: start; font: inherit;
+  color: var(--ink); cursor: pointer; }
+.dd-guide-cover:hover, .dd-guide-cover:active { background: var(--blue-wash); }
+.dd-guide-cover > svg { color: var(--blue); }
+/* On the narrowest phones the spine says "book" alone: the icon's room goes to the lead, two lines instead of three */
+@media (max-width: 359px) { .dd-guide-cover { grid-template-columns: minmax(0, 1fr) auto; } .dd-guide-cover > svg:first-child { display: none; } }
+.dd-guide-cover-text { display: grid; gap: var(--s-1); }
+.dd-guide-cover-title { font-size: var(--text-s); line-height: 24px; font-weight: 700; letter-spacing: .04em; word-break: auto-phrase; }
+.dd-guide-cover-act { display: inline-flex; align-items: center; gap: var(--s-1); color: var(--blue); font-weight: 700; white-space: nowrap; }
+/* The reading sheet: the guide over 聞く, full height on a phone, a 560px panel on the right from 720px, where 聞く shows
+   faded beside it (the paper at 72%, as under the verb tabs). The header stays while the guide scrolls under it; the
+   page behind stays put. */
+.dd-sheet { box-sizing: border-box; margin: 0; padding: 0; border: 0; inset: 0; width: 100%; max-width: none; height: 100%;
+  max-height: none; background: var(--paper); color: var(--ink); overflow: hidden; }
+.dd-sheet[open] { display: flex; flex-direction: column; animation: dd-sheet-up 200ms ease-out; }
+.dd-sheet::backdrop { background: color-mix(in srgb, var(--paper) 72%, transparent); }
+@media (min-width: 720px) {
+  .dd-sheet { inset: 0 0 0 auto; width: 560px; border-left: 1px solid var(--rule); }
+  .dd-sheet[open] { animation-name: dd-sheet-in; }
+}
+@keyframes dd-sheet-up { from { transform: translateY(32px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes dd-sheet-in { from { transform: translateX(32px); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .dd-sheet[open] { animation: none; } }
+@media (prefers-reduced-transparency: reduce) { .dd-sheet::backdrop { background: var(--paper); } }
+:root:has(.dd-sheet[open]) { overflow: hidden; }
+.dd-sheet-head { display: flex; align-items: center; gap: var(--s-2); min-height: 60px; box-sizing: border-box;
+  padding: var(--s-2) var(--s-2) var(--s-2) var(--s-4); border-bottom: 1px solid var(--rule); }
+/* the title wraps rather than losing the seat's name (a long seat, or English at 320) */
+.dd-sheet-title { flex: 1; min-width: 0; margin: 0; font-size: var(--text-m); line-height: 28px; font-weight: 700; letter-spacing: .04em;
+  overflow-wrap: anywhere; text-wrap: balance; }
+.dd-sheet-title:focus:not(:focus-visible) { outline: none; } /* focused by script on opening, for a screen reader */
+.dd-sheet-save { display: inline-flex; align-items: center; gap: var(--s-1); min-height: 44px; padding-inline: var(--s-3); }
+.dd-sheet-close { display: grid; place-items: center; width: 44px; height: 44px; border: 0; border-radius: var(--r-button);
+  background: none; color: var(--ink); cursor: pointer; }
+.dd-sheet-close:hover { background: var(--blue-wash); }
+.dd-sheet-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: grid; gap: var(--s-6);
+  align-content: start; padding: var(--s-5) var(--s-4) calc(var(--s-7) + env(safe-area-inset-bottom)); }
+@media (min-width: 600px) { .dd-sheet-body { padding-inline: var(--s-5); } }
+/* At the guide's end, 「引き継ぎ書を閉じる」 */
+.dd-guide-close { justify-self: start; display: inline-flex; align-items: center; min-height: 44px; font-weight: 700; }
+/* The inline guide's filter, folded: one 44px blue line that opens the frame under it */
+.dd-filter-fold > summary { display: flex; align-items: center; gap: var(--s-1); min-height: 44px; list-style: none; color: var(--blue);
+  font-weight: 700; cursor: pointer; }
+.dd-filter-fold > summary::-webkit-details-marker { display: none; }
+.dd-filter-fold[open] > summary { margin-bottom: var(--s-2); }
+.dd-filter-fold[open] > summary svg { transform: rotate(180deg); }
 @media print {
-  /* Printing the inline guide: only the guide goes on paper, not the seat page around it */
-  :root.dd-printing-guide .dd-seat-home > :not(:has(.dd-guide-inline)),
-  :root.dd-printing-guide .dd-guide-wrap > :not(.dd-guide-inline) { display: none !important; }
-  :root.dd-printing-guide .dd-guide-inline { margin: 0; padding: 0; border: 0; }
+  /* Printing from the sheet: only the guide goes on paper, not 聞く around it nor the sheet's header. The sheet prints
+     in the page's flow (GuideSheet opens it there for printing), so a long guide runs across pages. */
+  :root.dd-printing-guide { overflow: visible !important; }
+  :root.dd-printing-guide .dd-seat-home > :not(:has(.dd-sheet)),
+  :root.dd-printing-guide .dd-ask-panel > :not(.dd-sheet),
+  :root.dd-printing-guide .dd-sheet-head { display: none !important; }
+  :root.dd-printing-guide .dd-sheet { position: static; display: block; inset: auto; width: auto; height: auto; overflow: visible;
+    border: 0; animation: none; }
+  :root.dd-printing-guide .dd-sheet-body { display: block; overflow: visible; padding: 0; }
 }
 /* The search field heads a filter, across its whole width */
 .dd-filter-search { grid-column: 1 / -1; display: grid; gap: var(--s-1); }
@@ -268,7 +402,7 @@ html { overscroll-behavior-y: none; }
    screen; the room kept under the content for the tabs goes; an entry isn't split across two sheets. The light tokens
    are forced in styles/tokens.css. */
 @media print {
-  .dd-bar, .dd-verbs, .dd-noprint, .dd-filter { display: none !important; }
+  .dd-bar, .dd-verbs, .dd-noprint, .dd-filter, .dd-ask-dock { display: none !important; }
   .dd-print-only { display: block; }
   .dd-with-verbs { padding-bottom: 0 !important; }
   .dd-slip { box-shadow: none; }
@@ -285,13 +419,13 @@ html { overscroll-behavior-y: none; }
 .dd-choice { display: flex; align-items: center; gap: var(--s-3); min-height: 44px; padding: var(--s-1) var(--s-3); box-sizing: border-box; border: 1.5px solid var(--rule); border-radius: var(--r-button); background: var(--sheet); cursor: pointer; }
 .dd-choice input { accent-color: var(--blue); width: 18px; height: 18px; margin: 0; flex: none; }
 .dd-choice input:focus-visible { outline: none; }
+/* Two choices side by side when they fit (「資料」 · 「コピーしたメッセージ」 above the paste box), one under the other on a phone */
+.dd-choices-row { grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); }
+.dd-choices-row legend { grid-column: 1 / -1; }
 .dd-choice:hover { background: var(--blue-wash); }
 .dd-choice:has(input:checked) { border-color: var(--blue); background: var(--blue-wash); color: var(--blue); font-weight: 700; }
 .dd-choice:has(input:focus-visible) { outline: 2px solid var(--blue); outline-offset: 2px; }
 .dd-btn-wide { width: 100%; }
-/* Signed in: which account this device is, and 切り替える */
-.dd-who { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s-2) var(--s-3); padding-top: var(--s-4); border-top: 1px solid var(--rule); }
-.dd-who p { margin: 0; color: var(--ink-2); }
 
 /* UpcomingList: a planner column, each row the boxed date, the title and the mini stamp of whose note it is */
 .dd-planner { list-style: none; margin: 0; padding: 0; display: grid; }
@@ -305,7 +439,7 @@ span.dd-mini { cursor: default; }
 span.dd-mini::after { content: none; }
 
 /* Inbox slip (伝言メモ) */
-.dd-inbox { max-width: 360px; padding: var(--s-4); border-top: 1px dashed var(--ink-2); }
+.dd-inbox { padding: var(--s-4); border-top: 1px dashed var(--ink-2); }
 .dd-field { display: grid; grid-template-columns: 56px 1fr; align-items: end; gap: var(--s-2); border-bottom: 1px solid var(--rule); padding: var(--s-1) 0; }
 .dd-field dt { font-size: 13px; color: var(--ink-2); }
 .dd-field dd { margin: 0; font-weight: 700; overflow-wrap: anywhere; }
@@ -314,6 +448,7 @@ span.dd-mini::after { content: none; }
 .dd-prompt { word-break: auto-phrase; overflow-wrap: anywhere; font-size: 20px; line-height: var(--s-6); font-weight: 700; letter-spacing: .04em; font-feature-settings: "palt"; margin: var(--s-3) 0 var(--s-1); }
 .is-arriving { animation: dd-arrive var(--t-quick, 160ms) ease-out both; }
 @keyframes dd-arrive { from { transform: translateY(-8px); } to { transform: none; } }
+
 
 
 /* Voice */
@@ -328,14 +463,20 @@ span.dd-mini::after { content: none; }
 /* The answer box (inbox slips, handover prompts): the ruled hand field across the whole textbox, the microphone laid
    over it at the bottom right (on the sheet, so text running under it stays out of the way), filled --blue with the
    pulsing ring while listening. The field grows with the answer. */
-.dd-answer { position: relative; border: 1px solid var(--ink-2); border-radius: var(--r-button); background: var(--sheet);
-  min-height: 48px; box-sizing: border-box; padding: 7px var(--s-3); }
-.dd-answer:focus-within { border-color: var(--blue); box-shadow: 0 0 0 1px var(--blue); }
+/* The box is the field's label, so a tap anywhere on it, padding included, lands in the field. Focus shows as the blue
+   border and DESIGN.md's ring (2px blue, 2px off): one frame. The mic is the label's neighbour in the same corner
+   (.dd-answer-box), so with focus on the mic only its own ring shows, inside its circle and clear of the border. */
+.dd-answer-box { position: relative; }
+.dd-answer { display: block; border: 1px solid var(--ink-2); border-radius: var(--r-button); background: var(--sheet);
+  min-height: 48px; box-sizing: border-box; padding: 7px var(--s-3); cursor: text; }
+.dd-answer:focus-within { border-color: var(--blue); outline: 2px solid var(--blue); outline-offset: 2px; }
 .dd-answer .dd-voice-text { display: block; min-height: var(--s-6); field-sizing: content; resize: none; background-color: transparent; }
 .dd-answer .dd-voice-text:focus { outline: none; } /* the box shows focus */
 .dd-mic { position: absolute; right: 3px; bottom: 3px; width: 40px; height: 40px; border-radius: var(--r-round); border: 0;
   background: var(--sheet); color: var(--blue); display: grid; place-items: center; cursor: pointer; z-index: 1; }
 .dd-mic:hover { background: var(--blue-wash); }
+.dd-mic:focus-visible { outline-offset: -4px; }
+.dd-mic.is-listening:focus-visible { outline-color: var(--sheet); }
 .dd-mic::before { content: ""; position: absolute; inset: -2px; } /* a 44px tap target around the 40px mic */
 .dd-mic.is-listening { background: var(--blue); color: var(--sheet); }
 .dd-mic.is-listening::after { content: ""; position: absolute; inset: 0; border-radius: var(--r-round); border: 4px solid var(--blue-wash); animation: dd-pulse 1.2s ease-out infinite; }
@@ -357,6 +498,15 @@ span.dd-mini::after { content: none; }
 /* Drop area and planner */
 .dd-drop { border: 1.5px dashed var(--ink-2); border-radius: var(--r-slip); padding: var(--s-5) var(--s-4); text-align: center; display: grid; gap: var(--s-1); justify-items: center; }
 .dd-drop.is-over { border-color: var(--blue); background: var(--blue-wash); } /* a file is being dragged over the page */
+
+/* A section heading at the left and its action at the right end, both aligned with the cards' edges (残す:
+   「引き継ぎの質問」 and 「＋ 追加」); the action wraps under the heading, still at the right, only when the row can't hold
+   both. The action's subtitle (.dd-section-note) sits right-aligned under it. */
+.dd-section-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s-2) var(--s-3); }
+.dd-section-head > :last-child:not(:first-child) { margin-left: auto; }
+.dd-section-note { margin: 0; justify-self: end; text-align: end; }
+.dd-section-head .dd-btn[aria-expanded="true"] { background: var(--blue-wash); } /* its slip is open below */
+.dd-section-head + .dd-cap { text-wrap: balance; word-break: auto-phrase; } /* the line under it, no lone last word */
 
 /* 「＋ 追加」 (AddPanel): index tabs on the slip's top edge, form fields, speaker rows and the preview of what is sent */
 .dd-itabs { display: flex; gap: var(--s-1); padding: 0 var(--s-4); border-bottom: 1px solid var(--rule); }

@@ -1,9 +1,12 @@
 "use client";
-// /me/notes (自分のメモ): the signed-in holder's own notes with their scope and 「撤回する」. Withdrawing draws
+// /me/notes (自分のメモ): who you are at the seat you came from (YouCard; /me redirects here), then your own notes with
+// their scope and 「撤回する」. Withdrawing draws
 // the double line, then the entry closes and leaves — and the engine drops the note out of every answer
 // (POST /api/notes/[id]/withdraw). On mocks as last year's treasurer (a25); on real data as the account signed in on
 // this device, or the login screen in place (components/SignInGate.tsx), so withdrawing works from a phone too. Filters narrow the list
-// by status, scope ring and seat, and the order is newest or oldest first (GET /api/me/notes lists newest first).
+// by status, scope ring and seat, and the order is newest or oldest first (GET /api/me/notes lists newest first). 状態
+// starts at 「公開中」, the live notes (Nico's call), so a note just withdrawn leaves the list; 「すべて」 and 「撤回済み」 list
+// withdrawn notes in place, their titles crossed out, now and after a reload alike. No fold.
 import { useTranslations } from "next-intl";
 import { useEffect, useMemo, useState } from "react";
 import { matches } from "@/components/guide";
@@ -13,14 +16,31 @@ import {
   LINE_MS,
   type WithdrawPhase,
 } from "@/components/NoteEntry";
+import { RetryLine } from "@/components/RetryLine";
 import { SignInGate } from "@/components/SignInGate";
-import { type Api, type MyNote, Scope } from "@/lib/contracts";
+import { YouCard } from "@/components/YouCard";
+import {
+  type Api,
+  type DemoAccount,
+  type MyNote,
+  Scope,
+  type SeatView,
+} from "@/lib/contracts";
 import { createMockApi, USE_MOCKS } from "@/lib/mocks";
 import { useRealtime } from "@/lib/realtime";
 
 const sleep = (ms: number) =>
   new Promise<void>((resolve) => setTimeout(resolve, ms));
 
+// Heard, not seen: the line a screen reader reads after a withdrawal.
+const SR_ONLY = {
+  position: "absolute",
+  width: 1,
+  height: 1,
+  overflow: "hidden",
+  clip: "rect(0 0 0 0)",
+  whiteSpace: "nowrap",
+} as const;
 const ALL = "all";
 type Status = MyNote["status"] | typeof ALL;
 type Order = "newest" | "oldest";
@@ -30,40 +50,64 @@ export function MyNotesPanel({ seat }: { seat?: string }) {
     () => (USE_MOCKS ? createMockApi("a25") : undefined),
     [],
   );
-  if (mock) return <MyNotesList api={mock} seat={seat} />;
+  if (mock) return <MyNotesList api={mock} account="a25" seat={seat} />;
   return (
     <SignInGate>
-      {({ api }) => <MyNotesList api={api} seat={seat} />}
+      {({ api, account }) => (
+        <MyNotesList api={api} account={account} seat={seat} />
+      )}
     </SignInGate>
   );
 }
 
-function MyNotesList({ api, seat }: { api: Api; seat?: string }) {
+function MyNotesList({
+  api,
+  account,
+  seat,
+}: {
+  api: Api;
+  account: DemoAccount;
+  seat?: string;
+}) {
   const t = useTranslations();
   const [seats, setSeats] = useState<NoteSeats>();
   const [notes, setNotes] = useState<MyNote[]>();
+  // The seat the page came from, for who you are there; read with the notes, so the card and the list come at once.
+  const [you, setYou] = useState<SeatView>();
   const [failed, setFailed] = useState(false);
   const [withdrawFailed, setWithdrawFailed] = useState(false);
   const [withdrawing, setWithdrawing] = useState<{
     id: string;
     phase: WithdrawPhase;
   }>();
-  const [status, setStatus] = useState<Status>(ALL);
+  const [status, setStatus] = useState<Status>("live"); // 公開中 by default
   const [scope, setScope] = useState<Scope | typeof ALL>(ALL);
   // The seat the page came from (?seat=) first; every seat of the author's notes is one choice away.
   const [atSeat, setAtSeat] = useState<string>(seat ?? ALL);
   const [order, setOrder] = useState<Order>("newest");
+  const [loadTry, setLoadTry] = useState(0); // the retry button reads the notes again
+  const [withdrawn, setWithdrawn] = useState<string>();
   const [query, setQuery] = useState("");
+  // After a withdrawal under 公開中, the note leaves the list: one visible line says where to find it, until the filter
+  // changes.
+  const [whereHint, setWhereHint] = useState(false);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: any change to the filter puts the hint away
+  useEffect(() => setWhereHint(false), [status, scope, atSeat, query]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: loadTry is the retry button's way to read the notes again
   useEffect(() => {
     let alive = true;
-    api
-      .myNotes()
-      .then(async (mine) => {
+    // The card is extra: a seat that can't be read (a mistyped ?seat=, a moment offline) leaves it out, never the notes.
+    Promise.all([
+      api.myNotes(),
+      seat ? api.seat(seat).catch(() => undefined) : undefined,
+    ])
+      .then(async ([mine, here]) => {
         const bySlug = await seatsOf(api, mine.notes);
         if (!alive) return;
         setSeats(bySlug);
         setNotes(mine.notes);
+        setYou(here);
       })
       .catch(() => {
         if (alive) setFailed(true);
@@ -71,7 +115,7 @@ function MyNotesList({ api, seat }: { api: Api; seat?: string }) {
     return () => {
       alive = false;
     };
-  }, [api]);
+  }, [api, seat, loadTry]);
 
   // A status change from another pane (the console) marks the note withdrawn here too.
   useRealtime(api, "notes", (row) => {
@@ -98,18 +142,39 @@ function MyNotesList({ api, seat }: { api: Api; seat?: string }) {
     await sleep(Math.max(0, LINE_MS - (performance.now() - clicked)));
     setWithdrawing({ id: noteId, phase: "collapse" });
     await sleep(COLLAPSE_MS);
-    setNotes((previous) => previous?.filter((note) => note.id !== noteId));
+    const gone = notes?.find((note) => note.id === noteId);
+    // It joins the fold of withdrawn notes, as a reload would show it (GET /api/me/notes still lists it)
+    setNotes((previous) =>
+      previous?.map((note) =>
+        note.id === noteId ? { ...note, status: "withdrawn" } : note,
+      ),
+    );
     setWithdrawing(undefined);
+    // The entry and its button are gone: focus goes to the page's heading, and a screen reader hears what happened. The
+    // page doesn't scroll up to it: the notes below the withdrawn one stay where the eye is.
+    if (gone) setWithdrawn(gone.title);
+    if (gone) setWhereHint(true);
+    const heading = document.querySelector<HTMLElement>("main h1, main h2");
+    if (heading) {
+      heading.tabIndex = -1; // focusable by script only, not a Tab stop
+      heading.focus({ preventScroll: true });
+    }
   }
 
   if (failed) {
     return (
-      <p className="dd-cap" style={{ margin: 0 }}>
-        {t("myNotes.failed")}
-      </p>
+      <RetryLine
+        message={t("myNotes.failed")}
+        onRetry={() => {
+          setFailed(false);
+          setLoadTry((n) => n + 1);
+        }}
+      />
     );
   }
-  if (!seats || !notes) return null;
+  // While the notes load, a calm caption, as 残す and 聞く show: the page never slides in blank.
+  if (!seats || !notes)
+    return <output className="dd-cap">{t("profile.loading")}</output>;
 
   const slugs = [...new Set(notes.map((note) => note.seat))];
   // A seat from ?seat= where the author wrote nothing yet still shows (an empty list says so), as long as it's known.
@@ -127,8 +192,20 @@ function MyNotesList({ api, seat }: { api: Api; seat?: string }) {
   const wordsSeat =
     seats[seatFilter === ALL ? slugs[0] : seatFilter] ??
     Object.values(seats)[0];
+  // An empty list says which notes there are none of (公開中 or 撤回済み, under that 状態), and that nothing matches when
+  // some exist that the search or another filter hides.
+  const hasLive = notes.some((note) => note.status !== "withdrawn");
+  const hasWithdrawn = notes.some((note) => note.status === "withdrawn");
+  const emptyText =
+    notes.length === 0
+      ? undefined
+      : status === "withdrawn"
+        ? t(hasWithdrawn ? "filter.noneMatch" : "myNotes.noneWithdrawn")
+        : status === "live"
+          ? t(hasLive ? "filter.noneMatch" : "myNotes.noneLive")
+          : t("filter.noneMatch");
   const filtered =
-    status !== ALL ||
+    status !== "live" ||
     scope !== ALL ||
     (seatFilter !== ALL && slugs.length > 1) ||
     query.trim() !== "";
@@ -156,9 +233,10 @@ function MyNotesList({ api, seat }: { api: Api; seat?: string }) {
           value={status}
           onChange={(event) => setStatus(event.target.value as Status)}
         >
-          <option value={ALL}>{t("filter.allStatus")}</option>
+          {/* The default first: 公開中 */}
           <option value="live">{t("filter.live")}</option>
           <option value="withdrawn">{t("myNotes.withdrawn")}</option>
+          <option value={ALL}>{t("filter.allStatus")}</option>
         </select>
       </label>
       <label>
@@ -226,7 +304,7 @@ function MyNotesList({ api, seat }: { api: Api; seat?: string }) {
             type="button"
             className="dd-link dd-filter-reset"
             onClick={() => {
-              setStatus(ALL);
+              setStatus("live");
               setScope(ALL);
               setAtSeat(ALL);
               setQuery("");
@@ -236,18 +314,36 @@ function MyNotesList({ api, seat }: { api: Api; seat?: string }) {
           </button>
         )}
       </div>
+      {whereHint && status === "live" && (
+        <p className="dd-cap" style={{ gridColumn: "1 / -1", margin: 0 }}>
+          {t("myNotes.whereWithdrawn")}
+        </p>
+      )}
     </fieldset>
   );
 
   return (
-    <MyNotes
-      notes={ordered}
-      seats={seats}
-      withdrawing={withdrawing}
-      withdrawFailed={withdrawFailed}
-      onWithdraw={withdraw}
-      tools={tools || undefined}
-      emptyText={notes.length > 0 ? t("filter.noneMatch") : undefined}
-    />
+    <>
+      <output aria-live="polite" style={SR_ONLY}>
+        {withdrawn && t("myNotes.withdrawnNote", { title: withdrawn })}
+      </output>
+      <MyNotes
+        notes={ordered}
+        seats={seats}
+        withdrawing={withdrawing}
+        withdrawFailed={withdrawFailed}
+        onWithdraw={withdraw}
+        tools={
+          you || tools ? (
+            <>
+              {you && <YouCard view={you} account={account} />}
+              {tools || null}
+            </>
+          ) : undefined
+        }
+        headingLevel={1}
+        emptyText={emptyText}
+      />
+    </>
   );
 }

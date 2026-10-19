@@ -1,16 +1,51 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { AbstainEntry } from "@/components/AbstainEntry";
 import { AnswerEntry } from "@/components/AnswerEntry";
+import { AskDock } from "@/components/AskDock";
 import { AskField } from "@/components/AskField";
 import { LiveStamp } from "@/components/LiveStamp";
-import type { Api, AskResult, SeatView } from "@/lib/contracts";
+import { RetryLine } from "@/components/RetryLine";
+import type { Api, AskResult, GuideAsked, SeatView } from "@/lib/contracts";
 import { createMockApi, mockIds, mockPredecessorAnswers } from "@/lib/mocks";
 import { useRealtime } from "@/lib/realtime";
 
 type Asked = { question: string; result?: AskResult };
+
+// Which answers this device has already shown, per seat, so an answer that came while the tab was closed is marked
+// 「新しい答え」 once. A convenience only: storage can be off (private window), and then nothing is marked.
+const SEEN = (slug: string) => `daidai-seen-answers:${slug}`;
+function readSeen(slug: string): Set<string> | undefined {
+  try {
+    const raw = localStorage.getItem(SEEN(slug));
+    return raw ? new Set(JSON.parse(raw) as string[]) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+function writeSeen(slug: string, ids: Iterable<string>) {
+  try {
+    localStorage.setItem(SEEN(slug), JSON.stringify([...ids]));
+  } catch {
+    // storage off: the marks simply don't carry over
+  }
+}
+// The page scrolls smoothly to what it brings into view, so the eye can follow; at once when the device asks for less
+// motion.
+const scrollMotion = (): ScrollBehavior =>
+  window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    ? "auto"
+    : "smooth";
 
 // 聞く on the seat page: the ask field, then each question in blue with its result underneath.
 // Mocks only for now (NEXT_PUBLIC_USE_MOCKS=1); the real client replaces createMockApi when /api/ask exists.
@@ -20,6 +55,10 @@ export function AskPanel({
   mockShortcuts = true,
   api: given,
   onSeat,
+  onSeatFailed,
+  history = true,
+  belowField,
+  dock = false,
 }: {
   slug: string;
   mockShortcuts?: boolean;
@@ -27,6 +66,17 @@ export function AskPanel({
   api?: Api;
   /** The seat view once it loads, for a page that shows the seat too (SeatHome); the console needs none. */
   onSeat?: (view: SeatView) => void;
+  /** The seat didn't load: the page shows this panel anyway, with its retry. */
+  onSeatFailed?: () => void;
+  /** List the asker's earlier questions and their answers (GET /api/seats/[slug]/asked). Off on the console, whose
+   * newcomer pane starts clean for the trust proof. */
+  history?: boolean;
+  /** After the first steps, above the answers: 聞く's way into the whole guide (GuideSheet). It waits for the asker's
+   * earlier questions, so the first steps don't push it down once it shows. */
+  belowField?: ReactNode;
+  /** 聞く: the field (and what went wrong with it) rides fixed above the verb tabs (AskDock) instead of heading the panel;
+   * the console's panes keep it in place. */
+  dock?: boolean;
 }) {
   const t = useTranslations();
   const api = useMemo(() => given ?? createMockApi("a26"), [given]);
@@ -37,29 +87,96 @@ export function AskPanel({
   // didn't go out (it leaves the list, and the field is free again).
   const [failed, setFailed] = useState<"seat" | "ask">();
   const busy = asked.some((entry) => !entry.result);
+  const [seatTry, setSeatTry] = useState(0);
+  // The asker's earlier questions at this seat, from the server: they outlast a reload or a closed tab, so an answer that
+  // arrived meanwhile is here (docs/SPEC.md → the notification "your question was answered").
+  const [earlier, setEarlier] = useState<GuideAsked[]>();
+  // The first read of the earlier questions is done, worked or not: what sits below the first steps may show.
+  const [earlierSettled, setEarlierSettled] = useState(false);
+  const [fresh, setFresh] = useState<ReadonlySet<string>>(new Set());
+  // The questions asked in this tab, by id, for the Realtime handler (a row for one of them is shown right here).
+  const shownIds = useRef<Set<string>>(new Set());
+  const earlierId = useId();
+  // An example tapped below the field, for a newcomer who doesn't know what to ask yet.
+  const [suggestion, setSuggestion] = useState<{ text: string }>();
+  // An answer shown in this tab (聞く's own, or the live one) is seen: it won't come back as 「新しい答え」.
+  const markSeen = useCallback(
+    (questionId: string) => {
+      writeSeen(slug, new Set([...(readSeen(slug) ?? []), questionId]));
+    },
+    [slug],
+  );
+  const loadEarlier = useCallback(() => {
+    if (!history) return;
+    api.asked(slug).then(
+      ({ asked: rows }) => {
+        setEarlierSettled(true);
+        setEarlier(rows);
+        const answered = rows.flatMap((row) =>
+          row.answer ? [row.questionId] : [],
+        );
+        const seen = readSeen(slug);
+        // The first visit on a device marks nothing; afterwards, an answer not shown before is new.
+        if (seen) {
+          const added = answered.filter((id) => !seen.has(id));
+          if (added.length > 0) {
+            setFresh((current) => new Set([...current, ...added]));
+          }
+        }
+        writeSeen(slug, new Set([...(seen ?? []), ...answered]));
+      },
+      () => setEarlierSettled(true), // the list stays as it was; the ask field works regardless
+    );
+  }, [api, slug, history]);
+  useEffect(() => {
+    loadEarlier();
+    // A phone that slept may have missed the Realtime row: read the list again when the page is back.
+    const again = () => {
+      if (document.visibilityState === "visible") loadEarlier();
+    };
+    document.addEventListener("visibilitychange", again);
+    return () => document.removeEventListener("visibilitychange", again);
+  }, [loadEarlier]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: seatTry is the retry button's way to read the seat again
   useEffect(() => {
     api.seat(slug).then(
       (view) => {
+        setFailed(undefined);
         setSeatView(view);
         onSeat?.(view);
       },
-      () => setFailed("seat"),
+      () => {
+        setFailed("seat");
+        onSeatFailed?.();
+      },
     );
-  }, [api, slug, onSeat]);
+  }, [api, slug, onSeat, onSeatFailed, seatTry]);
 
-  // The newest entry comes into view when its result lands or changes: on a phone, the seat's header above and the
-  // verb tabs below can leave 「誰も知りません」 or the live answer, stamp and all, landing out of sight. Nothing moves
-  // when it is in view already (the console's panes).
+  // The newest entry comes into view when it is added and when its result lands or changes: on a phone, the seat's
+  // header above and the verb tabs below can leave the question, 「誰も知りません」 or the live answer, stamp and all,
+  // out of sight. Nothing moves when it is in view already (the console's panes), or when a question didn't go out (the
+  // field and its error stay where they are).
   const newest = useRef<HTMLElement>(null);
-  const newestResult = asked[0]?.result;
+  const newestEntry = asked[0];
   useEffect(() => {
-    if (newestResult) newest.current?.scrollIntoView({ block: "nearest" });
-  }, [newestResult]);
+    if (newestEntry && failed !== "ask") {
+      newest.current?.scrollIntoView({
+        block: "nearest",
+        behavior: scrollMotion(),
+      });
+    }
+  }, [newestEntry, failed]);
+  // A question that didn't go out: its error comes into view (on a short phone it can sit under the verb tabs).
+  const intoView = useCallback((node: HTMLElement | null) => {
+    node?.scrollIntoView({ block: "nearest", behavior: scrollMotion() });
+  }, []);
 
   // The asker's latest answer replaces the entry: the live answer, then any re-answer after a withdrawal
   // (fewer sentences, or the blank line again).
   useRealtime(api, "answers", (row) => {
+    if (shownIds.current.has(row.question_id)) markSeen(row.question_id);
+    loadEarlier(); // an earlier question may be the one answered
     setAsked((entries) =>
       entries.map((entry) =>
         entry.result?.questionId === row.question_id
@@ -80,6 +197,7 @@ export function AskPanel({
         entries.filter((entry) => entry.question !== question || entry.result),
       );
       setFailed("ask");
+      setSuggestion({ text: question }); // back in the field, to send again with 聞く
       return;
     }
     setAsked((entries) =>
@@ -89,7 +207,41 @@ export function AskPanel({
           : entry,
       ),
     );
+    if (result.status === "answered") markSeen(result.questionId);
   }
+
+  // The earlier questions not already shown above (a question asked in this tab is listed once, with its live state).
+  const shownHere = new Set(
+    asked.flatMap((entry) => (entry.result ? [entry.result.questionId] : [])),
+  );
+  shownIds.current = shownHere;
+  const previous = (earlier ?? []).filter(
+    (row) => !shownHere.has(row.questionId),
+  );
+
+  // The newest question's state in words: searching, an answer from the notes, nobody knew (and whether it reached last
+  // year's holder), or the live answer that just landed.
+  const status = (() => {
+    if (!newestEntry) {
+      return fresh.size > 0 ? t("ask.newAnswers", { n: fresh.size }) : "";
+    }
+    const result = newestEntry.result;
+    if (!result) return t("ask.searching");
+    if (result.status === "answered") {
+      return result.live
+        ? t("live.answered", { byline: result.live.byline })
+        : t("ask.found");
+    }
+    if (!seatView) return "";
+    const { seatType, name } = seatView.seat;
+    const nobody = t(`seatTypes.${seatType}.abstain`, { seat: name });
+    return result.routedTo > 0
+      ? t("ask.abstainedStatus", {
+          nobody,
+          routed: t(`seatTypes.${seatType}.routed`, { seat: name }),
+        })
+      : nobody;
+  })();
 
   async function predecessorAnswers() {
     setDelivering(true);
@@ -100,14 +252,75 @@ export function AskPanel({
     }
   }
 
-  return (
-    <section className="dd-col" style={{ gap: "var(--s-6)" }}>
-      <AskField onAsk={ask} busy={busy || !seatView} />
-      {failed && (
-        <p role="alert" style={{ margin: 0, color: "var(--ink-2)" }}>
-          {t(failed === "seat" ? "ask.seatFailed" : "ask.failed")}
+  const field = (
+    <AskField onAsk={ask} busy={busy || !seatView} suggestion={suggestion} />
+  );
+  // What went wrong with the field: the seat didn't load (with its retry), or a question didn't go out
+  const alerts = (
+    <>
+      {failed === "seat" && (
+        <RetryLine
+          message={t("ask.seatFailed")}
+          onRetry={() => setSeatTry((n) => n + 1)}
+        />
+      )}
+      {failed === "ask" && (
+        <p
+          ref={intoView}
+          role="alert"
+          style={{ margin: 0, color: "var(--ink-2)" }}
+        >
+          {t("ask.failed")}
         </p>
       )}
+    </>
+  );
+
+  return (
+    <section className="dd-col dd-ask-panel" style={{ gap: "var(--s-6)" }}>
+      {!dock && (
+        // In place: the field heads the panel, and what went wrong sits right under it, before the examples
+        <>
+          {field}
+          {alerts}
+        </>
+      )}
+      {/* What a screen reader hears about the newest question (docs/DESIGN.md → AskPanel): always there, so a change is
+          read out, and never shown, since the entry below says it (searching included, under its question). */}
+      <output aria-live="polite" className="dd-sr-only">
+        {status}
+      </output>
+      {/* First steps: someone who hasn't asked anything here yet gets three questions others ask at this kind of seat
+          (the label pack's), to tap into the field. Gone after the first question; never on the console. */}
+      {seatView &&
+        earlier !== undefined &&
+        earlier.length === 0 &&
+        asked.length === 0 && (
+          <div className="dd-examples">
+            <p className="dd-cap" style={{ margin: 0 }}>
+              {t("ask.examplesLead")}
+            </p>
+            <ul>
+              {(["one", "two", "three"] as const).map((n) => {
+                const text = t(
+                  `seatTypes.${seatView.seat.seatType}.examples.${n}`,
+                );
+                return (
+                  <li key={n}>
+                    <button
+                      type="button"
+                      className="dd-link dd-example"
+                      onClick={() => setSuggestion({ text })}
+                    >
+                      {text}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
+      {(!history || earlierSettled) && belowField}
       {asked.map(({ question, result }, index) => (
         <article
           key={`${asked.length - index}`}
@@ -128,8 +341,18 @@ export function AskPanel({
           ) : (
             <p className="dd-q">{question}</p>
           )}
+          {/* The only sign that 聞く is working, where the answer will be: it takes this line's place, so nothing jumps */}
+          {!result && (
+            <p className="dd-cap dd-ask-status" aria-hidden="true">
+              {t("ask.searching")}
+            </p>
+          )}
           {result?.status === "abstained" && seatView && (
-            <AbstainEntry result={result} seat={seatView.seat} />
+            <AbstainEntry
+              result={result}
+              seat={seatView.seat}
+              isHolder={seatView.viewer.isHolder}
+            />
           )}
           {/* Plays last year's treasurer answering q04 in this tab (lib/mocks.ts), so the loop works on one device. */}
           {mockShortcuts &&
@@ -147,6 +370,52 @@ export function AskPanel({
             )}
         </article>
       ))}
+      {previous.length > 0 && (
+        <section
+          className="dd-col"
+          style={{ gap: "var(--s-5)" }}
+          aria-labelledby={earlierId}
+        >
+          <h2 id={earlierId} className="dd-h">
+            {t("ask.earlierTitle")}
+          </h2>
+          {previous.map((row) => (
+            <article
+              key={row.questionId}
+              className="dd-col"
+              style={{ gap: "var(--s-1)" }}
+            >
+              {fresh.has(row.questionId) && (
+                <p className="dd-new-answer">{t("ask.newAnswer")}</p>
+              )}
+              {row.answer ? (
+                <AnswerEntry
+                  question={row.text}
+                  answer={row.answer}
+                  api={api}
+                />
+              ) : (
+                <>
+                  <p className="dd-q" lang={row.lang}>
+                    {row.text}
+                  </p>
+                  <p className="dd-cap" style={{ margin: 0 }}>
+                    {t("ask.noAnswerYet")}
+                  </p>
+                </>
+              )}
+            </article>
+          ))}
+        </section>
+      )}
+      {dock && (
+        // Docked: last in the panel, so the keyboard meets the page first and the field where it sits, right above the
+        // verb tabs; what went wrong sits right above the field
+        <AskDock>
+          {alerts}
+          {field}
+        </AskDock>
+      )}
     </section>
   );
 }

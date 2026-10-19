@@ -1,12 +1,22 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { lazy, Suspense, useEffect, useState } from "react";
+import {
+  lazy,
+  type ReactNode,
+  Suspense,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+} from "react";
 import type { Api, ImportResponse } from "@/lib/contracts";
 
 // 「＋ 追加」 on 残す (docs/SPEC.md → adding knowledge: at the start and any time after). The slip, the parsers and the
 // redaction load apart from the page and are fetched once it's on screen, so the live loop's inbox above never waits
-// for them; if they can't load (an old phone's browser), the inbox still works and the slip says so.
+// for them; if they can't load (an old phone's browser), the inbox still works and the slip says so. AddPanel holds the
+// state and the page-wide drop guard, so it is mounted with the column from the first moment; the page places its
+// parts (children): the button beside the prompts' heading, the line under it, the slip opened right there.
 const AddSlip = lazy(() =>
   import("@/components/AddSlip").then(
     (module) => ({ default: module.AddSlip }),
@@ -25,18 +35,38 @@ function SlipUnavailable() {
 
 export type Dropped = { id: number; file: File };
 
+/** What the page places: 「＋ 追加」 (holders), the line under it (closed: when to add; non-holders: why not) and the slip
+ * while it's open. Each is null when it has nothing to show, and all are null while the seat is unknown. */
+export type AddParts = { button: ReactNode; note: ReactNode; slip: ReactNode };
+
 export function AddPanel({
   slug,
   api,
   onImported,
+  canAdd,
+  children,
 }: {
   slug: string;
   /** The signed-in client (SeatSignIn); mocks as a25 when left out. */
   api?: Api;
   onImported?: (response: ImportResponse) => void;
+  /** Whether the viewer holds this seat: only holders can add (the import route would refuse anyone else). Unknown
+   * while the seat loads: nothing shows yet, and a dropped file is kept off the page. */
+  canAdd?: boolean;
+  children: (parts: AddParts) => ReactNode;
 }) {
   const t = useTranslations("import");
+  // The drop handler below is set up once; it reads the latest answer here.
+  const allowed = useRef(canAdd === true);
+  allowed.current = canAdd === true;
   const [open, setOpen] = useState(false);
+  const button = useRef<HTMLButtonElement>(null);
+  const noteId = useId();
+  const close = () => {
+    setOpen(false);
+    setDropped(undefined);
+    button.current?.focus(); // back where the slip was opened from
+  };
   const [dragging, setDragging] = useState(false);
   const [dropped, setDropped] = useState<Dropped>();
 
@@ -63,7 +93,7 @@ export function AddPanel({
       event.preventDefault();
       setDragging(false);
       const file = event.dataTransfer?.files[0];
-      if (!file) return;
+      if (!file || !allowed.current) return; // not a holder: the file is kept off the page, and nothing opens
       setOpen(true);
       setDropped((last) => ({ id: (last?.id ?? 0) + 1, file }));
     }
@@ -77,42 +107,58 @@ export function AddPanel({
     };
   }, []);
 
-  return (
-    <section className="dd-col" style={{ gap: "var(--s-3)" }}>
-      <div className="dd-row" style={{ gap: "var(--s-3)" }}>
-        <button
-          type="button"
-          className="dd-btn"
-          aria-expanded={open}
-          onClick={() => setOpen(true)}
-        >
-          {t("add")}
-        </button>
+  // The seat hasn't said yet: nothing shows (the drop guard above already works).
+  if (canAdd === undefined)
+    return children({ button: null, note: null, slip: null });
+  if (!canAdd) {
+    return children({
+      button: null,
+      note: (
         <p className="dd-cap" style={{ margin: 0 }}>
-          {t("anytime")}
+          {t("holdersOnly")}
         </p>
-      </div>
-      {open && (
-        <Suspense
-          fallback={
-            <output className="dd-cap" style={{ display: "block" }}>
-              {t("reading")}
-            </output>
-          }
-        >
-          <AddSlip
-            slug={slug}
-            api={api}
-            dragging={dragging}
-            dropped={dropped}
-            onClose={() => {
-              setOpen(false);
-              setDropped(undefined);
-            }}
-            onImported={onImported}
-          />
-        </Suspense>
-      )}
-    </section>
-  );
+      ),
+      slip: null,
+    });
+  }
+  return children({
+    button: (
+      // A second tap folds the slip again, as 閉じる does; pressed (--blue-wash) while it's open. Its subtitle below says
+      // what it adds, for a screen reader too.
+      <button
+        ref={button}
+        type="button"
+        className="dd-btn"
+        aria-expanded={open}
+        aria-describedby={open ? undefined : noteId}
+        onClick={() => (open ? close() : setOpen(true))}
+      >
+        {t("add")}
+      </button>
+    ),
+    // The button's subtitle, right under it at the row's right end: what it adds (last year's docs and chats)
+    note: open ? null : (
+      <p id={noteId} className="dd-cap dd-section-note">
+        {t("addWhat")}
+      </p>
+    ),
+    slip: open ? (
+      <Suspense
+        fallback={
+          <output className="dd-cap" style={{ display: "block" }}>
+            {t("reading")}
+          </output>
+        }
+      >
+        <AddSlip
+          slug={slug}
+          api={api}
+          dragging={dragging}
+          dropped={dropped}
+          onClose={close}
+          onImported={onImported}
+        />
+      </Suspense>
+    ) : null,
+  });
 }
