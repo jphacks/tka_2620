@@ -67,18 +67,20 @@ export function HandoverGuide({ slug }: { slug: string }) {
   );
 }
 
-// The guide itself, for the signed-in client: its own page (/s/[seat]/guide) or, inline, under its cover on 聞く.
+// The guide itself, for the signed-in client: its own page (/s/[seat]/guide) or, inline, in the reading sheet on 聞く
+// (components/GuideSheet.tsx).
 export function Guide({
   slug,
   api,
   inline = false,
-  onReady,
+  onPrint,
 }: {
   slug: string;
   api: Api;
   inline?: boolean;
-  /** The guide has loaded and shows in full: 聞く scrolls its top into view then, once the page is tall enough. */
-  onReady?: () => void;
+  /** Inline, 印刷・PDFで保存 prints through the sheet, which first takes the guide out of the top layer, so every page of
+   * it goes on paper. Left out, the page itself prints. */
+  onPrint?: () => void;
 }) {
   const Title = inline ? "h2" : "h1";
   const t = useTranslations();
@@ -108,10 +110,6 @@ export function Guide({
       alive = false;
     };
   }, [api, slug, loadTry]);
-  const ready = view !== undefined && guide !== undefined;
-  useEffect(() => {
-    if (ready) onReady?.();
-  }, [ready, onReady]);
 
   if (failed) {
     return (
@@ -258,7 +256,8 @@ export function Guide({
   const openCount = guide.open.length + waiting.length;
   const paperOnly = inline ? " dd-print-only" : "";
 
-  // Export: the page's first tools on its own; inline on 聞く, after the notes (read first, then save).
+  // Export: the page's first tools on its own; in the sheet on 聞く, after the notes (read first, then save; the sheet's
+  // header has 保存 too).
   const tools = (
     <section
       className="dd-col dd-noprint"
@@ -269,17 +268,7 @@ export function Guide({
         <button
           type="button"
           className="dd-btn dd-btn-primary"
-          onClick={() => {
-            // Inline on 聞く, the page around the guide stays off the paper (styles/components.css → print).
-            const root = document.documentElement;
-            root.classList.add("dd-printing-guide");
-            window.addEventListener(
-              "afterprint",
-              () => root.classList.remove("dd-printing-guide"),
-              { once: true },
-            );
-            window.print();
-          }}
+          onClick={() => (onPrint ? onPrint() : window.print())}
         >
           {t("guide.print")}
         </button>

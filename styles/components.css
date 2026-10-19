@@ -288,13 +288,13 @@ html { overscroll-behavior-y: none; }
 .dd-seat-head .dd-tag { min-height: 44px; padding: var(--s-1) var(--s-3) var(--s-1) var(--s-6); }
 .dd-seat-head .dd-tag-name { font-size: var(--text-m); line-height: 28px; }
 .dd-tag-kind { font-family: var(--font-ui); font-size: var(--text-s); font-weight: 700; color: var(--ink-2); letter-spacing: .04em; }
-/* The way into the handover guide on 聞く, under the ask panel: the guide as a slip that says what it is (its title, one
-   line on what's inside) and what a tap does (読む, 閉じる once open). The whole slip is the button. Opened, it heads the
-   guide unfolded under it; scrolled to, it stops clear of the top edge. A blue spine on its left edge says it's a bound
-   book you can open, not one more note slip. */
+/* The way into the handover guide on 聞く (GuideSheet), right under the ask field: the guide as a slip
+   that says what it is (its title, one line on what's inside) and what a tap does (読む ›). The whole slip is the
+   button; it opens the guide as a reading sheet. A blue spine on its left edge says it's a bound book you can open, not
+   one more note slip. */
 .dd-guide-cover { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; column-gap: var(--s-3);
   width: 100%; min-height: 64px; padding: var(--s-3) var(--s-4); border-left: 4px solid var(--blue); text-align: start; font: inherit;
-  color: var(--ink); cursor: pointer; scroll-margin-top: 56px; }
+  color: var(--ink); cursor: pointer; }
 .dd-guide-cover:hover, .dd-guide-cover:active { background: var(--blue-wash); }
 .dd-guide-cover > svg { color: var(--blue); }
 /* On the narrowest phones the spine says "book" alone: the icon's room goes to the lead, two lines instead of three */
@@ -302,9 +302,35 @@ html { overscroll-behavior-y: none; }
 .dd-guide-cover-text { display: grid; gap: 2px; }
 .dd-guide-cover-title { font-size: var(--text-s); line-height: 24px; font-weight: 700; letter-spacing: .04em; word-break: auto-phrase; }
 .dd-guide-cover-act { display: inline-flex; align-items: center; gap: var(--s-1); color: var(--blue); font-weight: 700; white-space: nowrap; }
-.dd-guide-cover[aria-expanded="true"] .dd-guide-cover-act svg { transform: rotate(180deg); }
-/* The guide opened under its cover, 24px below it (the wrap's 12 + 12); at its end, 「引き継ぎ書を閉じる」 */
-.dd-guide-inline { padding-top: var(--s-3); gap: var(--s-6); }
+/* The reading sheet: the guide over 聞く, full height on a phone, a 560px panel on the right from 720px, where 聞く shows
+   faded beside it (the paper at 72%, as under the verb tabs). The header stays while the guide scrolls under it; the
+   page behind stays put. */
+.dd-sheet { box-sizing: border-box; margin: 0; padding: 0; border: 0; inset: 0; width: 100%; max-width: none; height: 100%;
+  max-height: none; background: var(--paper); color: var(--ink); overflow: hidden; }
+.dd-sheet[open] { display: flex; flex-direction: column; animation: dd-sheet-up 200ms ease-out; }
+.dd-sheet::backdrop { background: color-mix(in srgb, var(--paper) 72%, transparent); }
+@media (min-width: 720px) {
+  .dd-sheet { inset: 0 0 0 auto; width: 560px; border-left: 1px solid var(--rule); }
+  .dd-sheet[open] { animation-name: dd-sheet-in; }
+}
+@keyframes dd-sheet-up { from { transform: translateY(32px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes dd-sheet-in { from { transform: translateX(32px); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .dd-sheet[open] { animation: none; } }
+@media (prefers-reduced-transparency: reduce) { .dd-sheet::backdrop { background: var(--paper); } }
+:root:has(.dd-sheet[open]) { overflow: hidden; }
+.dd-sheet-head { display: flex; align-items: center; gap: var(--s-2); min-height: 60px; box-sizing: border-box;
+  padding: var(--s-2) var(--s-2) var(--s-2) var(--s-4); border-bottom: 1px solid var(--rule); }
+.dd-sheet-title { flex: 1; min-width: 0; margin: 0; font-size: var(--text-m); line-height: 28px; font-weight: 700; letter-spacing: .04em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dd-sheet-title:focus:not(:focus-visible) { outline: none; } /* focused by script on opening, for a screen reader */
+.dd-sheet-save { display: inline-flex; align-items: center; gap: var(--s-1); min-height: 44px; padding-inline: var(--s-3); }
+.dd-sheet-close { display: grid; place-items: center; width: 44px; height: 44px; border: 0; border-radius: var(--r-button);
+  background: none; color: var(--ink); cursor: pointer; }
+.dd-sheet-close:hover { background: var(--blue-wash); }
+.dd-sheet-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: grid; gap: var(--s-6);
+  align-content: start; padding: var(--s-5) var(--s-4) calc(var(--s-7) + env(safe-area-inset-bottom)); }
+@media (min-width: 600px) { .dd-sheet-body { padding-inline: var(--s-5); } }
+/* At the guide's end, 「引き継ぎ書を閉じる」 */
 .dd-guide-close { justify-self: start; display: inline-flex; align-items: center; min-height: 44px; font-weight: 700; }
 /* The inline guide's filter, folded: one 44px blue line that opens the frame under it */
 .dd-filter-fold > summary { display: flex; align-items: center; gap: var(--s-1); min-height: 44px; list-style: none; color: var(--blue);
@@ -313,10 +339,15 @@ html { overscroll-behavior-y: none; }
 .dd-filter-fold[open] > summary { margin-bottom: var(--s-2); }
 .dd-filter-fold[open] > summary svg { transform: rotate(180deg); }
 @media print {
-  /* Printing the inline guide: only the guide goes on paper, not the seat page around it */
-  :root.dd-printing-guide .dd-seat-home > :not(:has(.dd-guide-inline)),
-  :root.dd-printing-guide .dd-guide-wrap > :not(.dd-guide-inline) { display: none !important; }
-  :root.dd-printing-guide .dd-guide-inline { margin: 0; padding: 0; border: 0; }
+  /* Printing from the sheet: only the guide goes on paper, not 聞く around it nor the sheet's header. The sheet prints
+     in the page's flow (GuideSheet opens it there for printing), so a long guide runs across pages. */
+  :root.dd-printing-guide { overflow: visible !important; }
+  :root.dd-printing-guide .dd-seat-home > :not(:has(.dd-sheet)),
+  :root.dd-printing-guide .dd-ask-panel > :not(.dd-sheet),
+  :root.dd-printing-guide .dd-sheet-head { display: none !important; }
+  :root.dd-printing-guide .dd-sheet { position: static; display: block; inset: auto; width: auto; height: auto; overflow: visible;
+    border: 0; animation: none; }
+  :root.dd-printing-guide .dd-sheet-body { display: block; overflow: visible; padding: 0; }
 }
 /* The search field heads a filter, across its whole width */
 .dd-filter-search { grid-column: 1 / -1; display: grid; gap: var(--s-1); }
