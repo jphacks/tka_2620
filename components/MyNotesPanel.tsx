@@ -185,6 +185,17 @@ function MyNotesList({
   const wordsSeat =
     seats[seatFilter === ALL ? slugs[0] : seatFilter] ??
     Object.values(seats)[0];
+  // An empty list under 状態 alone says which notes there are none of; with another filter, that nothing matches.
+  const narrowed =
+    scope !== ALL ||
+    (seatFilter !== ALL && slugs.length > 1) ||
+    query.trim() !== "";
+  const emptyText =
+    notes.length === 0
+      ? undefined
+      : status !== ALL && !narrowed
+        ? t(status === "live" ? "myNotes.noneLive" : "myNotes.noneWithdrawn")
+        : t("filter.noneMatch");
   const filtered =
     status !== ALL ||
     scope !== ALL ||
@@ -322,7 +333,7 @@ function MyNotesList({
         }
         headingLevel={1}
         fold={status === ALL}
-        emptyText={notes.length > 0 ? t("filter.noneMatch") : undefined}
+        emptyText={emptyText}
       />
     </>
   );

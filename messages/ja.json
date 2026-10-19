@@ -323,6 +323,7 @@
     "withdrawnTitle": "撤回したメモ（{n}件）",
     "withdrawnLead": "どの回答にも使われません。",
     "noneLive": "公開中のメモはありません。",
+    "noneWithdrawn": "撤回したメモはありません。",
     "used": "このメモは{n}回、回答に使われました",
     "empty": "まだメモはありません。",
     "withdrawn": "撤回済み",

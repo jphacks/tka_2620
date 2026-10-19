@@ -323,6 +323,7 @@
     "withdrawnTitle": "Withdrawn notes ({n})",
     "withdrawnLead": "No answer uses these any more.",
     "noneLive": "No live notes.",
+    "noneWithdrawn": "No withdrawn notes.",
     "used": "This note was used in {n} answers",
     "empty": "You haven't written any notes yet.",
     "withdrawn": "Withdrawn",

@@ -229,9 +229,12 @@ Use Japanese notebook marks, not coloured chips or emoji. Each mark is followed 
   The filter keeps its 状態 select (Nico's call), and it works with the fold:
   - 「すべて」 (the default): the live list and the fold.
   - 「公開中」: the live list alone.
-  - 「撤回済み」: the withdrawn notes listed in place, struck through and unfolded.
+  - 「撤回済み」: the withdrawn notes listed in place, unfolded.
 
-  The count line counts what the list shows.
+  The count line counts what the list shows. An empty list under 状態 alone says which notes there are none of
+  (「公開中のメモはありません。」, 「撤回したメモはありません。」). With another filter as well, it says nothing matches. A
+  withdrawn note at rest, in the fold or under 撤回済み, has its title crossed out with the red double line (`.dd-double`,
+  on the words). The lines across the whole entry belong to the moment of withdrawing (Motion → Double line).
 - **`UpcomingList`**: a planner column: boxed date in figures (「10/20 火」), title, mini stamp. Dates within 7 days
   carry the highlighter.
 - **The filter** (`.dd-filter`, on the guide and 自分のメモ): the search across the whole width, then the selects on one
