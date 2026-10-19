@@ -8,6 +8,7 @@ import {
   type ChatPlatform,
   isChatHeader,
   isWhatsAppLine,
+  isWhatsAppStamp,
   lineRows,
   parseLine,
   parsePaste,
@@ -41,7 +42,7 @@ export type Read =
       doc?: string;
     }
   | { kind: "notChat" } // chat-shaped, but not a form lib/redact reads
-  | { kind: "noSpeakers" }; // on トーク履歴, nobody speaking was found
+  | { kind: "noSpeakers" }; // as 「コピーしたメッセージ」, nobody speaking was found
 
 // Where text goes, wherever it arrives (pasted, dropped on any tab, picked as any file type):
 // - A LINE or WhatsApp export is a chat, so its speaker column gets roles: redactText alone doesn't know that a
@@ -105,7 +106,12 @@ function whatsAppLines(lines: string[], mode: "text" | "chat"): number {
   if (/^\ufeff?\[LINE\]/.test(lines[0] ?? "")) return 0;
   const count = lines.filter(isWhatsAppLine).length;
   if (mode === "chat") return count;
-  return count >= 2 || (lines.length > 0 && isWhatsAppLine(lines[0]))
+  // Its first message, after any system lines an export opens with (a stamp, no speaker): a single message there
+  // still makes an export a chat, so a dropped file with one message never goes out with its speaker's name.
+  const first = lines.find(
+    (row) => !isWhatsAppStamp(row) || isWhatsAppLine(row),
+  );
+  return count >= 2 || (first !== undefined && isWhatsAppLine(first))
     ? count
     : 0;
 }

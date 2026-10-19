@@ -364,7 +364,7 @@
   },
   "import": {
     "holdersOnly": "Only the seat's holders can add documents or chats here.",
-    "title": "Add from docs, files and chats",
+    "title": "Add docs and chats",
     "paste": "Paste last year's handover doc",
     "extract": "Turn into notes",
     "notStored": "The original document or file is not stored",
@@ -431,7 +431,8 @@
     "rolesDone": "Hide names behind these roles",
     "asDoc": "Not a chat: read it as a document",
     "asChat": "Read it as a chat",
-    "asChatHint": "Some lines look like \"Name: message\". Read as a chat, each speaker is replaced by a role.",
+    "asChatWarn": "Some lines look like \"Name: message\". As it is, those names would be sent too.",
+    "asChatHint": "Read as a chat, each speaker is replaced by a role.",
     "changeRoles": "Change the roles",
     "hideMoreHint": "Separate words with commas",
     "hiddenList": "Hidden: <list></list>",

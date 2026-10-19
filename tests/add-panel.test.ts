@@ -209,11 +209,34 @@ describe("readSource: WhatsApp exports are chats too (F5.2, #32)", () => {
     }
   });
 
-  it("reads one WhatsApp line on トーク履歴, but keeps a doc with one schedule line in that shape", () => {
+  it("reads one WhatsApp line as 「コピーしたメッセージ」, but keeps a doc with one schedule line in that shape", () => {
     const sparse = `16/10/2025, 17:03 - 加藤 健: 部費の集金について\n${"長い説明の続き\n".repeat(12)}`;
     expect(speakers(whatsapp(sparse, "chat").messages)).toHaveLength(1);
     const doc = `${HANDOVER}\n2025/10/16 17:00 - 学生課: 臨時営業届を提出`;
     expect(readSource(doc, "text")).toMatchObject({ kind: "text" });
+  });
+
+  // An export with a single message after its system lines (a stamp, no speaker), dropped on ファイル, which reads every
+  // file as a doc first: its speaker must still get a role, never go out as text.
+  it.each([
+    [
+      "Android, Japanese",
+      "2025/10/16 17:00 - メッセージと通話はエンドツーエンドで暗号化されています。このチャットの外にいる人は、WhatsAppでさえも、それを読んだり聞いたりすることはできません。\n2025/10/16 17:01 - 加藤 健がグループ「会計」を作成しました\n2025/10/16 17:03 - 加藤 健: 部費は5/10までにお願いします",
+    ],
+    [
+      "Android, English",
+      "16/10/2025, 17:00 - Messages and calls are end-to-end encrypted. No one outside of this chat, not even WhatsApp, can read or listen to them.\n16/10/2025, 17:03 - 加藤 健: 部費は5/10までにお願いします",
+    ],
+  ])("reads a WhatsApp export with one message after its system lines (%s) as a chat, even as a doc", (_, raw) => {
+    const source = whatsapp(raw, "text");
+    expect(speakers(source.messages).map(({ name }) => name)).toEqual([
+      "加藤 健",
+    ]);
+    const { text } = redactChat(source.messages, {
+      roles: { "加藤 健": "メンバーA" },
+      keepAll: true,
+    });
+    expect(text).not.toContain("加藤");
   });
 
   it("reads a WhatsApp message with continuation lines pasted into 貼り付け", () => {

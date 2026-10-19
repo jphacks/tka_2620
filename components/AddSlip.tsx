@@ -236,6 +236,14 @@ export function AddSlip({
         }
         if (next.kind !== "text") return setProblem(next.kind);
         if (text.length > MAX_TEXT_CHARS) throw new IngestError("too_large");
+        // A text file of copied messages (名前: 本文) is offered the chat reading, as a paste is; a PDF or Word file
+        // isn't, where field labels would offer it on every file.
+        if (next.messages && (fileType === "txt" || fileType === "md"))
+          setAsChat({
+            kind: "chat",
+            platform: "paste",
+            messages: next.messages,
+          });
         show(asFile, "file");
       } catch (error) {
         if (mine === round.current) setProblem(problemOf(error, fileType));
@@ -458,10 +466,10 @@ export function AddSlip({
               onAsChat={
                 asChat &&
                 (() => {
-                  // Back the other way stays possible: the doc it came as.
-                  if (source.kind === "text") setAsDoc(source);
+                  // Back the other way stays possible: the doc or file it came as, on its own tab.
+                  if (source.kind !== "chat") setAsDoc(source);
                   setAsChat(undefined);
-                  show(asChat, "text");
+                  show(asChat, source.kind === "file" ? "file" : "text");
                 })
               }
             />
