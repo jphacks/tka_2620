@@ -1,0 +1,119 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 604" width="1200" height="604" role="img" aria-labelledby="title desc" lang="ja">
+<title id="title">見せる範囲はデータベースが、出典はコードが確かめる</title>
+<desc id="desc">代々のしくみ。後輩の質問は代々のサーバーに届き、データベースが見る人の権限で検索して、読めるメモだけを返す。Claude はそのメモだけから下書きを書き、代々のコードが文ごとに出典を確かめて、出典つきの答えを返す。誰も知らなければ、質問は去年の担当者に届き、声で答えて公開すると、署名つきの答えが後輩に届く。資料とトーク履歴は端末の中で黒塗りしてからメモの下書きになる。</desc>
+<defs>
+<marker id="ab" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#9DB4FF"/></marker>
+<marker id="ar" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#FF9890"/></marker>
+<marker id="ag" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#A8B5AC"/></marker>
+</defs>
+<g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', 'Yu Gothic UI', 'Yu Gothic', Meiryo, sans-serif">
+<rect width="1200" height="604" rx="20" fill="#1B2723"/>
+<path d="M20 32H1180" stroke="#1F2C28" stroke-width="1"/>
+<path d="M20 64H1180" stroke="#1F2C28" stroke-width="1"/>
+<path d="M20 96H1180" stroke="#1F2C28" stroke-width="1"/>
+<path d="M20 128H1180" stroke="#1F2C28" stroke-width="1"/>
+<path d="M20 160H1180" stroke="#1F2C28" stroke-width="1"/>
+<path d="M20 192H1180" stroke="#1F2C28" stroke-width="1"/>
+<path d="M20 224H1180" stroke="#1F2C28" stroke-width="1"/>
+<path d="M20 256H1180" stroke="#1F2C28" stroke-width="1"/>
+<path d="M20 288H1180" stroke="#1F2C28" stroke-width="1"/>
+<path d="M20 320H1180" stroke="#1F2C28" stroke-width="1"/>
+<path d="M20 352H1180" stroke="#1F2C28" stroke-width="1"/>
+<path d="M20 384H1180" stroke="#1F2C28" stroke-width="1"/>
+<path d="M20 416H1180" stroke="#1F2C28" stroke-width="1"/>
+<path d="M20 448H1180" stroke="#1F2C28" stroke-width="1"/>
+<path d="M20 480H1180" stroke="#1F2C28" stroke-width="1"/>
+<path d="M20 512H1180" stroke="#1F2C28" stroke-width="1"/>
+<path d="M20 544H1180" stroke="#1F2C28" stroke-width="1"/>
+<path d="M20 576H1180" stroke="#1F2C28" stroke-width="1"/>
+<text x="32" y="56" font-size="24" font-weight="700" fill="#E9EEE7" text-anchor="start">見せる範囲はデータベースが、出典はコードが確かめる</text>
+<rect x="16" y="88" width="1168" height="144" rx="16" fill="#1F2D28"/>
+<text x="1168" y="114" font-size="13" font-weight="700" fill="#A8B5AC" text-anchor="end">端末</text>
+<rect x="16" y="250" width="1168" height="140" rx="16" fill="#1F2B3D"/>
+<text x="1168" y="276" font-size="13" font-weight="700" fill="#A8B5AC" text-anchor="end">代々のサーバー</text>
+<rect x="16" y="408" width="1168" height="148" rx="16" fill="#1D3327"/>
+<text x="1168" y="434" font-size="13" font-weight="700" fill="#A8B5AC" text-anchor="end">データと AI</text>
+<path d="M250 216V300H418" fill="none" stroke="#9DB4FF" stroke-width="2.5" stroke-linejoin="round" marker-start="url(#ab)" marker-end="url(#ab)"/>
+<path d="M440 374V428" fill="none" stroke="#9DB4FF" stroke-width="2.5" stroke-linejoin="round" marker-start="url(#ab)" marker-end="url(#ab)"/>
+<path d="M760 374V428" fill="none" stroke="#9DB4FF" stroke-width="2.5" stroke-linejoin="round" marker-start="url(#ab)" marker-end="url(#ab)"/>
+<path d="M782 300H944V216" fill="none" stroke="#FF9890" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#ar)"/>
+<path d="M1044 216V345H782" fill="none" stroke="#FF9890" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#ar)"/>
+<path d="M418 345H170V216" fill="none" stroke="#FF9890" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#ar)"/>
+<path d="M600 216V266" fill="none" stroke="#A8B5AC" stroke-width="2.5" stroke-linejoin="round" stroke-dasharray="6 5" marker-end="url(#ag)"/>
+<rect x="96" y="110" width="240" height="104" rx="14" fill="#26352F" stroke="#3B4D45" stroke-width="1.5"/>
+<rect x="126" y="142" width="20" height="40" rx="4" fill="none" stroke="#E9EEE7" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M133 176H139" fill="none" stroke="#E9EEE7" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="174" y="156" font-size="20" font-weight="700" fill="#E9EEE7" text-anchor="start">後輩</text>
+<text x="174" y="180" font-size="14" font-weight="400" fill="#A8B5AC" text-anchor="start">席ページで聞く</text>
+<rect x="480" y="110" width="240" height="104" rx="14" fill="#26352F" stroke="#3B4D45" stroke-width="1.5"/>
+<path d="M502 142H518L526 150V180H502Z M518 142V150H526" fill="none" stroke="#E9EEE7" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M507 160H519M507 167H516" fill="none" stroke="#E9EEE7" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M522 158H540V172H531L526 177V172H522Z" fill="#26352F" stroke="#E9EEE7" stroke-width="2.2" stroke-linejoin="round"/>
+<text x="558" y="156" font-size="20" font-weight="700" fill="#E9EEE7" text-anchor="start">資料・トーク</text>
+<text x="558" y="180" font-size="14" font-weight="400" fill="#A8B5AC" text-anchor="start">端末の中で黒塗り</text>
+<circle cx="702" cy="108" r="15" fill="#26352F" stroke="#8FD3A4" stroke-width="1.5"/>
+<g transform="translate(695 99.25) scale(0.875)"><path d="M8 0L16 3V9.5C16 14.5 12.6 18 8 20C3.4 18 0 14.5 0 9.5V3Z" fill="#8FD3A4"/><path d="M4.6 10.2L7.2 12.8L11.8 7.4" fill="none" stroke="#1B2723" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
+<rect x="864" y="110" width="240" height="104" rx="14" fill="#26352F" stroke="#3B4D45" stroke-width="1.5"/>
+<rect x="884" y="142" width="20" height="40" rx="4" fill="none" stroke="#E9EEE7" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M891 176H897" fill="none" stroke="#E9EEE7" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="912" y="148" width="10" height="17" rx="5" fill="none" stroke="#E9EEE7" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M909 160C909 169 925 169 925 160M917 168V174" fill="none" stroke="#E9EEE7" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="942" y="156" font-size="20" font-weight="700" fill="#E9EEE7" text-anchor="start">去年の担当者</text>
+<text x="942" y="180" font-size="14" font-weight="400" fill="#A8B5AC" text-anchor="start">声で答えて公開</text>
+<rect x="420" y="268" width="360" height="104" rx="14" fill="#26352F" stroke="#3B4D45" stroke-width="1.5"/>
+<g transform="rotate(-3 460 320)"><circle cx="460" cy="320" r="20" fill="none" stroke="#FF9890" stroke-width="2.5"/>
+<text x="460" y="326" font-size="15" font-weight="700" fill="#FF9890" text-anchor="middle">代々</text>
+</g>
+<text x="498" y="314" font-size="20" font-weight="700" fill="#E9EEE7" text-anchor="start">代々</text>
+<text x="498" y="338" font-size="14" font-weight="400" fill="#A8B5AC" text-anchor="start">出典をコードで確認</text>
+<circle cx="762" cy="266" r="15" fill="#26352F" stroke="#8FD3A4" stroke-width="1.5"/>
+<g transform="translate(755 257.25) scale(0.875)"><path d="M8 0L16 3V9.5C16 14.5 12.6 18 8 20C3.4 18 0 14.5 0 9.5V3Z" fill="#8FD3A4"/><path d="M4.6 10.2L7.2 12.8L11.8 7.4" fill="none" stroke="#1B2723" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
+<rect x="300" y="430" width="260" height="104" rx="14" fill="#26352F" stroke="#3B4D45" stroke-width="1.5"/>
+<ellipse cx="340" cy="468" rx="16" ry="6" fill="none" stroke="#E9EEE7" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M324 468V496C324 504 356 504 356 496V468M324 482C324 490 356 490 356 482" fill="none" stroke="#E9EEE7" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="378" y="468" font-size="20" font-weight="700" fill="#E9EEE7" text-anchor="start">データベース</text>
+<text x="378" y="492" font-size="14" font-weight="400" fill="#A8B5AC" text-anchor="start">RLS で範囲を判定</text>
+<text x="378" y="513" font-size="14" font-weight="400" fill="#A8B5AC" text-anchor="start">Realtime で届ける</text>
+<circle cx="542" cy="428" r="15" fill="#26352F" stroke="#8FD3A4" stroke-width="1.5"/>
+<g transform="translate(535 419.25) scale(0.875)"><path d="M8 0L16 3V9.5C16 14.5 12.6 18 8 20C3.4 18 0 14.5 0 9.5V3Z" fill="#8FD3A4"/><path d="M4.6 10.2L7.2 12.8L11.8 7.4" fill="none" stroke="#1B2723" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
+<rect x="640" y="430" width="260" height="104" rx="14" fill="#26352F" stroke="#3B4D45" stroke-width="1.5"/>
+<rect x="667" y="469" width="26" height="26" rx="5" fill="none" stroke="#E9EEE7" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="674" y="476" width="12" height="12" rx="2" fill="none" stroke="#E9EEE7" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M673 463V469M673 495V501M661 475H667M693 475H699" fill="none" stroke="#E9EEE7" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M680 463V469M680 495V501M661 482H667M693 482H699" fill="none" stroke="#E9EEE7" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M687 463V469M687 495V501M661 489H667M693 489H699" fill="none" stroke="#E9EEE7" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="718" y="476" font-size="20" font-weight="700" fill="#E9EEE7" text-anchor="start">Claude</text>
+<text x="718" y="500" font-size="14" font-weight="400" fill="#A8B5AC" text-anchor="start">メモだけから下書き</text>
+<circle cx="250" cy="252" r="13" fill="#9DB4FF" stroke="#1B2723" stroke-width="3"/>
+<text x="250" y="257" font-size="14" font-weight="700" fill="#1B2723" text-anchor="middle">1</text>
+<text x="335" y="290" font-size="13" font-weight="600" fill="#9DB4FF" text-anchor="middle">質問と出典つきの答え</text>
+<circle cx="440" cy="401" r="13" fill="#9DB4FF" stroke="#1B2723" stroke-width="3"/>
+<text x="440" y="406" font-size="14" font-weight="700" fill="#1B2723" text-anchor="middle">2</text>
+<text x="426" y="406" font-size="13" font-weight="600" fill="#9DB4FF" text-anchor="end">見る人の権限で検索</text>
+<circle cx="760" cy="401" r="13" fill="#9DB4FF" stroke="#1B2723" stroke-width="3"/>
+<text x="760" y="406" font-size="14" font-weight="700" fill="#1B2723" text-anchor="middle">3</text>
+<text x="776" y="406" font-size="13" font-weight="600" fill="#9DB4FF" text-anchor="start">メモ → 下書き</text>
+<circle cx="944" cy="257" r="13" fill="#FF9890" stroke="#1B2723" stroke-width="3"/>
+<text x="944" y="262" font-size="14" font-weight="700" fill="#1B2723" text-anchor="middle">4</text>
+<text x="862" y="290" font-size="13" font-weight="600" fill="#FF9890" text-anchor="middle">誰も知らなければ</text>
+<circle cx="1044" cy="280" r="13" fill="#FF9890" stroke="#1B2723" stroke-width="3"/>
+<text x="1044" y="285" font-size="14" font-weight="700" fill="#1B2723" text-anchor="middle">5</text>
+<text x="912" y="336" font-size="13" font-weight="600" fill="#FF9890" text-anchor="middle">声で答えて公開</text>
+<g transform="rotate(-3 205 345)"><circle cx="205" cy="345" r="22" fill="#1B2723" stroke="#FF9890" stroke-width="2.5"/>
+<path d="M186 342H224M186 355H224" stroke="#FF9890" stroke-width="1.5"/>
+<text x="205" y="338" font-size="10" font-weight="700" fill="#FF9890" text-anchor="middle">会計</text>
+<text x="205" y="353" font-size="11" font-weight="700" fill="#FF9890" text-anchor="middle">2025</text>
+</g>
+<text x="236" y="336" font-size="13" font-weight="600" fill="#FF9890" text-anchor="start">署名つきの答え</text>
+<text x="612" y="246" font-size="13" font-weight="600" fill="#A8B5AC" text-anchor="start">メモの下書き</text>
+<path d="M32 581H62" stroke="#9DB4FF" stroke-width="2.5"/>
+<text x="70" y="586" font-size="14" font-weight="400" fill="#A8B5AC" text-anchor="start">聞いたとき ①〜③</text>
+<path d="M268 581H298" stroke="#FF9890" stroke-width="2.5"/>
+<text x="306" y="586" font-size="14" font-weight="400" fill="#A8B5AC" text-anchor="start">誰も知らないとき ④⑤</text>
+<path d="M504 581H534" stroke="#A8B5AC" stroke-width="2.5" stroke-dasharray="6 5"/>
+<text x="542" y="586" font-size="14" font-weight="400" fill="#A8B5AC" text-anchor="start">資料の追加</text>
+<circle cx="680" cy="581" r="15" fill="#26352F" stroke="#8FD3A4" stroke-width="1.5"/>
+<g transform="translate(673 572.25) scale(0.875)"><path d="M8 0L16 3V9.5C16 14.5 12.6 18 8 20C3.4 18 0 14.5 0 9.5V3Z" fill="#8FD3A4"/><path d="M4.6 10.2L7.2 12.8L11.8 7.4" fill="none" stroke="#1B2723" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="702" y="586" font-size="14" font-weight="400" fill="#A8B5AC" text-anchor="start">守り</text>
+</g>
+</svg>
