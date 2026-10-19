@@ -197,7 +197,7 @@
   "filter": {
     "title": "Filter and order",
     "sort": "Order",
-    "shown": "Showing <fig>{n}</fig> notes",
+    "shown": "Showing <fig>{n}</fig> {n, plural, one {note} other {notes}}",
     "clear": "Clear the filter",
     "search": "Search",
     "searchNotes": "Search titles, text and who wrote it",
