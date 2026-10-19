@@ -11,13 +11,15 @@
 
 *Daidai (代々, "generation after generation"): the handover nobody writes. Every sentence of an answer cites a predecessor's note. A question nobody can answer goes to last year's holder, who answers by voice.*
 
-<!-- デモ動画（タスク2）ができたら、この <picture> 全体を <a href="https://www.youtube.com/watch?v=VIDEO_ID"> で囲み、リンクの行の先頭に「[デモ動画（90秒）](https://www.youtube.com/watch?v=VIDEO_ID) ・ 」を足す。 -->
+<!-- デモ動画（タスク2）ができたら、リンクの行の先頭に「[デモ動画（90秒）](https://www.youtube.com/watch?v=VIDEO_ID) ・ 」を足す。画像は公開デモへのリンクのままにする。 -->
+<a href="https://daidai-demo.vercel.app/s/smash-kaikei">
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/hero-ja-dark.png">
-  <img src="docs/images/hero-ja-light.png" width="100%" alt="2台のスマホの画面（デモ用データ）。左は去年の会計のスマホの「残す」で、「後輩から質問が届きました」と、決算後の領収書についての質問、声で答えるマイクつきの欄、その下に「引き継ぎの質問」と「＋ 追加」が出ている。右は後輩のスマホの席ページで、歴代の会計の札（24、25、あなた）、これからの締切、「会計の引き継ぎ書」を開く入口、そして「いま、2025年度 会計が答えました」と署名つきの答えが出ていて、質問欄はタブのすぐ上にある。">
+  <img src="docs/images/hero-ja-light.png" width="100%" alt="公開デモ（モック）を開く。2台のスマホの画面（デモ用データ）。左は去年の会計のスマホの「残す」で、「後輩から質問が届きました」と、決算後の領収書についての質問、声で答えるマイクつきの欄、その下に「引き継ぎの質問」と「＋ 追加」が出ている。右は後輩のスマホの席ページで、歴代の会計の札（24、25、あなた）、これからの締切、「会計の引き継ぎ書」を開く入口、そして「いま、2025年度 会計が答えました」と署名つきの答えが出ていて、質問欄はタブのすぐ上にある。">
 </picture>
+</a>
 
-[しくみ](#しくみ) ・ [試し方](#試し方) ・ [ユーザーの声（13件）](docs/EVIDENCE.md) ・ [Hack Day の全差分](https://github.com/jphacks/tka_2620/compare/pre-hackday...2206aa2) ・ [English](README.en.md)
+[デモを開く（モック）](https://daidai-demo.vercel.app/s/smash-kaikei) ・ [しくみ](#しくみ) ・ [試し方](#試し方) ・ [ユーザーの声（13件）](docs/EVIDENCE.md) ・ [Hack Day の全差分](https://github.com/jphacks/tka_2620/compare/pre-hackday...2206aa2) ・ [English](README.en.md)
 
 ## 製品概要
 ### 背景(製品開発のきっかけ、課題等）
@@ -91,7 +93,7 @@
 
 ### 今後の展望
 
-Award Day に進めたら、11月の代替わりで2〜3団体に無料で使ってもらいます。①先輩が答えた割合、②答えるまでの時間、③「誰も知りません」が減った数を測り、あわせて公開デモを用意します。研究室の機器担当や留学ルートの席は、同じ画面ですでに動きます（デモ用データあり）。
+Award Day に進めたら、11月の代替わりで2〜3団体に無料で使ってもらいます。①先輩が答えた割合、②答えるまでの時間、③「誰も知りません」が減った数を測ります。研究室の機器担当や留学ルートの席は、同じ画面ですでに動きます（デモ用データあり）。
 
 ### 注力したこと（こだわり等）
 - **画面に AI を出さない**：答えは「先輩」から。画面には「AI」の文字もキラキラも出しません。
@@ -174,23 +176,35 @@ Hack Day 前の最後の状態は、タグ [`pre-hackday`](https://github.com/jp
 
 ## コードフリーズ後の変更
 
-コードフリーズ（10/18 15:00。`main` は [2206aa2](https://github.com/jphacks/tka_2620/commit/2206aa2) で、中身は 14:58 の `dev` と同じ）のあとに変えたのは、README と画像だけです。コードは変えていません。差分：[2206aa2...main](https://github.com/jphacks/tka_2620/compare/2206aa2...main)
+コードフリーズは 10/18 15:00 で、その時点の `main` は [2206aa2](https://github.com/jphacks/tka_2620/commit/2206aa2) です（中身は 14:58 の `dev` と同じ）。Hack Day の成果はここまでです。
+
+10/19 には、次の変更を `main` に入れました。すべて差分 [2206aa2...main](https://github.com/jphacks/tka_2620/compare/2206aa2...main) にあります。
+
+- 画面の見直し（[#134](https://github.com/jphacks/tka_2620/pull/134)〜[#157](https://github.com/jphacks/tka_2620/pull/157)。`dev` から [#158](https://github.com/jphacks/tka_2620/pull/158)・[#160](https://github.com/jphacks/tka_2620/pull/160) で `main` へ）：文言、ボタンの位置、読み上げ、「＋ 追加」の2つのタブ、自分の質問の一覧など。
+- 自分の質問と答えを読み直す API `GET /api/seats/[slug]/asked`（[#138](https://github.com/jphacks/tka_2620/pull/138)）。漏れテストもこの API を試します。
+- トーク履歴の読み取りの修正：メッセージが1件だけの WhatsApp の書き出しも、トークとして読みます（[#154](https://github.com/jphacks/tka_2620/pull/154)）。
+- README と画像。いちばん上の画像は、いまの画面です。
+- 公開デモ（モック）：この `main` を Vercel に置きました。
+
+データベース（`supabase/`）、検索、権限のポリシー、出典の確認（`lib/engine/answer.ts`）は変えていません。
 
 ## 試し方
 
-データベースと AI なしのモックで、画面を手元で動かせます（Node 22.18 以上、pnpm 10）。
+公開デモ（モック）：**[daidai-demo.vercel.app/s/smash-kaikei](https://daidai-demo.vercel.app/s/smash-kaikei)**
+
+データベースも AI も使わないモックで、答えはデモ用データから出ます。ログインは要りません。手元で動かすときは、次のとおりです（Node 22.18 以上、pnpm 10）。
 
 ```bash
 pnpm install
 NEXT_PUBLIC_USE_MOCKS=1 pnpm dev
 ```
 
-http://localhost:3000/s/smash-kaikei を開き、次の順に試してください（3分ほど）。
+公開デモか http://localhost:3000/s/smash-kaikei を開き、次の順に試してください（3分ほど）。
 
 1. 「模擬店の保健所申請、いつまで？」と聞く → すべての文に年度の印がつき、「2025年に変更」が出ます。
 2. 「決算後に申請された領収書はどうすれば良いですか？」と聞く → 「歴代の会計は誰も知りません。」のあと、モック用のボタン「先輩が答えて公開する（モック）」を押すと、「いま、2025年度 会計が答えました」と署名つきの答えが出ます。
-3. http://localhost:3000/console の「去年の会計」で、「保健所申請の締切が早くなった」の「撤回する」を押す → メーターが秒数を示し、「新しい会計」の答えから「2025年に変更」の文が消えます。「部外者」には何も出ません。
-4. 席ページの「残す」→「＋ 追加」→「トーク履歴」で、架空のトーク [`seed/chat-line.sample.txt`](seed/chat-line.sample.txt) を入れ、「この役割で隠す」→ 同意のチェック →「この内容だけを送る」→ 隠した件数と「〇〇が書かれていません」の一覧が出ます。
+3. コンソール（[公開デモ](https://daidai-demo.vercel.app/console)・http://localhost:3000/console）の「去年の会計」で、「保健所申請の締切が早くなった」の「撤回する」を押す → メーターが秒数を示し、「新しい会計」の答えから「2025年に変更」の文が消えます。「部外者」には何も出ません。
+4. 席ページの「残す」→「＋ 追加」→「ファイル」で、架空のトーク [`seed/chat-line.sample.txt`](seed/chat-line.sample.txt) を選び（公開デモでは先にダウンロード）、「この役割で隠す」→ 同意のチェック →「この内容だけを送る」→ 隠した件数と「〇〇が書かれていません」の一覧が出ます。
 
 本物のデータで動かすには、Supabase のプロジェクト、Anthropic の API キー、`bge-m3` を入れた Ollama が要ります。`.env.example` を `.env.local` にコピーして値を入れ、`supabase db push`、`pnpm seed`、`pnpm dev` の順に実行します。デモ用アカウントのパスワードは `DEMO_PASSWORD` です。
 

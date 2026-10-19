@@ -13,13 +13,15 @@
 
 *Daidai (代々) means "generation after generation".*
 
-<!-- Once the demo video (task 2) is online, wrap this whole <picture> in <a href="https://www.youtube.com/watch?v=VIDEO_ID"> and start the links line with "[Demo video (90 s)](https://www.youtube.com/watch?v=VIDEO_ID) · ". -->
+<!-- Once the demo video (task 2) is online, start the links line with "[Demo video (90 s)](https://www.youtube.com/watch?v=VIDEO_ID) · ". The image stays a link to the public demo. -->
+<a href="https://daidai-demo.vercel.app/s/smash-kaikei">
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/hero-en-dark.png">
-  <img src="docs/images/hero-en-light.png" width="100%" alt="Two phone screens with demo data. On the left, last year's treasurer's 残す (hand over) page shows 「後輩から質問が届きました」 (a newcomer asked you something), the question about receipts after the books were closed, and a field with a microphone for answering by voice, then the handover questions with 「＋ 追加」 (add). On the right, the newcomer's seat page shows the tags of past treasurers (24, 25, and you), the upcoming deadline, the way into the handover guide, and the signed answer 「いま、2025年度 会計が答えました」 (the FY2025 treasurer just answered), with the ask field right above the tabs.">
+  <img src="docs/images/hero-en-light.png" width="100%" alt="Open the public demo (mock). Two phone screens with demo data. On the left, last year's treasurer's 残す (hand over) page shows 「後輩から質問が届きました」 (a newcomer asked you something), the question about receipts after the books were closed, and a field with a microphone for answering by voice, then the handover questions with 「＋ 追加」 (add). On the right, the newcomer's seat page shows the tags of past treasurers (24, 25, and you), the upcoming deadline, the way into the handover guide, and the signed answer 「いま、2025年度 会計が答えました」 (the FY2025 treasurer just answered), with the ask field right above the tabs.">
 </picture>
+</a>
 
-[How it works](#how-it-works) · [Try it](#try-it) · [User evidence (13 quotes)](docs/EVIDENCE.md) · [Everything built during Hack Day](https://github.com/jphacks/tka_2620/compare/pre-hackday...2206aa2)
+[Open the demo (mock)](https://daidai-demo.vercel.app/s/smash-kaikei) · [How it works](#how-it-works) · [Try it](#try-it) · [User evidence (13 quotes)](docs/EVIDENCE.md) · [Everything built during Hack Day](https://github.com/jphacks/tka_2620/compare/pre-hackday...2206aa2)
 
 ## The problem
 
@@ -93,7 +95,7 @@ A general-purpose AI doesn't know your predecessors.
 
 ## What's next
 
-If we reach Award Day, two or three groups will use Daidai free of charge at their November handover. We will measure (1) how often predecessors answer, (2) how long they take, and (3) how many 「誰も知りません」 answers disappear, and we will prepare a public demo. Lab-duty and exchange-route seats already run on the same screens (in the demo data).
+If we reach Award Day, two or three groups will use Daidai free of charge at their November handover. We will measure (1) how often predecessors answer, (2) how long they take, and (3) how many 「誰も知りません」 answers disappear. Lab-duty and exchange-route seats already run on the same screens (in the demo data).
 
 ## What we cared about
 
@@ -169,23 +171,35 @@ The last state before Hack Day is the tag [`pre-hackday`](https://github.com/jph
 
 ## After the code freeze
 
-After the code freeze (18 Oct, 15:00 JST, `main` at [2206aa2](https://github.com/jphacks/tka_2620/commit/2206aa2), the same content as `dev` at 14:58), only the README and images changed. The code did not. Diff: [2206aa2...main](https://github.com/jphacks/tka_2620/compare/2206aa2...main)
+The code freeze was 18 Oct, 15:00 JST, with `main` at [2206aa2](https://github.com/jphacks/tka_2620/commit/2206aa2) (the same content as `dev` at 14:58). That is where the Hack Day work ends.
+
+On 19 Oct we added the following to `main`. All of it is in the diff [2206aa2...main](https://github.com/jphacks/tka_2620/compare/2206aa2...main).
+
+- A review of the screens ([#134](https://github.com/jphacks/tka_2620/pull/134) to [#157](https://github.com/jphacks/tka_2620/pull/157), merged from `dev` into `main` in [#158](https://github.com/jphacks/tka_2620/pull/158) and [#160](https://github.com/jphacks/tka_2620/pull/160)): wording, button placement, screen-reader announcements, two tabs in 「＋ 追加」, and a list of your own questions.
+- An API route that returns the caller's own questions and answers, `GET /api/seats/[slug]/asked` ([#138](https://github.com/jphacks/tka_2620/pull/138)). The leak test probes it too.
+- A fix in reading chat exports: a WhatsApp export with a single message still reads as a chat ([#154](https://github.com/jphacks/tka_2620/pull/154)).
+- The README and images. The image at the top shows the screens as they are now.
+- The public demo (mock): this `main`, deployed on Vercel.
+
+The database (`supabase/`), the search, the access policies and the citation check (`lib/engine/answer.ts`) did not change.
 
 ## Try it
 
-The mock mode runs the screens locally without a database or AI (Node 22.18 or later, pnpm 10):
+Public demo (mock): **[daidai-demo.vercel.app/s/smash-kaikei](https://daidai-demo.vercel.app/s/smash-kaikei)**
+
+The mock uses no database and no AI, the answers come from the demo data, and there is no sign-in. To run it locally (Node 22.18 or later, pnpm 10):
 
 ```bash
 pnpm install
 NEXT_PUBLIC_USE_MOCKS=1 pnpm dev
 ```
 
-Open http://localhost:3000/s/smash-kaikei and try these four steps (about three minutes). The screens are in Japanese by default. The English link at the top switches them, and the labels below are the Japanese ones.
+Open the public demo or http://localhost:3000/s/smash-kaikei and try these four steps (about three minutes). The screens are in Japanese by default. The English link at the top switches them, and the labels below are the Japanese ones.
 
 1. Ask 「模擬店の保健所申請、いつまで？」 → every sentence gets a year stamp, and 「2025年に変更」 appears.
 2. Ask 「決算後に申請された領収書はどうすれば良いですか？」 → after 「歴代の会計は誰も知りません。」, press the mock-only button 「先輩が答えて公開する（モック）」, and the signed answer 「いま、2025年度 会計が答えました」 appears.
-3. In http://localhost:3000/console, press 「撤回する」 on 「保健所申請の締切が早くなった」 in the 「去年の会計」 pane → the meter shows the seconds, and the 「2025年に変更」 sentence leaves the newcomer's answer. The 「部外者」 (outsider) pane shows nothing.
-4. On the seat page, go to 残す → 「＋ 追加」 → 「トーク履歴」, add the made-up chat [`seed/chat-line.sample.txt`](seed/chat-line.sample.txt), press 「この役割で隠す」, tick the consent box and press 「この内容だけを送る」 → the redaction count and the 「〇〇が書かれていません」 list appear.
+3. In the console ([public demo](https://daidai-demo.vercel.app/console) or http://localhost:3000/console), press 「撤回する」 on 「保健所申請の締切が早くなった」 in the 「去年の会計」 pane → the meter shows the seconds, and the 「2025年に変更」 sentence leaves the newcomer's answer. The 「部外者」 (outsider) pane shows nothing.
+4. On the seat page, go to 残す → 「＋ 追加」 → 「ファイル」 (file), choose the made-up chat [`seed/chat-line.sample.txt`](seed/chat-line.sample.txt) (download it first for the public demo), press 「この役割で隠す」, tick the consent box and press 「この内容だけを送る」 → the redaction count and the 「〇〇が書かれていません」 list appear.
 
 Real mode needs a Supabase project, an Anthropic API key and Ollama with `bge-m3`. Copy `.env.example` to `.env.local`, fill in the values, then run `supabase db push`, `pnpm seed` and `pnpm dev`. The demo accounts' password is `DEMO_PASSWORD`.
 
