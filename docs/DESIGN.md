@@ -164,12 +164,11 @@ Use Japanese notebook marks, not coloured chips or emoji. Each mark is followed 
   highlighter (`--marker` behind the text, slightly taller than the x-height, no rounded ends).
   A rule change is a red-pen margin note: a red bracket left of the sentence and 「2025年に変更」 in red UI text right
   after its stamp, on the same line.
-- **聞く, top to bottom:** `SeatHeader`, then the ask panel (the field, the first steps or the answers, 「これまでの質問」),
-  then the guide's cover (`HandoverGuide`, inline), then `UpcomingList`, then `LineageRail`.
-  - The field comes first: a tap on the key is for asking, and on a 390×664 phone the start of an answer stays above
-    the verb tabs.
+- **聞く, top to bottom:** `SeatHeader`, then `LineageRail` (代々の会計), then `UpcomingList` (これからの締切), then the ask
+  field, then the guide's cover (`GuideSheet`), then the answers (the first steps, or the answers and 「これまでの質問」).
+  - Who came before, then what's due, above the field (Nico's call): the seat's story first, then the question.
+  - The cover sits right under the field, not above it, so the field stays above the verb tabs on a 390×664 phone.
   - Asking one question and reading everything sit side by side.
-  - The lineage closes the page: every answer's stamps already carry the years.
 - **AskPanel's status line**: one always-present line for a screen reader, never shown: 「先輩たちのメモを探しています」, then
   the outcome (an answer, 「誰も知りません。…に届けました」, 「いま、…が答えました」). On screen the searching line sits under the
   new question, in `--ink-2`, where the answer will be (the only sign that 聞く is working), and the answer takes its place, so
