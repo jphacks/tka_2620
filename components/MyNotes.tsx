@@ -2,6 +2,8 @@
 // 自分のメモ (docs/DESIGN.md → three verbs): the author's notes with their scope and 「撤回する」. Presentational:
 // the page (MyNotesPanel) and the console (TrustConsole) each own the withdrawal state machine and pass it in.
 // Each note says its scope in the words of the seat it was written at (MyNote.seat), so seats holds those seats.
+// The list is what's live, what the newcomers' answers draw on. Withdrawn notes aren't dropped from view (the author
+// keeps the record of what they took back): they're folded away at the end, 「撤回したメモ（2件）」 (Nico's call).
 import { useTranslations } from "next-intl";
 import { type ReactNode, useCallback } from "react";
 import { NoteEntry, type WithdrawPhase } from "@/components/NoteEntry";
@@ -45,6 +47,25 @@ export function MyNotes({
   const intoView = useCallback((node: HTMLElement | null) => {
     node?.scrollIntoView({ block: "nearest" });
   }, []);
+  // A note being withdrawn stays in the list until its double line and collapse have run, then joins the fold.
+  const live = notes.filter(
+    (note) => note.status !== "withdrawn" || withdrawing?.id === note.id,
+  );
+  const gone = notes.filter(
+    (note) => note.status === "withdrawn" && withdrawing?.id !== note.id,
+  );
+  const entry = (note: MyNote) =>
+    seats[note.seat] ? (
+      <NoteEntry
+        key={note.id}
+        note={note}
+        seat={seats[note.seat]}
+        phase={withdrawing?.id === note.id ? withdrawing.phase : undefined}
+        onWithdraw={() => onWithdraw(note.id)}
+        disabled={withdrawing !== undefined}
+        titleLevel={headingLevel === 1 ? 2 : 3}
+      />
+    ) : null;
   return (
     <section
       className="dd-col"
@@ -63,27 +84,40 @@ export function MyNotes({
         </p>
       )}
       <div className="dd-col" style={{ gap: "var(--s-4)" }} aria-live="polite">
-        {notes.map((note) =>
-          seats[note.seat] ? (
-            <NoteEntry
-              key={note.id}
-              note={note}
-              seat={seats[note.seat]}
-              phase={
-                withdrawing?.id === note.id ? withdrawing.phase : undefined
-              }
-              onWithdraw={() => onWithdraw(note.id)}
-              disabled={withdrawing !== undefined}
-              titleLevel={headingLevel === 1 ? 2 : 3}
-            />
-          ) : null,
-        )}
-        {notes.length === 0 && (
+        {live.map(entry)}
+        {live.length === 0 && (
           <p className="dd-cap" style={{ margin: 0 }}>
-            {emptyText ?? t("myNotes.empty")}
+            {gone.length > 0
+              ? t("myNotes.noneLive")
+              : (emptyText ?? t("myNotes.empty"))}
           </p>
         )}
       </div>
+      {/* Withdrawn: kept, out of the way; the same search and filters apply */}
+      {gone.length > 0 && (
+        <details className="dd-withdrawn-fold">
+          <summary>
+            <span>{t("myNotes.withdrawnTitle", { n: gone.length })}</span>
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              width="20"
+              height="20"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="m6 9 6 6 6-6" />
+            </svg>
+          </summary>
+          <p className="dd-cap">{t("myNotes.withdrawnLead")}</p>
+          <div className="dd-col" style={{ gap: "var(--s-4)" }}>
+            {gone.map(entry)}
+          </div>
+        </details>
+      )}
     </section>
   );
 }

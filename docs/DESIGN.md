@@ -120,7 +120,8 @@ Use Japanese notebook marks, not coloured chips or emoji. Each mark is followed 
   tab is `--sheet` with blue text and joins the page, inactive tabs are `--paper` with `--ink-2` text. The bar is
   translucent (the paper at 72%, the chosen tab at 88%, no blur), so the page shows faintly as it scrolls under it;
   opaque under `prefers-reduced-transparency`. A pressed tab shows `--blue-wash` at once.
-- **`SeatBar`**: a quiet row above every seat page, right-aligned in the page's 640px column, never printed. Three
+- **`SeatBar`**: a quiet row above every seat page, right-aligned in the page's 640px column, never printed, with 8px
+  under it before the page begins (Nico's call: a little more room). Three
   44px items: the language switch (the other language named in itself, 「English」 / 「日本語」, as a blue text button),
   the theme switch (**`DisplayToggles`**: a 6px blue-outlined icon button, the moon on the notebook and the sun on the
   blackboard, `aria-pressed` for 暗い画面) and 「あなた」, a key tag's shape lying down, outlined solid in `--blue` like the
@@ -128,8 +129,9 @@ Use Japanese notebook marks, not coloured chips or emoji. Each mark is followed 
   choices are this device's own (cookies), rendered by the server, so there is no flash. Nothing in the bar is a
   fourth verb.
 - **「あなた」 is the account on this device** (`AccountMenu`). A small chevron after the word says it opens a menu
-  (`aria-haspopup`, `aria-expanded`). A tap opens a small slip just under the bar, at the column's right edge. It uses
-  the Popover API, so Esc or a tap outside closes it, and focus goes back to the tag.
+  (`aria-haspopup`, `aria-expanded`). A tap opens a small slip just under the bar, at the column's right edge: 264px,
+  13px text, its button 36px tall with a 44px tap area (Nico's call: smaller). It uses the Popover API, so Esc or a tap
+  outside closes it, and focus goes back to the tag.
   - Signed in: 「2025年度 会計でログインしています」 (never a name), then a full-width 「アカウントを切り替える」. That takes
     the account's data off the screen, signs out this device only, and shows `SignIn` in place.
   - Signed out: 「この端末ではログインしていません」.
@@ -215,10 +217,15 @@ Use Japanese notebook marks, not coloured chips or emoji. Each mark is followed 
   says 「下書きを作る」.
 - **`NoteEntry`**: a note as a notebook entry: kind mark and title (UI bold), body (Klee One), date stamp
   bottom-right, scope in small UI text (「次の会計だけ」). Deadline notes show the date in figures with the highlighter.
+- **自分のメモ's list** (`MyNotes`) is what's live, what the newcomers' answers draw on. Withdrawn notes aren't dropped
+  from view, since the author keeps the record of what they took back: they're folded away at the end under one 44px blue
+  line, 「撤回したメモ（2件）」, which opens them struck through with 撤回済み under 「どの回答にも使われません。」 (Nico's
+  call). Withdrawing a note draws the double line, collapses it out of the list, and adds it to the fold, as a reload
+  shows it too. The same search and filters apply to both; with every note withdrawn the list says 「公開中のメモはありません。」.
 - **`UpcomingList`**: a planner column: boxed date in figures (「10/20 火」), title, mini stamp. Dates within 7 days
   carry the highlighter.
 - **The filter** (`.dd-filter`, on the guide and 自分のメモ): the search across the whole width, then the selects on one
-  line, each with its caption above (種類 · 書いた人 · 並び順; 状態 · 読める人 · 並び順). The captions let the choices stay
+  line, each with its caption above (種類 · 書いた人 · 並び順; 読める人 · 並び順). The captions let the choices stay
   short (「すべて」, 「新しい順」, 「締切順」); a long one, once picked, ends in 「…」 and reads in full in the open list. Two to
   a row below 380px (375px iPhones, 360px Androids); a fourth select (席) takes its own row. The printout and the export
   still say what was left in, in full words (「絞り込み：すべての種類、2025年度 会計」).

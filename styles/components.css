@@ -152,7 +152,8 @@ html { overscroll-behavior-y: none; }
 
 /* SeatBar: a quiet row above every seat page, in the page's 640px column: the language and theme switches, then 「あなた」
    (docs/DESIGN.md → SeatBar). Every item is a 44px target. */
-.dd-bar { display: flex; justify-content: flex-end; align-items: center; gap: var(--s-2); max-width: 640px; margin-inline: auto; box-sizing: border-box; padding: var(--s-2) var(--s-4) 0; }
+/* 8px under it too, before the page begins (Nico's call: a little more room under the bar) */
+.dd-bar { display: flex; justify-content: flex-end; align-items: center; gap: var(--s-2); max-width: 640px; margin-inline: auto; box-sizing: border-box; padding: var(--s-2) var(--s-4); }
 @media (min-width: 600px) { .dd-bar { padding-inline: var(--s-5); } } /* the page's 24px gutter */
 /* 「代々」, the bar's way to the start page: the wordmark pushes the switches to the right */
 /* The app's mark (the fan of notes) on the left of every bar, in place of the word 「代々」 (Nico's call): a 44px link to
@@ -187,17 +188,28 @@ html { overscroll-behavior-y: none; }
 .dd-you:hover, .dd-you:active { background: var(--blue-wash); }
 .dd-you[aria-expanded="true"] { background: var(--blue-wash); }
 .dd-you[aria-expanded="true"] svg { transform: rotate(180deg); }
-/* 「あなた」's menu (AccountMenu): a slip in the top layer, just under the bar at the right edge of the page's column:
-   who is signed in on this device, then 「アカウントを切り替える」 across its width */
+/* 「あなた」's menu (AccountMenu): a small slip in the top layer, just under the bar at the right edge of the page's
+   column: who is signed in on this device, then 「アカウントを切り替える」 across its width. Small (Nico's call): 264px,
+   13px text, the button 36px tall, its tap area still 44px. */
 .dd-account { position: fixed; inset: auto; top: 56px; right: max(var(--s-4), calc((100vw - 640px) / 2 + var(--s-4))); margin: 0;
-  width: min(320px, calc(100vw - 2 * var(--s-4))); box-sizing: border-box; padding: var(--s-4); color: var(--ink); }
+  width: min(264px, calc(100vw - 2 * var(--s-4))); box-sizing: border-box; padding: var(--s-3); color: var(--ink);
+  font-size: var(--text-xs); line-height: 20px; }
 @media (min-width: 600px) { .dd-account { right: max(var(--s-5), calc((100vw - 640px) / 2 + var(--s-5))); } }
-.dd-account:popover-open { display: grid; gap: var(--s-3); }
+.dd-account:popover-open { display: grid; gap: var(--s-2); }
 .dd-account p { margin: 0; }
+.dd-account .dd-btn { position: relative; min-height: 36px; padding-inline: var(--s-3); font-size: var(--text-xs); }
+.dd-account .dd-btn::before { content: ""; position: absolute; inset: -4px 0; } /* a 44px tap area around the 36px button */
 
 /* 自分のメモ's top (YouCard): the viewer's dashed tag beside their byline, group and institution */
 .dd-me { display: flex; gap: var(--s-4); align-items: flex-start; }
 .dd-me .dd-ltag { flex: none; }
+/* 自分のメモ's withdrawn notes, kept but folded away at the end of the list (MyNotes): one 44px blue line,
+   「撤回したメモ（2件）」, that opens them struck through, as they were */
+.dd-withdrawn-fold > summary { display: flex; align-items: center; gap: var(--s-1); width: fit-content; min-height: 44px; list-style: none;
+  color: var(--blue); font-weight: 700; cursor: pointer; }
+.dd-withdrawn-fold > summary::-webkit-details-marker { display: none; }
+.dd-withdrawn-fold[open] > summary svg { transform: rotate(180deg); }
+.dd-withdrawn-fold > p { margin: 0 0 var(--s-3); }
 .dd-me-byline { margin: 0; font-size: var(--text-m); line-height: 30px; font-weight: 700; font-feature-settings: "palt"; letter-spacing: .04em; word-break: auto-phrase; }
 
 /* 「測定の内訳」 on the console: one line per check, collapsed under the meter and the leak counter */
