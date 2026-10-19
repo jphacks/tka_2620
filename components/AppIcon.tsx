@@ -1,47 +1,89 @@
-// The app's mark, top left on every screen in place of the word 「代々」 (Nico's call): the club-room key tag of the
-// home-screen icon (app/app-mark.tsx: the ring, the sheet with its ink edge, the punched hole, three blue lines), drawn
-// here in the theme's tokens so it follows the dark screen. Decorative: the link around it carries the name.
-// Same proportions as the icon: the tag 100 × 66, the ring 0.62 of its height, half of it outside the tag.
+// The app's mark (Nico's call: not the seat's key tag, which 聞く shows right under it): three notes fanned like a hand
+// of cards, the front one white with an ink edge and the notebook's three blue lines: notes handed down, which is what
+// 代々 does. One drawing, twice:
+// - AppIcon: on screen, in the theme's tokens, so it follows the dark screen. It stands top left on every screen in place
+//   of the word 「代々」. Decorative: the link around it carries the name.
+// - markSvg: the same shapes in fixed colours, for the PNG icons (app/app-mark.tsx: favicon, home screen, link preview).
+
+type Colours = {
+  paper: string;
+  sheet: string;
+  ink: string;
+  ink2: string;
+  blue: string;
+};
+const TOKENS: Colours = {
+  paper: "var(--paper)",
+  sheet: "var(--sheet)",
+  ink: "var(--ink)",
+  ink2: "var(--ink-2)",
+  blue: "var(--blue)",
+};
+
+// Three 30 × 40 slips, each turned about a point below them, back to front; the front one carries the lines.
+const SLIPS = [
+  { turn: -14, fill: "paper", edge: "ink2", width: 3 },
+  { turn: -2, fill: "sheet", edge: "ink2", width: 3 },
+  { turn: 11, fill: "sheet", edge: "ink", width: 3.6 },
+] as const;
+const PIVOT = "32 58";
+const LINES = [
+  { y: 22, length: 18 },
+  { y: 30, length: 13.5 },
+  { y: 38, length: 18 },
+];
+// Square, around the fan with its strokes.
+const VIEWBOX = "3 3 56 56";
+
 export function AppIcon() {
   return (
     <svg
       className="dd-app-icon"
-      viewBox="0 0 126 66"
+      viewBox={VIEWBOX}
       aria-hidden="true"
       focusable="false"
     >
-      <circle
-        cx="20.5"
-        cy="33"
-        r="17.5"
-        strokeWidth="6"
-        style={{ fill: "none", stroke: "var(--ink-2)" }}
-      />
-      <rect
-        x="28.4"
-        y="3"
-        width="94"
-        height="60"
-        rx="11"
-        strokeWidth="6"
-        style={{ fill: "var(--sheet)", stroke: "var(--ink)" }}
-      />
-      <circle
-        cx="42.5"
-        cy="33"
-        r="7.4"
-        strokeWidth="3.6"
-        style={{ fill: "var(--paper)", stroke: "var(--ink)" }}
-      />
-      <g
-        strokeWidth="6"
-        strokeLinecap="round"
-        style={{ stroke: "var(--blue)" }}
-      >
-        <line x1="62.7" y1="19.8" x2="108.7" y2="19.8" />
-        <line x1="62.7" y1="33" x2="98.7" y2="33" />
-        <line x1="62.7" y1="46.2" x2="108.7" y2="46.2" />
-      </g>
+      {SLIPS.map((slip, index) => (
+        <g key={slip.turn} transform={`rotate(${slip.turn} ${PIVOT})`}>
+          <rect
+            x="17"
+            y="10"
+            width="30"
+            height="40"
+            rx="4"
+            strokeWidth={slip.width}
+            style={{ fill: TOKENS[slip.fill], stroke: TOKENS[slip.edge] }}
+          />
+          {index === SLIPS.length - 1 &&
+            LINES.map((line) => (
+              <line
+                key={line.y}
+                x1="23"
+                y1={line.y}
+                x2={23 + line.length}
+                y2={line.y}
+                strokeWidth="3.6"
+                strokeLinecap="round"
+                style={{ stroke: TOKENS.blue }}
+              />
+            ))}
+        </g>
+      ))}
     </svg>
   );
+}
+
+/** The mark as an SVG document in fixed colours, for next/og (it can't read the page's tokens). */
+export function markSvg(colours: Colours): string {
+  const slips = SLIPS.map((slip, index) => {
+    const lines =
+      index === SLIPS.length - 1
+        ? LINES.map(
+            (line) =>
+              `<line x1="23" y1="${line.y}" x2="${23 + line.length}" y2="${line.y}" stroke="${colours.blue}" stroke-width="3.6" stroke-linecap="round"/>`,
+          ).join("")
+        : "";
+    return `<g transform="rotate(${slip.turn} ${PIVOT})"><rect x="17" y="10" width="30" height="40" rx="4" fill="${colours[slip.fill]}" stroke="${colours[slip.edge]}" stroke-width="${slip.width}"/>${lines}</g>`;
+  }).join("");
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${VIEWBOX}">${slips}</svg>`;
 }
