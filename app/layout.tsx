@@ -1,13 +1,13 @@
-import type { Viewport } from "next";
+import type { Metadata, Viewport } from "next";
 import {
   BIZ_UDGothic,
   BIZ_UDPGothic,
   Klee_One,
   Yusei_Magic,
 } from "next/font/google";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { NextIntlClientProvider } from "next-intl";
-import { getLocale } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import { PAPER, readTheme, THEME_COOKIE } from "@/lib/display-prefs";
 import "./globals.css";
 
@@ -15,6 +15,33 @@ import "./globals.css";
 // (styles/tokens.css → prefers-color-scheme).
 async function chosenTheme() {
   return readTheme((await cookies()).get(THEME_COOKIE)?.value);
+}
+
+// Every page names itself (WCAG 2.4.2): 「会計（テニスサークル Smash）｜代々」 in the tab, history and bookmarks, read out
+// by Next's route announcer on each navigation, and in the preview when a seat link is shared in LINE. Pages set their
+// own part (generateMetadata); the template adds the app's name. metadataBase is the address the page was opened at,
+// so a preview's image link works on the demo laptop, through a tunnel or deployed. iOS doesn't turn dates and counts
+// into phone links.
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("meta");
+  const locale = await getLocale();
+  const request = await headers();
+  const host = request.get("x-forwarded-host") ?? request.get("host");
+  const protocol = request.get("x-forwarded-proto") ?? "http";
+  return {
+    ...(host && { metadataBase: new URL(`${protocol}://${host}`) }),
+    title: { template: t("template"), default: t("app") },
+    description: t("description"),
+    applicationName: t("app"),
+    appleWebApp: { capable: true, title: t("app"), statusBarStyle: "default" },
+    formatDetection: { telephone: false, email: false, address: false },
+    openGraph: {
+      siteName: t("app"),
+      type: "website",
+      locale: locale === "en" ? "en_US" : "ja_JP",
+    },
+    twitter: { card: "summary_large_image" },
+  };
 }
 
 // viewport-fit=cover lets the page reach under an iPhone's home indicator, so env(safe-area-inset-bottom) is real and
