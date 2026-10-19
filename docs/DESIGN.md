@@ -126,19 +126,23 @@ Use Japanese notebook marks, not coloured chips or emoji. Each mark is followed 
   blackboard, `aria-pressed` for 暗い画面) and 「あなた」, the lineage rail's dashed blue tag lying down. Both display
   choices are this device's own (cookies), rendered by the server, so there is no flash. Nothing in the bar is a
   fourth verb.
-- **「あなた」 is the account on this device** (`AccountMenu`). A tap opens a small slip just under the bar, at the
-  column's right edge. It uses the Popover API, so Esc or a tap outside closes it, and focus goes back to the tag.
+- **「あなた」 is the account on this device** (`AccountMenu`). A small chevron after the word says it opens a menu
+  (`aria-haspopup`, `aria-expanded`). A tap opens a small slip just under the bar, at the column's right edge. It uses
+  the Popover API, so Esc or a tap outside closes it, and focus goes back to the tag.
   - Signed in: 「2025年度 会計でログインしています」 (never a name), then a full-width 「アカウントを切り替える」. That takes
     the account's data off the screen, signs out this device only, and shows `SignIn` in place.
   - Signed out: 「この端末ではログインしていません」.
+  - While the page checks the sign-in, or signs out: its caption (「ログインを確かめています」, 「ログアウトしています」).
+  - Offline: the offline line.
   - On mocks: that the page shows sample data.
-  - The tag turns solid while the slip is open.
+  - The tag turns solid, its chevron pointing up, while the slip is open.
 - **`YouCard`**, at the top of 自分のメモ (`/me` redirects there): who you are at the seat you came from, never by name.
   - Your dashed tag 「26 会計」 beside your byline (「2026年度 会計」, 20px bold).
   - The group and institution, and 「この席の3代目です」.
   - Someone who never held the seat is named as `SignIn` names them, with 「会計を担当したことはありません」.
   - Identity only: nothing to set. The notes, their filter and 「撤回する」 follow.
-  - It is read with the notes, so the card and the list appear together.
+  - It is read with the notes, so the card and the list appear together. A seat that can't be read leaves the card out,
+    never the notes.
 - **`SignIn`**: what a signed-out seat page shows in place (the URL stays the seat link, so an NFC tap still lands
   on the seat). A UI area with no ruled lines: 「ログイン」 and a one-sentence lead in `--ink-2`, then 「アカウント」 and the
   five demo accounts as 44px choices, never by name: a holder by the label pack's byline (「2026年度 会計」), the other

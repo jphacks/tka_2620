@@ -75,8 +75,10 @@ export function SignInGate({
     await signOut().catch(() => undefined);
     setSession({ kind: "signedOut" });
   }
-  // The bar's 「あなた」 names the account only while its data is on screen here, and switches through this gate.
+  // The bar's 「あなた」 says where this gate is, names the account only while its data is on screen here, and switches
+  // through this gate.
   useAccountSlot(
+    session.kind,
     session.kind === "signedIn" ? session.signed.account : undefined,
     switchAccount,
   );

@@ -90,7 +90,11 @@ function MyNotesList({
   // biome-ignore lint/correctness/useExhaustiveDependencies: loadTry is the retry button's way to read the notes again
   useEffect(() => {
     let alive = true;
-    Promise.all([api.myNotes(), seat ? api.seat(seat) : undefined])
+    // The card is extra: a seat that can't be read (a mistyped ?seat=, a moment offline) leaves it out, never the notes.
+    Promise.all([
+      api.myNotes(),
+      seat ? api.seat(seat).catch(() => undefined) : undefined,
+    ])
       .then(async ([mine, here]) => {
         const bySlug = await seatsOf(api, mine.notes);
         if (!alive) return;

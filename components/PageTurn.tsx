@@ -1,5 +1,5 @@
 "use client";
-// docs/DESIGN.md → Motion, page change: when a seat page gives way to another (a verb tab, 「あなた」, the guide link),
+// docs/DESIGN.md → Motion, page change: when a seat page gives way to another (a verb tab, the guide link),
 // the new page's content fades in over 160ms, like a notebook page turning. Opacity only, no slide; never on the first
 // load (the page is simply there); instant under prefers-reduced-motion. Lives in app/(seat)/layout.tsx and runs before
 // paint, so the new page never shows for a frame before it fades.

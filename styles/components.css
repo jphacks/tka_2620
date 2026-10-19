@@ -178,12 +178,13 @@ html { overscroll-behavior-y: none; }
   :root:not([data-theme="light"]) .dd-when-light { display: none; }
   :root:not([data-theme="light"]) .dd-when-dark { display: block; }
 }
-/* 「あなた」: the lineage rail's dashed blank tag for the viewer, lying down, and the account on this device; solid while
-   its menu is open */
-.dd-you { display: inline-grid; place-items: center; min-width: 44px; min-height: 44px; box-sizing: border-box; padding: 0 var(--s-3); border: 1.5px dashed var(--blue); border-radius: var(--r-tag); color: var(--blue);
+/* 「あなた」: the lineage rail's dashed blank tag for the viewer, lying down, and the account on this device: a chevron
+   says it opens a menu, and it turns solid (the chevron up) while the menu is open */
+.dd-you { display: inline-flex; align-items: center; justify-content: center; gap: 2px; min-width: 44px; min-height: 44px; box-sizing: border-box; padding: 0 var(--s-3); border: 1.5px dashed var(--blue); border-radius: var(--r-tag); color: var(--blue);
   background: none; font: inherit; font-weight: 700; letter-spacing: .04em; font-feature-settings: "palt"; text-decoration: none; cursor: pointer; }
 .dd-you:hover, .dd-you:active { background: var(--blue-wash); }
-.dd-bar:has(.dd-account:popover-open) .dd-you { border-style: solid; background: var(--blue-wash); }
+.dd-you[aria-expanded="true"] { border-style: solid; background: var(--blue-wash); }
+.dd-you[aria-expanded="true"] svg { transform: rotate(180deg); }
 /* 「あなた」's menu (AccountMenu): a slip in the top layer, just under the bar at the right edge of the page's column:
    who is signed in on this device, then 「アカウントを切り替える」 across its width */
 .dd-account { position: fixed; inset: auto; top: 56px; right: max(var(--s-4), calc((100vw - 640px) / 2 + var(--s-4))); margin: 0;
