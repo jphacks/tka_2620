@@ -1,3 +1,8 @@
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/mark-dark.svg">
+  <img src="docs/images/mark-light.svg" width="112" alt="Daidai's mark: a blue note with its corner folded down and 々 written on it by hand (the 々 of 代々, generation after generation)">
+</picture>
+
 # Daidai (代々): the handover nobody writes
 
 [![CI (typecheck, unit tests, lint, on mock data)](https://github.com/jphacks/tka_2620/actions/workflows/ci.yml/badge.svg)](https://github.com/jphacks/tka_2620/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
