@@ -231,7 +231,7 @@ export function TrustConsole({
         className="dd-row"
         style={{ justifyContent: "space-between", alignItems: "center" }}
       >
-        {/* The app's key-tag icon in the top left, as on every screen: the way to the start page */}
+        {/* The app's mark in the top left, as on every screen: the way to the start page */}
         <div className="dd-row" style={{ gap: "var(--s-3)" }}>
           <Link href="/" className="dd-bar-home" title={t("bar.home")}>
             <AppIcon />

@@ -319,11 +319,14 @@ the 恩送り slide. English mirrors the Japanese. All strings live in `messages
 - Voice always has the text fallback in the same place.
 - Every page names itself (`generateMetadata`): 「会計（テニスサークル Smash）｜代々」, 「残す・会計（…）｜代々」, 「自分のメモ｜代々」;
   Next's route announcer reads it on each navigation, and a shared seat link gets a preview. The app installs from the browser
-  (`app/manifest.ts`); its icon is the key tag drawn in shapes (`app/app-mark.tsx`: sheet, ink edge, hole, ring, blue lines).
-- The same key tag stands in the top left of every screen in place of the word 「代々」 (Nico's call): `AppIcon`, an inline
-  SVG in the theme's tokens (so it follows the dark screen), 24px tall in a 44px target. On a seat page (`SeatBar`) and
-  in the console's title row it is the link to the start page, named 「代々」 for a screen reader (title
-  「はじめのページへ」) with a `--blue-wash` hover; on the start page it is a plain mark.
+  (`app/manifest.ts`). Its icon is the app's mark: three notes fanned like a hand of cards, the front one `--sheet` with an
+  `--ink` edge and three `--blue` lines (notes handed down). It is deliberately not the seat's key tag, which 聞く shows
+  right under it (Nico's call).
+- The same mark stands in the top left of every screen in place of the word 「代々」 (Nico's call): `AppIcon`, an inline
+  SVG in the theme's tokens (so it follows the dark screen), 28px in a 44px target (36px beside the console's title).
+  On a seat page (`SeatBar`) and in the console's title row it is the link to the start page, named 「代々」 for a screen
+  reader (title 「はじめのページへ」) with a `--blue-wash` hover; on the start page it is a plain mark. The PNG icons
+  (`app/app-mark.tsx`: favicon, home screen, link preview) draw the same shapes from `markSvg`, in the light colours.
 - Every seat page has two navs, each labelled: `SeatBar` (「表示とあなた」) and `VerbTabs` (「この席でできること」).
 - Print: paper only. `SeatBar`, `VerbTabs` and every `.dd-noprint` control are hidden, the light tokens are forced
   (the blackboard's pale ink would print grey on white), and an entry isn't split across sheets.
