@@ -69,6 +69,7 @@ export function MyNotes({
               }
               onWithdraw={() => onWithdraw(note.id)}
               disabled={withdrawing !== undefined}
+              titleLevel={headingLevel === 1 ? 2 : 3}
             />
           ) : null,
         )}

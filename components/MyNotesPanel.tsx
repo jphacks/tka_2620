@@ -21,6 +21,15 @@ import { useRealtime } from "@/lib/realtime";
 const sleep = (ms: number) =>
   new Promise<void>((resolve) => setTimeout(resolve, ms));
 
+// Heard, not seen: the line a screen reader reads after a withdrawal.
+const SR_ONLY = {
+  position: "absolute",
+  width: 1,
+  height: 1,
+  overflow: "hidden",
+  clip: "rect(0 0 0 0)",
+  whiteSpace: "nowrap",
+} as const;
 const ALL = "all";
 type Status = MyNote["status"] | typeof ALL;
 type Order = "newest" | "oldest";
@@ -53,6 +62,7 @@ function MyNotesList({ api, seat }: { api: Api; seat?: string }) {
   // The seat the page came from (?seat=) first; every seat of the author's notes is one choice away.
   const [atSeat, setAtSeat] = useState<string>(seat ?? ALL);
   const [order, setOrder] = useState<Order>("newest");
+  const [withdrawn, setWithdrawn] = useState<string>();
   const [query, setQuery] = useState("");
 
   useEffect(() => {
@@ -98,8 +108,17 @@ function MyNotesList({ api, seat }: { api: Api; seat?: string }) {
     await sleep(Math.max(0, LINE_MS - (performance.now() - clicked)));
     setWithdrawing({ id: noteId, phase: "collapse" });
     await sleep(COLLAPSE_MS);
+    const gone = notes?.find((note) => note.id === noteId);
     setNotes((previous) => previous?.filter((note) => note.id !== noteId));
     setWithdrawing(undefined);
+    // The entry and its button are gone: focus goes to the page's heading, and a screen reader hears what happened. The
+    // page doesn't scroll up to it: the notes below the withdrawn one stay where the eye is.
+    if (gone) setWithdrawn(gone.title);
+    const heading = document.querySelector<HTMLElement>("main h1, main h2");
+    if (heading) {
+      heading.tabIndex = -1; // focusable by script only, not a Tab stop
+      heading.focus({ preventScroll: true });
+    }
   }
 
   if (failed) {
@@ -240,15 +259,20 @@ function MyNotesList({ api, seat }: { api: Api; seat?: string }) {
   );
 
   return (
-    <MyNotes
-      notes={ordered}
-      seats={seats}
-      withdrawing={withdrawing}
-      withdrawFailed={withdrawFailed}
-      onWithdraw={withdraw}
-      tools={tools || undefined}
-      headingLevel={1}
-      emptyText={notes.length > 0 ? t("filter.noneMatch") : undefined}
-    />
+    <>
+      <output aria-live="polite" style={SR_ONLY}>
+        {withdrawn && t("myNotes.withdrawnNote", { title: withdrawn })}
+      </output>
+      <MyNotes
+        notes={ordered}
+        seats={seats}
+        withdrawing={withdrawing}
+        withdrawFailed={withdrawFailed}
+        onWithdraw={withdraw}
+        tools={tools || undefined}
+        headingLevel={1}
+        emptyText={notes.length > 0 ? t("filter.noneMatch") : undefined}
+      />
+    </>
   );
 }

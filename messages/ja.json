@@ -73,6 +73,8 @@
     "action": "もう一度ためす"
   },
   "abstain": {
+    "noOneReachable": "いま質問を受け取れる先輩がいないため、届けていません。",
+    "notHolder": "先輩に質問を届けられるのは、この席を担当した人だけです。",
     "routed": "この質問を次の引き継ぎに追加しました。"
   },
   "handover": {
@@ -297,6 +299,7 @@
     "unwritten_rule": "暗黙のルール"
   },
   "myNotes": {
+    "withdrawnNote": "「{title}」を撤回しました。どの回答にも出ません。",
     "used": "このメモは{n}回、回答に使われました",
     "empty": "まだメモはありません。",
     "withdrawn": "撤回済み",

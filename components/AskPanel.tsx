@@ -178,7 +178,11 @@ export function AskPanel({
             </p>
           )}
           {result?.status === "abstained" && seatView && (
-            <AbstainEntry result={result} seat={seatView.seat} />
+            <AbstainEntry
+              result={result}
+              seat={seatView.seat}
+              isHolder={seatView.viewer.isHolder}
+            />
           )}
           {/* Plays last year's treasurer answering q04 in this tab (lib/mocks.ts), so the loop works on one device. */}
           {mockShortcuts &&

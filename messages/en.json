@@ -73,6 +73,8 @@
     "action": "Try again"
   },
   "abstain": {
+    "noOneReachable": "No predecessor can take questions right now, so it wasn't sent.",
+    "notHolder": "Only the seat's holders can send a question to their predecessors.",
     "routed": "Added to the next handover."
   },
   "handover": {
@@ -297,6 +299,7 @@
     "unwritten_rule": "Unwritten rule"
   },
   "myNotes": {
+    "withdrawnNote": "Withdrew “{title}”. It no longer appears in any answer.",
     "used": "This note was used in {n} answers",
     "empty": "You haven't written any notes yet.",
     "withdrawn": "Withdrawn",
