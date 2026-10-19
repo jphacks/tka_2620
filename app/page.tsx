@@ -1,6 +1,12 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { LanguageToggle, ThemeToggle } from "@/components/DisplayToggles";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("meta");
+  return { title: { absolute: t("home") } };
+}
 
 // The demo's seat (docs/SPEC.md → The golden path): the one the stage opens, and its NFC sticker's link.
 const DEMO_SEAT = "smash-kaikei";

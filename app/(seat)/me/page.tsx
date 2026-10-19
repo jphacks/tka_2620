@@ -1,6 +1,13 @@
+import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 import { ProfilePanel } from "@/components/ProfilePanel";
 import { VerbTabs } from "@/components/VerbTabs";
 import { SeatSlug } from "@/lib/contracts";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("meta");
+  return { title: t("me") };
+}
 
 // /me: who you are at the seat you came from (SeatBar's 「あなた」 brings it along as ?seat=). Not a fourth verb: the verb
 // tabs stay, with none of them current.

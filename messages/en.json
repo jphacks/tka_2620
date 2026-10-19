@@ -265,6 +265,22 @@
     "source": "Latest version: {url}",
     "failed": "Couldn't load the handover guide. Check the connection and try again."
   },
+  "meta": {
+    "app": "Daidai",
+    "template": "%s | Daidai",
+    "home": "Daidai | Knowledge passes down with the seat, not the person.",
+    "description": "A handover notebook for each seat: ask what your predecessors left. What nobody knows reaches last year's holder.",
+    "seat": "{seat} ({group})",
+    "seatDescription": "The {seat} seat of {group}: ask what your predecessors left.",
+    "ask": "Ask",
+    "handover": "Hand over: {seat} ({group})",
+    "handoverPlain": "Hand over",
+    "guide": "Handover guide: {seat} ({group})",
+    "guidePlain": "Handover guide",
+    "me": "You",
+    "notes": "My notes",
+    "console": "Trust proof"
+  },
   "onkuri": {
     "credit": "{n} senpai answered {q} of your questions. Your turn!"
   },

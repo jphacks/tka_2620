@@ -1,7 +1,14 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 import { ConsoleSignIn } from "@/components/ConsoleSignIn";
 import { Metrics } from "@/lib/contracts";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("meta");
+  return { title: t("console") };
+}
 
 // The leak counter and 「測定の内訳」 show what the checks measured (`pnpm metrics` → metrics/latest.json, committed), never
 // a number typed into the screen. No file yet, or one that doesn't match the contract: they say the tests haven't run.
