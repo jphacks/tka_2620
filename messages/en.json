@@ -76,6 +76,7 @@
     "routed": "Added to the next handover."
   },
   "handover": {
+    "seatLine": "The {seat} seat of {group}",
     "reasonDemand": "{n, plural, one {# newcomer asked this} other {# newcomers asked this}}",
     "reasonRequired": "Required by {group}",
     "readers": "{n, plural, one {# person can read this} other {# people can read this}}",
@@ -303,6 +304,7 @@
     "withdrawFailed": "Couldn't withdraw the note. Press Withdraw again."
   },
   "inbox": {
+    "announce": "A newcomer asked ({from}): {question}",
     "title": "Questions from newcomers",
     "arrived": "A newcomer asked you something",
     "from": "From",
@@ -338,6 +340,7 @@
     "stamp": "Note by {byline}"
   },
   "import": {
+    "holdersOnly": "Only the seat's holders can add documents or chats here.",
     "title": "Add from docs, files and chats",
     "paste": "Paste last year's handover doc",
     "extract": "Turn into notes",

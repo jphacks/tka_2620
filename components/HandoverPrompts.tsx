@@ -49,6 +49,8 @@ export function HandoverPrompts({
   slug,
   refresh = 0,
   onPublished,
+  hidden,
+  onLoaded,
   api: given,
 }: {
   slug: string;
@@ -56,6 +58,11 @@ export function HandoverPrompts({
   refresh?: number;
   /** Cards were published here (the inbox on the same page reads its slips again). */
   onPublished?: () => void;
+  /** Questions the inbox above already shows: one place per newcomer's question. */
+  hidden?: ReadonlySet<string>;
+  /** The seat and the prompts have been read once, whether that worked or not (残す shows its sections together then).
+   * Stable. */
+  onLoaded?: () => void;
   /** The signed-in predecessor's client; mocks as a25 when left out. */
   api?: Api;
 }) {
@@ -73,6 +80,8 @@ export function HandoverPrompts({
   const opened = useRef<string | undefined>(undefined);
   opened.current = open?.prompt.id;
   const [trouble, setTrouble] = useState<keyof typeof TROUBLE>();
+  // What was said or typed for each prompt, so やめる on its drafted cards gives the answer back instead of a blank box.
+  const [answers, setAnswers] = useState<Readonly<Record<string, string>>>({});
   // The scopes each answered prompt's cards went out at, by prompt id.
   const [published, setPublished] = useState<ReadonlyMap<string, Scope[]>>(
     new Map(),
@@ -113,6 +122,11 @@ export function HandoverPrompts({
   useEffect(() => {
     load();
   }, [load, refresh]);
+  const loaded =
+    (view !== undefined || seatFailed) && (prompts !== undefined || failed);
+  useEffect(() => {
+    if (loaded) onLoaded?.();
+  }, [loaded, onLoaded]);
   useRealtime(api, "prompt_routes", () => {
     load();
   });
@@ -127,6 +141,7 @@ export function HandoverPrompts({
     const followup = reply ? open?.draft?.followup : undefined;
     const current: Open =
       open?.prompt.id === prompt.id ? open : { prompt, answer };
+    setAnswers((all) => ({ ...all, [prompt.id]: answer }));
     setOpen(current);
     setBusy(true);
     setTrouble(undefined);
@@ -180,7 +195,17 @@ export function HandoverPrompts({
     }
   }
 
-  if (!view && !seatFailed) return null; // the inbox above is what the leaver came for; this follows when ready
+  // The inbox above is what the leaver came for; this section keeps its place (heading and a line) until it's ready, so
+  // nothing below jumps when it arrives.
+  if (!view && !seatFailed) {
+    return (
+      <section className="dd-col" style={{ gap: "var(--s-5)" }}>
+        <h2 className="dd-h">{t("handover.promptsTitle")}</h2>
+        <output className="dd-cap">{t("profile.loading")}</output>
+      </section>
+    );
+  }
+  const shownPrompts = prompts?.filter((prompt) => !hidden?.has(prompt.id));
   const seat = view?.seat;
   const termLabel = view?.viewer.termLabel; // what publishing signs with
   const scopeLabel = (scope: Scope) =>
@@ -215,17 +240,17 @@ export function HandoverPrompts({
         {t("handover.promptsTitle")}
       </h2>
       {(failed || seatFailed) && (
-        <p style={{ margin: 0, color: "var(--ink-2)" }}>
+        <p role="alert" style={{ margin: 0, color: "var(--ink-2)" }}>
           {t("handover.promptsFailed")}
         </p>
       )}
-      {prompts?.length === 0 && (
+      {shownPrompts?.length === 0 && (
         <p style={{ margin: 0, color: "var(--ink-2)" }}>
           {t("handover.promptsEmpty")}
         </p>
       )}
       {seat &&
-        prompts?.map((prompt) => {
+        shownPrompts?.map((prompt) => {
           const scopes = published.get(prompt.id);
           const answering = open?.prompt.id === prompt.id;
           return (
@@ -278,7 +303,7 @@ export function HandoverPrompts({
                     onPublish={publish}
                   />
                   {trouble && (
-                    <p className="dd-cap" style={{ margin: 0 }}>
+                    <p role="alert" className="dd-cap" style={{ margin: 0 }}>
                       {t(TROUBLE[trouble])}
                     </p>
                   )}
@@ -300,12 +325,14 @@ export function HandoverPrompts({
                     item={{ promptId: prompt.id }}
                     seat={slug}
                     api={api}
+                    initialText={answers[prompt.id]}
+                    describedBy={`${titleId}-${prompt.id}`}
                     drafting={busy && answering}
                     locked={open !== undefined && !answering}
                     onDraft={(answer) => draft(prompt, answer)}
                   />
                   {answering && trouble && (
-                    <p className="dd-cap" style={{ margin: 0 }}>
+                    <p role="alert" className="dd-cap" style={{ margin: 0 }}>
                       {t(TROUBLE[trouble])}
                     </p>
                   )}

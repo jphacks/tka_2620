@@ -61,11 +61,7 @@ function Profile({
     };
   }, [api, slug]);
 
-  const title = (
-    <h1 className="dd-h" style={{ fontSize: "var(--text-l)", lineHeight: 1.3 }}>
-      {t("profile.title")}
-    </h1>
-  );
+  const title = <h1 className="dd-h dd-page-title">{t("profile.title")}</h1>;
   const calm = (message: string) => (
     <section className="dd-col" style={{ gap: "var(--s-4)" }}>
       {title}
