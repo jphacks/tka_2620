@@ -1,5 +1,5 @@
 "use client";
-// docs/DESIGN.md → SeatBar: a quiet row above every seat page (app/(seat)/layout.tsx): the app's key-tag icon on the
+// docs/DESIGN.md → SeatBar: a quiet row above every seat page (app/(seat)/layout.tsx): the app's mark (AppIcon) on the
 // left (named 「代々」 for a screen reader), which leads
 // to the start page (the demo's seat and the console), then the language and theme switches and the 「あなた」 tag,
 // which opens who you are at this seat (/me). It isn't a fourth verb: 聞く · 残す · 自分のメモ stay the only tabs. The
