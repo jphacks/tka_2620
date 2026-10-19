@@ -121,6 +121,12 @@ export function AddSlip({
   const api = useMemo(() => given ?? createMockApi("a25"), [given]);
   const tabs = useRef<(HTMLButtonElement | null)[]>([]);
   const notice = useRef<HTMLParagraphElement>(null);
+  // Opened (a tap on 「＋ 追加」 or a dropped file), the slip's heading takes focus, so the keyboard and a screen reader
+  // land in it instead of staying on the button above.
+  const heading = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    heading.current?.focus();
+  }, []);
   const summary = useRef<HTMLOutputElement>(null);
   // Each new input, 「やり直す」 and tab change starts a new round; a slow read or send from an older one is dropped.
   const round = useRef(0);
@@ -324,7 +330,12 @@ export function AddSlip({
           padding: "var(--s-3) var(--s-4) var(--s-2)",
         }}
       >
-        <h2 className="dd-h" style={{ flex: 1, minWidth: 0 }}>
+        <h2
+          ref={heading}
+          tabIndex={-1}
+          className="dd-h"
+          style={{ flex: 1, minWidth: 0 }}
+        >
           {t("import.title")}
         </h2>
         <button

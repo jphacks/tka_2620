@@ -200,7 +200,10 @@ Use Japanese notebook marks, not coloured chips or emoji. Each mark is followed 
   on its slip (the prompts leave out what the inbox holds); a new one is read out in one line
   (「後輩から質問が届きました（2026年度 会計）：…」), and the inbox reads itself again when the phone wakes or comes back
   online. Each answer box is described by its question, keeps its draft when its drafted cards are put away (やめる), and
-  dictates in the question's (or the page's) language. 「＋ 追加」 shows only to the seat's holders; others read why.
+  dictates in the question's (or the page's) language. 「＋ 追加」 sits right after the 「引き継ぎの質問」 heading, on its line
+  and left-aligned with the cards below (Nico's call). One caption line under them says what it adds
+  (「いつでも追加できます。最初は、去年の資料やトーク履歴から始めましょう」), and the slip opens right there, above the cards.
+  「＋ 追加」 shows only to the seat's holders; others read why in that line.
   自分のメモ shows no title either. あなた's h1 and the guide's title are `--text-l`, one step above their 20px section
   headings.
 - **`VoiceAnswer`**: a textbox (1px `--ink-2`, `--blue` while focused) holding the answer in Klee One on ruled lines,
@@ -221,7 +224,8 @@ Use Japanese notebook marks, not coloured chips or emoji. Each mark is followed 
   still say what was left in, in full words (「絞り込み：すべての種類、2025年度 会計」).
 - **`ScopeRings`**: four concentric rings drawn in 1.5px `--blue`; the chosen ring fills with `--blue-wash`.
   Labels from the seat's label pack. `ReaderCount` beside it: 「12人が読めます」 in figures; no avatar stack.
-- **`AddPanel`** (「＋ 追加」): a slip with three index tabs, 貼り付け · ファイル · トーク履歴; `FileDrop` is a dashed
+- **`AddPanel`** (「＋ 追加」, beside the prompts' heading on 残す): a slip with three index tabs, 貼り付け · ファイル ·
+  トーク履歴; `FileDrop` is a dashed
   `--rule` area; then `RedactionPreview`, the drafted `NoteEntry`s, `DuplicateHint`, `MissingList`.
 - **`RedactionPreview`**: counts line 「名前 12件・電話番号 2件を隠しました」 with the numbers in `--green`, speaker rows
   with role pickers, the scrollable text with blackout bars, the consent checkbox, 「この内容だけを送る」.
