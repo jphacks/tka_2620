@@ -329,7 +329,7 @@ html { overscroll-behavior-y: none; }
 .dd-guide-cover > svg { color: var(--blue); }
 /* On the narrowest phones the spine says "book" alone: the icon's room goes to the lead, two lines instead of three */
 @media (max-width: 359px) { .dd-guide-cover { grid-template-columns: minmax(0, 1fr) auto; } .dd-guide-cover > svg:first-child { display: none; } }
-.dd-guide-cover-text { display: grid; gap: 2px; }
+.dd-guide-cover-text { display: grid; gap: var(--s-1); }
 .dd-guide-cover-title { font-size: var(--text-s); line-height: 24px; font-weight: 700; letter-spacing: .04em; word-break: auto-phrase; }
 .dd-guide-cover-act { display: inline-flex; align-items: center; gap: var(--s-1); color: var(--blue); font-weight: 700; white-space: nowrap; }
 /* The reading sheet: the guide over 聞く, full height on a phone, a 560px panel on the right from 720px, where 聞く shows
@@ -347,11 +347,12 @@ html { overscroll-behavior-y: none; }
 @keyframes dd-sheet-in { from { transform: translateX(32px); opacity: 0; } to { transform: none; opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .dd-sheet[open] { animation: none; } }
 @media (prefers-reduced-transparency: reduce) { .dd-sheet::backdrop { background: var(--paper); } }
-:root:has(.dd-sheet[open]) { overflow: hidden; }
+:root:has(.dd-sheet[open]) { overflow: hidden; scrollbar-gutter: stable; } /* no shift where scrollbars take room */
 .dd-sheet-head { display: flex; align-items: center; gap: var(--s-2); min-height: 60px; box-sizing: border-box;
   padding: var(--s-2) var(--s-2) var(--s-2) var(--s-4); border-bottom: 1px solid var(--rule); }
+/* the title wraps rather than losing the seat's name (a long seat, or English at 320) */
 .dd-sheet-title { flex: 1; min-width: 0; margin: 0; font-size: var(--text-m); line-height: 28px; font-weight: 700; letter-spacing: .04em;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  overflow-wrap: anywhere; text-wrap: balance; }
 .dd-sheet-title:focus:not(:focus-visible) { outline: none; } /* focused by script on opening, for a screen reader */
 .dd-sheet-save { display: inline-flex; align-items: center; gap: var(--s-1); min-height: 44px; padding-inline: var(--s-3); }
 .dd-sheet-close { display: grid; place-items: center; width: 44px; height: 44px; border: 0; border-radius: var(--r-button);
