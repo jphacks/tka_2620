@@ -4,10 +4,9 @@
 // the double line, then the entry closes and leaves — and the engine drops the note out of every answer
 // (POST /api/notes/[id]/withdraw). On mocks as last year's treasurer (a25); on real data as the account signed in on
 // this device, or the login screen in place (components/SignInGate.tsx), so withdrawing works from a phone too. Filters narrow the list
-// by status, scope ring and seat, and the order is newest or oldest first (GET /api/me/notes lists newest first). Under
-// 状態 「すべて」 the list is what's live and a withdrawn note joins the fold at its end (MyNotes), now and after a reload
-// alike; 「公開中」 shows the live notes alone, 「撤回済み」 the withdrawn ones, listed in place (Nico's call: the select
-// stays).
+// by status, scope ring and seat, and the order is newest or oldest first (GET /api/me/notes lists newest first). 状態
+// starts at 「公開中」, the live notes (Nico's call), so a note just withdrawn leaves the list; 「すべて」 and 「撤回済み」 list
+// withdrawn notes in place, their titles crossed out, now and after a reload alike. No fold.
 import { useTranslations } from "next-intl";
 import { useEffect, useMemo, useState } from "react";
 import { matches } from "@/components/guide";
@@ -81,7 +80,7 @@ function MyNotesList({
     id: string;
     phase: WithdrawPhase;
   }>();
-  const [status, setStatus] = useState<Status>(ALL);
+  const [status, setStatus] = useState<Status>("live"); // 公開中 by default
   const [scope, setScope] = useState<Scope | typeof ALL>(ALL);
   // The seat the page came from (?seat=) first; every seat of the author's notes is one choice away.
   const [atSeat, setAtSeat] = useState<string>(seat ?? ALL);
@@ -89,6 +88,11 @@ function MyNotesList({
   const [loadTry, setLoadTry] = useState(0); // the retry button reads the notes again
   const [withdrawn, setWithdrawn] = useState<string>();
   const [query, setQuery] = useState("");
+  // After a withdrawal under 公開中, the note leaves the list: one visible line says where to find it, until the filter
+  // changes.
+  const [whereHint, setWhereHint] = useState(false);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: any change to the filter puts the hint away
+  useEffect(() => setWhereHint(false), [status, scope, atSeat, query]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: loadTry is the retry button's way to read the notes again
   useEffect(() => {
@@ -149,6 +153,7 @@ function MyNotesList({
     // The entry and its button are gone: focus goes to the page's heading, and a screen reader hears what happened. The
     // page doesn't scroll up to it: the notes below the withdrawn one stay where the eye is.
     if (gone) setWithdrawn(gone.title);
+    if (gone) setWhereHint(true);
     const heading = document.querySelector<HTMLElement>("main h1, main h2");
     if (heading) {
       heading.tabIndex = -1; // focusable by script only, not a Tab stop
@@ -187,8 +192,8 @@ function MyNotesList({
   const wordsSeat =
     seats[seatFilter === ALL ? slugs[0] : seatFilter] ??
     Object.values(seats)[0];
-  // An empty list says which notes there are none of (公開中, or 撤回済み under that 状態), and that nothing matches only
-  // when some exist that the search or another filter hides. Under すべて the list is the live notes.
+  // An empty list says which notes there are none of (公開中 or 撤回済み, under that 状態), and that nothing matches when
+  // some exist that the search or another filter hides.
   const hasLive = notes.some((note) => note.status !== "withdrawn");
   const hasWithdrawn = notes.some((note) => note.status === "withdrawn");
   const emptyText =
@@ -196,9 +201,11 @@ function MyNotesList({
       ? undefined
       : status === "withdrawn"
         ? t(hasWithdrawn ? "filter.noneMatch" : "myNotes.noneWithdrawn")
-        : t(hasLive ? "filter.noneMatch" : "myNotes.noneLive");
+        : status === "live"
+          ? t(hasLive ? "filter.noneMatch" : "myNotes.noneLive")
+          : t("filter.noneMatch");
   const filtered =
-    status !== ALL ||
+    status !== "live" ||
     scope !== ALL ||
     (seatFilter !== ALL && slugs.length > 1) ||
     query.trim() !== "";
@@ -226,9 +233,10 @@ function MyNotesList({
           value={status}
           onChange={(event) => setStatus(event.target.value as Status)}
         >
-          <option value={ALL}>{t("filter.allStatus")}</option>
+          {/* The default first: 公開中 */}
           <option value="live">{t("filter.live")}</option>
           <option value="withdrawn">{t("myNotes.withdrawn")}</option>
+          <option value={ALL}>{t("filter.allStatus")}</option>
         </select>
       </label>
       <label>
@@ -287,11 +295,7 @@ function MyNotesList({
       <div className="dd-filter-count">
         <output aria-live="polite">
           {t.rich("filter.shown", {
-            // What the list shows: under すべて the live notes (the fold counts its own), else the notes picked
-            n:
-              status === ALL
-                ? ordered.filter((note) => note.status !== "withdrawn").length
-                : ordered.length,
+            n: ordered.length,
             fig: (chunks) => <span className="dd-fig">{chunks}</span>,
           })}
         </output>
@@ -300,7 +304,7 @@ function MyNotesList({
             type="button"
             className="dd-link dd-filter-reset"
             onClick={() => {
-              setStatus(ALL);
+              setStatus("live");
               setScope(ALL);
               setAtSeat(ALL);
               setQuery("");
@@ -310,6 +314,11 @@ function MyNotesList({
           </button>
         )}
       </div>
+      {whereHint && status === "live" && (
+        <p className="dd-cap" style={{ gridColumn: "1 / -1", margin: 0 }}>
+          {t("myNotes.whereWithdrawn")}
+        </p>
+      )}
     </fieldset>
   );
 
@@ -333,7 +342,6 @@ function MyNotesList({
           ) : undefined
         }
         headingLevel={1}
-        fold={status === ALL}
         emptyText={emptyText}
       />
     </>

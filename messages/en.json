@@ -320,9 +320,8 @@
   },
   "myNotes": {
     "withdrawnNote": "Withdrew “{title}”. It no longer appears in any answer.",
-    "withdrawnTitle": "Withdrawn notes (<fig>{n}</fig>)",
-    "withdrawnLead": "No answer uses these any more.",
     "noneLive": "No live notes.",
+    "whereWithdrawn": "To see withdrawn notes, set Status to \"Withdrawn\".",
     "noneWithdrawn": "No withdrawn notes.",
     "used": "This note was used in {n} answers",
     "empty": "You haven't written any notes yet.",

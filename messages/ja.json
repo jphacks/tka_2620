@@ -320,9 +320,8 @@
   },
   "myNotes": {
     "withdrawnNote": "「{title}」を撤回しました。どの回答にも出ません。",
-    "withdrawnTitle": "撤回したメモ（<fig>{n}</fig>件）",
-    "withdrawnLead": "どの回答にも使われません。",
     "noneLive": "公開中のメモはありません。",
+    "whereWithdrawn": "撤回したメモは、状態を「撤回済み」にすると見られます。",
     "noneWithdrawn": "撤回したメモはありません。",
     "used": "このメモは{n}回、回答に使われました",
     "empty": "まだメモはありません。",

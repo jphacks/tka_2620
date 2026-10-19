@@ -193,18 +193,14 @@ export function TrustConsole({
         if (loadId.current !== loaded) return;
         if (pending.current) pending.current.api = false;
         tryStop();
-        // a25's pane: the double line finishes drawing, then the entry closes and joins the pane's fold of withdrawn
-        // notes (MyNotes), as on 自分のメモ.
+        // a25's pane drops the note: the double line finishes drawing, then the entry closes and leaves, as on
+        // 自分のメモ, whose 状態 starts at 公開中.
         await sleep(Math.max(0, LINE_MS - (performance.now() - clicked)));
         if (loadId.current !== loaded) return;
         setWithdrawing({ id: noteId, phase: "collapse" });
         await sleep(COLLAPSE_MS);
         if (loadId.current !== loaded) return;
-        setNotes((previous) =>
-          previous?.map((note) =>
-            note.id === noteId ? { ...note, status: "withdrawn" } : note,
-          ),
-        );
+        setNotes((previous) => previous?.filter((note) => note.id !== noteId));
         setWithdrawing(undefined);
       },
       () => {
