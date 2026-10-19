@@ -374,7 +374,7 @@ export function Guide({
   return (
     <div className="dd-col dd-guide" style={{ gap: "var(--s-6)" }}>
       <header className="dd-col" style={{ gap: "var(--s-2)" }}>
-        {/* Inline on 聞く the cover and the key tag above already say these: paper only */}
+        {/* In the sheet on 聞く, its header and the key tag already say these: paper only */}
         <Title className={`dd-h dd-guide-title${paperOnly}`}>
           {t("guide.title", { seat: seat.name })}
         </Title>
@@ -422,7 +422,7 @@ export function Guide({
       )}
       {filterNote && <p className="dd-cap dd-print-only">{filterNote}</p>}
 
-      {/* Inline on 聞く too: the page hides its own list while the guide is open */}
+      {/* In the sheet on 聞く too: the guide is the whole handover, deadlines first */}
       <UpcomingList items={upcoming} />
 
       {guide.notes.length === 0 && (
