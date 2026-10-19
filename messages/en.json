@@ -211,9 +211,9 @@
     "allStatus": "All",
     "live": "Live",
     "scope": "Who can read",
-    "allScopes": "Every scope",
+    "allScopes": "All",
     "seat": "Seat",
-    "allSeats": "Every seat",
+    "allSeats": "All",
     "newest": "Newest first",
     "oldest": "Oldest first"
   },
@@ -234,14 +234,16 @@
     "saved": "Saved {name}",
     "kind": "Kind",
     "byline": "Written by",
-    "allKinds": "All kinds",
-    "allBylines": "Every predecessor",
+    "allKinds": "All",
+    "allBylines": "All",
     "sorts": {
-      "newest": "Newest term first",
-      "oldest": "Oldest term first",
-      "deadline": "Nearest deadline first"
+      "newest": "Newest",
+      "oldest": "Oldest",
+      "deadline": "Deadline"
     },
     "filteredNote": "Filtered: {kind}, {byline}",
+    "filteredAllKinds": "All kinds",
+    "filteredAllBylines": "Every predecessor",
     "noNotes": "There are no notes here that you may read yet.",
     "deadline": "Deadline {date}",
     "openTitle": "Not written yet",

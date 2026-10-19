@@ -166,11 +166,18 @@ export function Guide({
   const asOf = t("guide.asOf", {
     date: format.dateTime(new Date(), { dateStyle: "long" }),
   });
+  // The printout and the export say what was left in, in full words (「すべての種類」), not the select's short 「すべて」.
   const filterNote = filtered
     ? [
         t("guide.filteredNote", {
-          kind: kindWord(filter.kind),
-          byline: filter.byline === ALL ? t("guide.allBylines") : filter.byline,
+          kind:
+            filter.kind === ALL
+              ? t("guide.filteredAllKinds")
+              : kindWord(filter.kind),
+          byline:
+            filter.byline === ALL
+              ? t("guide.filteredAllBylines")
+              : filter.byline,
         }),
         query ? t("filter.searched", { query }) : "",
       ].join("")
