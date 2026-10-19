@@ -1,10 +1,11 @@
 "use client";
-// 残す on /s/<seat>/handover: newcomers' questions, the handover prompts, then 「＋ 追加」. No title on screen (Nico's call):
+// 残す on /s/<seat>/handover: newcomers' questions, then the handover prompts with 「＋ 追加」 beside their heading (Nico's
+// call: left-aligned with the cards, the slip opening right there, under the heading). No title on screen (Nico's call):
 // the verb tab says where you are; the h1 is there for a screen reader. A newcomer's question shows once, on its inbox
 // slip: the prompts below leave out what the inbox holds, and publishing in one has the other read its list again. Only
 // the seat's holders get 「＋ 追加」. The sections appear together, in place, once the seat, the inbox and the prompts
-// have been read: until then they are there but unseen, so 「＋ 追加」 doesn't slide down under a finger as the slips and
-// prompts above it arrive. The seat is read here once, for the prompts and 「＋ 追加」 alike, with one retry.
+// have been read: until then they are there but unseen, so 「＋ 追加」 doesn't move under a finger as the slips above it
+// arrive. The seat is read here once, for the prompts and 「＋ 追加」 alike, with one retry.
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AddPanel } from "@/components/AddPanel";
@@ -81,20 +82,26 @@ export function HandoverColumn({
           mockShortcuts={mockShortcuts}
           onPublished={() => setPromptsRead((n) => n + 1)}
         />
-        <HandoverPrompts
-          slug={slug}
-          api={api}
-          view={view}
-          seatFailed={seatFailed}
-          onSeatRetry={retrySeat}
-          refresh={promptsRead}
-          hidden={inInbox}
-          onLoaded={onPromptsLoaded}
-          onPublished={() => setInboxRead((n) => n + 1)}
-        />
-        {/* There from the start, so a file dropped on the page never opens in the tab; it shows 「＋ 追加」 (or why not)
-            only once the seat says who may add, so a non-holder never sees the button flash */}
-        <AddPanel slug={slug} api={api} canAdd={view?.viewer.isHolder} />
+        {/* AddPanel is there from the start, so a file dropped on the page never opens in the tab; it shows 「＋ 追加」 (or
+            why not) only once the seat says who may add, so a non-holder never sees the button flash */}
+        <AddPanel slug={slug} api={api} canAdd={view?.viewer.isHolder}>
+          {({ button, note, slip }) => (
+            <HandoverPrompts
+              slug={slug}
+              api={api}
+              view={view}
+              seatFailed={seatFailed}
+              onSeatRetry={retrySeat}
+              refresh={promptsRead}
+              hidden={inInbox}
+              onLoaded={onPromptsLoaded}
+              onPublished={() => setInboxRead((n) => n + 1)}
+              action={button}
+              note={note}
+              panel={slip}
+            />
+          )}
+        </AddPanel>
       </div>
     </div>
   );

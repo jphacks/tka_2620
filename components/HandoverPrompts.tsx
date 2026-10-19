@@ -8,6 +8,7 @@
 // first answer only newcomers' questions join them.
 import { useTranslations } from "next-intl";
 import {
+  type ReactNode,
   useCallback,
   useEffect,
   useId,
@@ -56,6 +57,9 @@ export function HandoverPrompts({
   seatFailed = false,
   onSeatRetry,
   api: given,
+  action,
+  note,
+  panel,
 }: {
   slug: string;
   /** Changes when the inbox on the same page published an answer: read the list again. */
@@ -74,9 +78,31 @@ export function HandoverPrompts({
   onSeatRetry?: () => void;
   /** The signed-in predecessor's client; mocks as a25 when left out. */
   api?: Api;
+  /** Beside the heading, left-aligned with it and the cards: 「＋ 追加」 (AddPanel's button). */
+  action?: ReactNode;
+  /** One line under the heading (AddPanel's: when to add, or why not). */
+  note?: ReactNode;
+  /** Opened under the heading, above the cards (AddPanel's slip). */
+  panel?: ReactNode;
 }) {
   const t = useTranslations();
   const titleId = useId();
+  // The heading row, the same while loading and once loaded, so 「＋ 追加」 keeps its place: the heading with the action
+  // right after it, the line under them, then what the action opened.
+  const head = (
+    <>
+      <div className="dd-col" style={{ gap: "var(--s-1)" }}>
+        <div className="dd-section-head">
+          <h2 id={titleId} className="dd-h">
+            {t("handover.promptsTitle")}
+          </h2>
+          {action}
+        </div>
+        {note}
+      </div>
+      {panel}
+    </>
+  );
   const api = useMemo(() => given ?? createMockApi("a25"), [given]);
   const [prompts, setPrompts] = useState<HandoverPrompt[]>();
   // The seat view and the prompts fail apart: either one says the questions couldn't be read.
@@ -191,8 +217,12 @@ export function HandoverPrompts({
   // nothing below jumps when it arrives.
   if (!view && !seatFailed) {
     return (
-      <section className="dd-col" style={{ gap: "var(--s-5)" }}>
-        <h2 className="dd-h">{t("handover.promptsTitle")}</h2>
+      <section
+        className="dd-col"
+        style={{ gap: "var(--s-5)" }}
+        aria-labelledby={titleId}
+      >
+        {head}
         <output className="dd-cap">{t("profile.loading")}</output>
       </section>
     );
@@ -228,9 +258,7 @@ export function HandoverPrompts({
       style={{ gap: "var(--s-5)" }}
       aria-labelledby={titleId}
     >
-      <h2 id={titleId} className="dd-h">
-        {t("handover.promptsTitle")}
-      </h2>
+      {head}
       {(failed || seatFailed) && (
         <RetryLine
           message={t("handover.promptsFailed")}
