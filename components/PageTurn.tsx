@@ -14,8 +14,9 @@ export type SlideDirection = "forward" | "back";
 
 // The slide waiting for its new page: PageTurn ends it once the new path has committed.
 let landed: (() => void) | undefined;
-// A navigation that never lands (a failed request) doesn't hold the page for longer than this.
-const SLIDE_WAIT_MS = 1000;
+// While the slide waits, the page is held still and doesn't answer taps, so it waits this long at most. A page that comes
+// later (a cold route, a slow network) skips the slide and fades in when it arrives instead, as other page changes do.
+const SLIDE_WAIT_MS = 300;
 
 const lessMotion = () =>
   window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -31,10 +32,15 @@ export function slideTo(
   }
   const root = document.documentElement;
   root.dataset.slide = direction;
-  const transition = document.startViewTransition(
+  let transition: ViewTransition | undefined;
+  transition = document.startViewTransition(
     () =>
       new Promise<void>((done) => {
-        const giveUp = window.setTimeout(done, SLIDE_WAIT_MS);
+        const giveUp = window.setTimeout(() => {
+          landed = undefined; // PageTurn fades the page in when it comes
+          transition?.skipTransition();
+          done();
+        }, SLIDE_WAIT_MS);
         landed = () => {
           window.clearTimeout(giveUp);
           done();

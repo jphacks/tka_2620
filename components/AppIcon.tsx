@@ -38,7 +38,11 @@ export function AppIcon() {
   );
 }
 
-/** The mark as an SVG document in fixed colours, for next/og (it can't read the page's tokens). */
-export function markSvg(colours: Colours): string {
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${VIEWBOX}"><path d="${NOTE}" fill="${colours.note}"/><path d="${FOLD}" fill="${colours.fold}"/><path d="${GLYPH}" transform="${GLYPH_AT}" fill="${colours.glyph}"/></svg>`;
+/** The mark as an SVG document in fixed colours, for next/og (it can't read the page's tokens). bold thickens 々 for a
+ * small icon (the 32px favicon), where the hand's thin strokes would fade. */
+export function markSvg(colours: Colours, bold = false): string {
+  const weight = bold
+    ? ` stroke="${colours.glyph}" stroke-width="6" stroke-linejoin="round"`
+    : "";
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${VIEWBOX}"><path d="${NOTE}" fill="${colours.note}"/><path d="${FOLD}" fill="${colours.fold}"/><path d="${GLYPH}" transform="${GLYPH_AT}" fill="${colours.glyph}"${weight}/></svg>`;
 }

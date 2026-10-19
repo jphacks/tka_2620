@@ -113,8 +113,10 @@ export function GuideSheet({
   }, [open]);
   // 保存: print the guide alone, or save it as a PDF (the print dialog offers both).
   const print = useCallback(() => window.print(), []);
-  // Where a press began: dragging to select a note's text and letting go over the backdrop isn't a tap on the backdrop.
+  // Where a press began and ended: a drag between the sheet and the backdrop (selecting a note's text, either way) isn't
+  // a tap on the backdrop.
   const pressedOn = useRef<EventTarget | null>(null);
+  const releasedOn = useRef<EventTarget | null>(null);
 
   return (
     <>
@@ -178,9 +180,16 @@ export function GuideSheet({
         onPointerDown={(event) => {
           pressedOn.current = event.target;
         }}
+        onPointerUp={(event) => {
+          releasedOn.current = event.target;
+        }}
         onClick={(event) => {
           const backdrop = sheet.current;
-          if (event.target === backdrop && pressedOn.current === backdrop) {
+          if (
+            event.target === backdrop &&
+            pressedOn.current === backdrop &&
+            releasedOn.current === backdrop
+          ) {
             backdrop.close();
           }
         }}

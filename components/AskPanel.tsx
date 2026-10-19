@@ -278,13 +278,7 @@ export function AskPanel({
 
   return (
     <section className="dd-col dd-ask-panel" style={{ gap: "var(--s-6)" }}>
-      {dock ? (
-        // Docked: what went wrong sits right above the field, both above the verb tabs
-        <AskDock>
-          {alerts}
-          {field}
-        </AskDock>
-      ) : (
+      {!dock && (
         // In place: the field heads the panel, and what went wrong sits right under it, before the examples
         <>
           {field}
@@ -413,6 +407,14 @@ export function AskPanel({
             </article>
           ))}
         </section>
+      )}
+      {dock && (
+        // Docked: last in the panel, so the keyboard meets the page first and the field where it sits, right above the
+        // verb tabs; what went wrong sits right above the field
+        <AskDock>
+          {alerts}
+          {field}
+        </AskDock>
       )}
     </section>
   );
