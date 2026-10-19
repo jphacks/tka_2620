@@ -269,6 +269,9 @@ the 恩送り slide. English mirrors the Japanese. All strings live in `messages
 - Highlighter and colour never carry meaning alone: deadlines also show 〆 and the date; the rule change also
   shows 「変更」.
 - Voice always has the text fallback in the same place.
+- Every page names itself (`generateMetadata`): 「会計（テニスサークル Smash）｜代々」, 「残す・会計（…）｜代々」, 「自分のメモ｜代々」;
+  Next's route announcer reads it on each navigation, and a shared seat link gets a preview. The app installs from the browser
+  (`app/manifest.ts`); its icon is the key tag drawn in shapes (`app/app-mark.tsx`: sheet, ink edge, hole, ring, blue lines).
 - Every seat page has two navs, each labelled: `SeatBar` (「表示とあなた」) and `VerbTabs` (「この席でできること」).
 - Print: paper only. `SeatBar`, `VerbTabs` and every `.dd-noprint` control are hidden, the light tokens are forced
   (the blackboard's pale ink would print grey on white), and an entry isn't split across sheets.

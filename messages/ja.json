@@ -262,6 +262,22 @@
     "source": "最新の内容：{url}",
     "failed": "引き継ぎ書を読み込めませんでした。通信を確かめて、もう一度ためしてください。"
   },
+  "meta": {
+    "app": "代々",
+    "template": "%s｜代々",
+    "home": "代々｜知識は人ではなく、席に受け継がれる。",
+    "description": "先輩たちが席に残したメモに聞ける、引き継ぎのノート。誰も知らないことは、去年の担当に届きます。",
+    "seat": "{seat}（{group}）",
+    "seatDescription": "{group}の{seat}の席。先輩たちが残したメモに聞けます。",
+    "ask": "聞く",
+    "handover": "残す・{seat}（{group}）",
+    "handoverPlain": "残す",
+    "guide": "{seat}の引き継ぎ書（{group}）",
+    "guidePlain": "引き継ぎ書",
+    "me": "あなた",
+    "notes": "自分のメモ",
+    "console": "信頼の証明"
+  },
   "onkuri": {
     "credit": "{n}人の先輩が、あなたの質問{q}個に答えました。次はあなたの番です！"
   },
