@@ -80,9 +80,6 @@ body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(
 .dd-ask-status { margin: 0; }
 /* A long URL or word in a question or an answer wraps instead of widening a 390px phone */
 .dd-q, .dd-ruled { overflow-wrap: anywhere; }
-/* The inline guide takes focus when opened: the ring would frame the whole guide, so it shows on its heading's line only */
-.dd-guide-inline:focus { outline: none; }
-.dd-guide-inline:focus-visible .dd-guide-title { outline: 2px solid var(--blue); outline-offset: 4px; }
 
 /* 「新しい答え」 over an earlier question answered while the tab was closed: blue, as everything that is for you */
 .dd-new-answer { margin: 0; color: var(--blue); font-weight: 700; font-size: 13px; letter-spacing: .04em; }
@@ -158,8 +155,12 @@ html { overscroll-behavior-y: none; }
 .dd-bar { display: flex; justify-content: flex-end; align-items: center; gap: var(--s-2); max-width: 640px; margin-inline: auto; box-sizing: border-box; padding: var(--s-2) var(--s-4) 0; }
 @media (min-width: 600px) { .dd-bar { padding-inline: var(--s-5); } } /* the page's 24px gutter */
 /* 「代々」, the bar's way to the start page: the wordmark pushes the switches to the right */
-.dd-bar-home { margin-right: auto; display: inline-flex; align-items: center; justify-content: center; min-height: 44px; min-width: 44px; box-sizing: border-box; padding-inline: var(--s-1); color: var(--blue); font-weight: 700; letter-spacing: .12em; text-decoration: none; }
-.dd-bar-home:hover { text-decoration: underline; text-underline-offset: 3px; }
+/* The app's key-tag icon on the left of every bar, in place of the word 「代々」 (Nico's call): a 44px link to the start
+   page (on the start page itself a plain mark), the tag 24px tall */
+.dd-bar-home, .dd-bar-mark { margin-right: auto; display: inline-flex; align-items: center; justify-content: center; min-height: 44px; min-width: 44px; box-sizing: border-box; padding-inline: var(--s-1); border-radius: var(--r-button); }
+.dd-bar-home:hover { background: var(--blue-wash); }
+.dd-app-icon { display: block; height: 24px; width: auto; }
+.dd-console .dd-app-icon { height: 32px; } /* beside the console's 39px title on the projector */
 /* The start page (/): the name, one line, then its two ways in, each a heading, a sentence and its button, ruled apart */
 .dd-home { gap: var(--s-6); padding-top: var(--s-5); }
 .dd-home-title { margin: 0; font-size: var(--text-xxl); line-height: 1.2; letter-spacing: .12em; }
@@ -239,10 +240,10 @@ html { overscroll-behavior-y: none; }
 
 /* Handover guide (引き継ぎ書, /s/[seat]/guide): the header, the export buttons and the filter (never printed), the notes
    as NoteEntry slips, and what isn't written yet as blank lines (空欄) with a dashed stamp outline at the end */
-/* A page's h1 (残す, 自分のメモ, あなた) and the guide's title: one size above the sections' 20px headings */
+/* あなた's h1 and the guide's title: one size above the sections' 20px headings. 残す and 自分のメモ show no title (Nico's
+   call): the verb tab says where you are, and their h1 is for a screen reader. */
 .dd-page-title, .dd-guide-title { font-size: var(--text-l); line-height: 1.3; }
 .dd-guide-rules { margin: 0; }
-.dd-guide-link { justify-self: start; display: inline-flex; align-items: center; min-height: 44px; font-weight: 700; }
 .dd-guide-body { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .dd-gaps { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s-2); }
 .dd-gaps li { display: grid; grid-template-columns: 1fr auto; column-gap: var(--s-3); align-items: center; padding-block: var(--s-2); border-bottom: 1px solid var(--rule); }
@@ -286,9 +287,30 @@ html { overscroll-behavior-y: none; }
 .dd-seat-head .dd-tag { min-height: 44px; padding: var(--s-1) var(--s-3) var(--s-1) var(--s-6); }
 .dd-seat-head .dd-tag-name { font-size: var(--text-m); line-height: 28px; }
 .dd-tag-kind { font-family: var(--font-ui); font-size: var(--text-s); font-weight: 700; color: var(--ink-2); letter-spacing: .04em; }
-/* The guide opened inline on 聞く sits under the ask panel, ruled off from it (16 + the page's 32px gap = 48); scrolled
-   to, its rule stops clear of the top edge */
-.dd-guide-inline { margin-top: var(--s-4); padding-top: var(--s-5); border-top: 1px solid var(--rule); scroll-margin-top: 56px; }
+/* The way into the handover guide on 聞く, under the ask panel: the guide as a slip that says what it is (its title, one
+   line on what's inside) and what a tap does (読む, 閉じる once open). The whole slip is the button. Opened, it heads the
+   guide unfolded under it; scrolled to, it stops clear of the top edge. A blue spine on its left edge says it's a bound
+   book you can open, not one more note slip. */
+.dd-guide-cover { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; column-gap: var(--s-3);
+  width: 100%; min-height: 64px; padding: var(--s-3) var(--s-4); border-left: 4px solid var(--blue); text-align: start; font: inherit;
+  color: var(--ink); cursor: pointer; scroll-margin-top: 56px; }
+.dd-guide-cover:hover, .dd-guide-cover:active { background: var(--blue-wash); }
+.dd-guide-cover > svg { color: var(--blue); }
+/* On the narrowest phones the spine says "book" alone: the icon's room goes to the lead, two lines instead of three */
+@media (max-width: 359px) { .dd-guide-cover { grid-template-columns: minmax(0, 1fr) auto; } .dd-guide-cover > svg:first-child { display: none; } }
+.dd-guide-cover-text { display: grid; gap: 2px; }
+.dd-guide-cover-title { font-size: var(--text-s); line-height: 24px; font-weight: 700; letter-spacing: .04em; word-break: auto-phrase; }
+.dd-guide-cover-act { display: inline-flex; align-items: center; gap: var(--s-1); color: var(--blue); font-weight: 700; white-space: nowrap; }
+.dd-guide-cover[aria-expanded="true"] .dd-guide-cover-act svg { transform: rotate(180deg); }
+/* The guide opened under its cover, 24px below it (the wrap's 12 + 12); at its end, 「引き継ぎ書を閉じる」 */
+.dd-guide-inline { padding-top: var(--s-3); gap: var(--s-6); }
+.dd-guide-close { justify-self: start; display: inline-flex; align-items: center; min-height: 44px; font-weight: 700; }
+/* The inline guide's filter, folded: one 44px blue line that opens the frame under it */
+.dd-filter-fold > summary { display: flex; align-items: center; gap: var(--s-1); min-height: 44px; list-style: none; color: var(--blue);
+  font-weight: 700; cursor: pointer; }
+.dd-filter-fold > summary::-webkit-details-marker { display: none; }
+.dd-filter-fold[open] > summary { margin-bottom: var(--s-2); }
+.dd-filter-fold[open] > summary svg { transform: rotate(180deg); }
 @media print {
   /* Printing the inline guide: only the guide goes on paper, not the seat page around it */
   :root.dd-printing-guide .dd-seat-home > :not(:has(.dd-guide-inline)),
@@ -353,9 +375,6 @@ span.dd-mini::after { content: none; }
 @keyframes dd-arrive { from { transform: translateY(-8px); } to { transform: none; } }
 
 
-/* A verb page's heading with the seat it's for (残す): the h1, then one caption line kept even while it loads */
-.dd-page-head { display: grid; gap: var(--s-1); }
-.dd-page-head .dd-cap { margin: 0; min-height: 20px; }
 
 /* Voice */
 .dd-voice { position: relative; width: 80px; height: 80px; border-radius: var(--r-round); border: 0; background: var(--blue); color: var(--sheet); display: grid; place-items: center; cursor: pointer; flex: none; }
@@ -370,8 +389,10 @@ span.dd-mini::after { content: none; }
    over it at the bottom right (on the sheet, so text running under it stays out of the way), filled --blue with the
    pulsing ring while listening. The field grows with the answer. */
 /* The box is the field's label, so a tap anywhere on it, padding included, lands in the field. Focus shows as the blue
-   border and DESIGN.md's ring (2px blue, 2px off): one frame. */
-.dd-answer { display: block; position: relative; border: 1px solid var(--ink-2); border-radius: var(--r-button); background: var(--sheet);
+   border and DESIGN.md's ring (2px blue, 2px off): one frame. The mic is the label's neighbour in the same corner
+   (.dd-answer-box), so with focus on the mic only its own ring shows, inside its circle and clear of the border. */
+.dd-answer-box { position: relative; }
+.dd-answer { display: block; border: 1px solid var(--ink-2); border-radius: var(--r-button); background: var(--sheet);
   min-height: 48px; box-sizing: border-box; padding: 7px var(--s-3); cursor: text; }
 .dd-answer:focus-within { border-color: var(--blue); outline: 2px solid var(--blue); outline-offset: 2px; }
 .dd-answer .dd-voice-text { display: block; min-height: var(--s-6); field-sizing: content; resize: none; background-color: transparent; }
@@ -379,6 +400,8 @@ span.dd-mini::after { content: none; }
 .dd-mic { position: absolute; right: 3px; bottom: 3px; width: 40px; height: 40px; border-radius: var(--r-round); border: 0;
   background: var(--sheet); color: var(--blue); display: grid; place-items: center; cursor: pointer; z-index: 1; }
 .dd-mic:hover { background: var(--blue-wash); }
+.dd-mic:focus-visible { outline-offset: -4px; }
+.dd-mic.is-listening:focus-visible { outline-color: var(--sheet); }
 .dd-mic::before { content: ""; position: absolute; inset: -2px; } /* a 44px tap target around the 40px mic */
 .dd-mic.is-listening { background: var(--blue); color: var(--sheet); }
 .dd-mic.is-listening::after { content: ""; position: absolute; inset: 0; border-radius: var(--r-round); border: 4px solid var(--blue-wash); animation: dd-pulse 1.2s ease-out infinite; }

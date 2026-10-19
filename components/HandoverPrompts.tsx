@@ -52,6 +52,9 @@ export function HandoverPrompts({
   onPublished,
   hidden,
   onLoaded,
+  view,
+  seatFailed = false,
+  onSeatRetry,
   api: given,
 }: {
   slug: string;
@@ -64,16 +67,19 @@ export function HandoverPrompts({
   /** The seat and the prompts have been read once, whether that worked or not (残す shows its sections together then).
    * Stable. */
   onLoaded?: () => void;
+  /** The seat, read once by the page (HandoverColumn) for the prompts and 「＋ 追加」 alike. */
+  view?: SeatView;
+  /** The seat didn't load: the prompts say so, and their retry reads it again (onSeatRetry). */
+  seatFailed?: boolean;
+  onSeatRetry?: () => void;
   /** The signed-in predecessor's client; mocks as a25 when left out. */
   api?: Api;
 }) {
   const t = useTranslations();
   const titleId = useId();
   const api = useMemo(() => given ?? createMockApi("a25"), [given]);
-  const [view, setView] = useState<SeatView>();
   const [prompts, setPrompts] = useState<HandoverPrompt[]>();
   // The seat view and the prompts fail apart: either one says the questions couldn't be read.
-  const [seatFailed, setSeatFailed] = useState(false);
   const [failed, setFailed] = useState(false);
   const [open, setOpen] = useState<Open>();
   const [busy, setBusy] = useState(false);
@@ -87,23 +93,6 @@ export function HandoverPrompts({
   const [published, setPublished] = useState<ReadonlyMap<string, Scope[]>>(
     new Map(),
   );
-  const [seatTry, setSeatTry] = useState(0); // the retry button reads the seat again
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: seatTry is the retry button's way to read the seat again
-  useEffect(() => {
-    let alive = true;
-    api.seat(slug).then(
-      (seat) => {
-        if (alive) setView(seat);
-      },
-      () => {
-        if (alive) setSeatFailed(true);
-      },
-    );
-    return () => {
-      alive = false;
-    };
-  }, [api, slug, seatTry]);
 
   // Prompts already shown keep their places, so nothing slides in under the person's thumb (components/handover.ts →
   // mergePrompts).
@@ -246,10 +235,7 @@ export function HandoverPrompts({
         <RetryLine
           message={t("handover.promptsFailed")}
           onRetry={() => {
-            if (seatFailed) {
-              setSeatFailed(false);
-              setSeatTry((n) => n + 1);
-            }
+            if (seatFailed) onSeatRetry?.();
             load();
           }}
         />

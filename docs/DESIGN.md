@@ -163,16 +163,25 @@ Use Japanese notebook marks, not coloured chips or emoji. Each mark is followed 
   highlighter (`--marker` behind the text, slightly taller than the x-height, no rounded ends).
   A rule change is a red-pen margin note: a red bracket left of the sentence and 「2025年に変更」 in red UI text right
   after its stamp, on the same line.
+- **聞く, top to bottom:** `SeatHeader`, then the ask panel (the field, the first steps or the answers, 「これまでの質問」),
+  then the guide's cover (`HandoverGuide`, inline), then `UpcomingList`, then `LineageRail`.
+  - The field comes first: a tap on the key is for asking, and on a 390×664 phone the start of an answer stays above
+    the verb tabs.
+  - Asking one question and reading everything sit side by side.
+  - The lineage closes the page: every answer's stamps already carry the years.
 - **AskPanel's status line**: one always-present line for a screen reader, never shown: 「先輩たちのメモを探しています」, then
   the outcome (an answer, 「誰も知りません。…に届けました」, 「いま、…が答えました」). On screen the searching line sits under the
   new question, in `--ink-2`, where the answer will be (the only sign that 聞く is working), and the answer takes its place, so
-  nothing jumps; the new entry comes into view as it is added. The field appears once, in place: 聞く keeps the panel
-  unseen until the seat has loaded. A load that fails offers 「もう一度ためす」 (`RetryLine`).
+  nothing jumps; the new entry comes into view as it is added (smoothly, unless the device asks for less motion). The
+  field appears once, in place: 聞く keeps the panel unseen until the seat has loaded. A load that fails offers
+  「もう一度ためす」 (`RetryLine`). A question that didn't go out says so right under the field, above the first steps, comes
+  into view, and is back in the field to send again.
 - **First steps** on 聞く: someone who hasn't asked anything at the seat yet sees 「たとえば」 and three questions others ask at
   this kind of seat (the label pack's `seatTypes.<type>.examples`) as blue text buttons in the hand; a tap puts one in the
   field to read or change, never sends it. Gone after the first question; never on the console.
 - **A load that fails** offers 「もう一度ためす」 (`RetryLine`) everywhere a page or section reads data: the seat, the inbox,
-  the handover prompts, 自分のメモ and the guide.
+  the handover prompts, 自分のメモ and the guide. A read that hangs (venue Wi-Fi) gives up after 20 s and fails the
+  same way, so no page waits forever behind 「読み込んでいます」.
 - **「これまでの質問」** on 聞く: the asker's earlier questions at the seat (GET /api/seats/[slug]/asked), under this session's,
   answered ones as `AnswerEntry`, the rest with 「まだ答えはありません。答えが届くと、ここに出ます。」. An answer that came
   while the tab was closed carries 「新しい答え」 in blue UI text (13px, bold) once per device, and the status line reads out
@@ -184,19 +193,22 @@ Use Japanese notebook marks, not coloured chips or emoji. Each mark is followed 
 - **`InboxSlip`** (伝言メモ, on the predecessor's phone): a message slip like an office phone-message pad.
   Header 「後輩から質問が届きました」, a 「から」 field with 「2026年度 会計」, the question in Klee One 20px,
   「〇人が質問しました」, and the answer written on the slip itself (`VoiceAnswer`), so nothing has to open first.
-- **残す's page** (`HandoverColumn`): an h1 「残す」 with the seat it's for (「テニスサークル Smashの会計の席」), then the
-  inbox, the handover prompts and 「＋ 追加」. They appear together, in place, once the seat, the inbox and the prompts have
-  been read (a 「読み込んでいます」 caption until then), so nothing slides under a finger. A newcomer's question shows once,
+- **残す's page** (`HandoverColumn`): no title on screen (Nico's call: the verb tab says where you are; the h1 is for a
+  screen reader), just the inbox, the handover prompts and 「＋ 追加」. They appear together, in place, once the seat, the
+  inbox and the prompts have been read (a 「読み込んでいます」 caption until then), so nothing slides under a finger; a
+  file dropped on the page is kept off it from the first moment. A newcomer's question shows once,
   on its slip (the prompts leave out what the inbox holds); a new one is read out in one line
   (「後輩から質問が届きました（2026年度 会計）：…」), and the inbox reads itself again when the phone wakes or comes back
   online. Each answer box is described by its question, keeps its draft when its drafted cards are put away (やめる), and
   dictates in the question's (or the page's) language. 「＋ 追加」 shows only to the seat's holders; others read why.
-  A page's h1 (残す, 自分のメモ, あなた) is `--text-l`, one step above its 20px section headings.
+  自分のメモ shows no title either. あなた's h1 and the guide's title are `--text-l`, one step above their 20px section
+  headings.
 - **`VoiceAnswer`**: a textbox (1px `--ink-2`, `--blue` while focused) holding the answer in Klee One on ruled lines,
   growing with it and using its full width, with a round 40px microphone laid over it at the bottom right: `--blue` icon, filled `--blue` while
   listening with one ring pulsing outward in `--blue-wash`. Focused, the border turns `--blue` inside the usual 2px ring.
-  Tap anywhere on the box to type (it is the field's label) or the mic to speak; 「公開する」 appears below with the first
-  word and stays clear of the verb tabs as the answer grows. The same box sits on each handover prompt, where the button
+  Tap anywhere on the box to type (it is the field's label) or the mic to speak (it sits in the box's corner beside the
+  label, with its own focus ring inside its circle); 「公開する」 appears below with the first word and stays clear of the
+  verb tabs as the answer grows. The same box sits on each handover prompt, where the button
   says 「下書きを作る」.
 - **`NoteEntry`**: a note as a notebook entry: kind mark and title (UI bold), body (Klee One), date stamp
   bottom-right, scope in small UI text (「次の会計だけ」). Deadline notes show the date in figures with the highlighter.
@@ -231,9 +243,25 @@ Use Japanese notebook marks, not coloured chips or emoji. Each mark is followed 
        questions in blue
     4. 「あなたの質問と答え」 as `AnswerEntry`s, whose stamps open their notes
   - **Who wrote it:** people appear only as bylines (「2025年度 会計」).
-  - **Inline on 聞く:** 「引き継ぎ書を開く」 opens the same guide in place below the ask panel (no screen change) and scrolls
-    its top into view, 「引き継ぎ書を閉じる」 folds it; printing from there puts only the guide on paper. `/s/[seat]/guide`
-    stays for /me.
+  - **Inline on 聞く:** the way in is the guide's **cover**, a slip under the ask panel that says what it is:
+    - a 4px `--blue` spine on its left edge, so it reads as a book to open, not one more note;
+    - a line book icon (left out below 360px, where the spine alone says it);
+    - 「会計の引き継ぎ書」;
+    - one `--ink-2` line, 「先輩たちが残したメモを、一冊にまとめて読めます」;
+    - at the end, a blue 「読む」 with a chevron.
+
+    The whole slip is the button. A tap unfolds the same guide in place under it (no screen change):
+    - The cover becomes its header, saying 「閉じる」. Focus stays on the cover. Once loaded, the cover moves to the top
+      of the screen.
+    - Once the guide has loaded, the page's own deadline list steps aside, since the guide lists the deadlines at its
+      top. While it loads, or if it fails, the list stays.
+    - The title, group and institution go on paper only (the cover and the key tag say them).
+    - The filter folds under one 44px blue line, 「絞り込みと並び順」.
+    - The export buttons come after the notes: read first, then save.
+    - 「引き継ぎ書を閉じる」 at the end folds it and lands back on the cover.
+
+    Printing from there puts only the guide on paper, with its full header. `/s/[seat]/guide` stays as its own page, for
+    a direct link and the source line on paper: export first, the filter open.
 - **`WithdrawMeter`**: figures face, 39px on the console; counts in `--red` from the click, freezes in `--ink`
   when the last pane drops the note: 「0.8秒」.
 - **`LeakCounter`**: 「漏れ 0 / 50 回」, the 0 in `--green`.
@@ -291,6 +319,10 @@ the 恩送り slide. English mirrors the Japanese. All strings live in `messages
 - Every page names itself (`generateMetadata`): 「会計（テニスサークル Smash）｜代々」, 「残す・会計（…）｜代々」, 「自分のメモ｜代々」;
   Next's route announcer reads it on each navigation, and a shared seat link gets a preview. The app installs from the browser
   (`app/manifest.ts`); its icon is the key tag drawn in shapes (`app/app-mark.tsx`: sheet, ink edge, hole, ring, blue lines).
+- The same key tag stands in the top left of every screen in place of the word 「代々」 (Nico's call): `AppIcon`, an inline
+  SVG in the theme's tokens (so it follows the dark screen), 24px tall in a 44px target. On a seat page (`SeatBar`) and
+  in the console's title row it is the link to the start page, named 「代々」 for a screen reader (title
+  「はじめのページへ」) with a `--blue-wash` hover; on the start page it is a plain mark.
 - Every seat page has two navs, each labelled: `SeatBar` (「表示とあなた」) and `VerbTabs` (「この席でできること」).
 - Print: paper only. `SeatBar`, `VerbTabs` and every `.dd-noprint` control are hidden, the light tokens are forced
   (the blackboard's pale ink would print grey on white), and an entry isn't split across sheets.

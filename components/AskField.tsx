@@ -2,6 +2,11 @@
 
 import { useTranslations } from "next-intl";
 import { type FormEvent, useEffect, useRef, useState } from "react";
+import { AskRequest } from "@/lib/contracts";
+
+// The contract's limit (500 characters): the field stops there, so a pasted page can't go out only to fail with
+// 「もう一度聞いてください」, which asking again wouldn't fix.
+const MAX_QUESTION = AskRequest.shape.question.maxLength ?? undefined;
 
 // A single writing line and a blue 聞く button (docs/DESIGN.md → AskField). Not a chat box.
 export function AskField({
@@ -41,6 +46,7 @@ export function AskField({
         type="text"
         value={question}
         onChange={(event) => setQuestion(event.target.value)}
+        maxLength={MAX_QUESTION}
         placeholder={t("ask.placeholder")}
         aria-label={t("ask.placeholder")}
         enterKeyHint="send"

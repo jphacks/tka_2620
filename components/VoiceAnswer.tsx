@@ -227,24 +227,27 @@ export function VoiceAnswer({
     );
   }
 
-  // The answer field is a textbox with the microphone inside it at the right: tap the box to type (it is the field's
-  // label, so its padding takes the tap too), or the mic to speak (and again to stop). The button appears with the first
-  // word, and comes into view then: on a phone it can sit under the verb tabs.
+  // The answer field is a textbox with the microphone in its corner at the right: tap the box to type (it is the field's
+  // label, so its padding takes the tap too), or the mic to speak (and again to stop). The mic sits beside the label, not
+  // in it: a label holds one control. The button appears with the first word, and comes into view then: on a phone it
+  // can sit under the verb tabs.
   return (
     <section key="form" className="dd-col" style={{ gap: "var(--s-3)" }}>
-      <label className="dd-answer" htmlFor={fieldId}>
-        <textarea
-          id={fieldId}
-          ref={field}
-          className="dd-voice-text"
-          rows={1}
-          lang={item.lang}
-          aria-label={t("voice.answerLabel")}
-          aria-describedby={describedBy}
-          placeholder={t("voice.inlinePlaceholder")}
-          value={text}
-          onChange={(event) => change(event.target.value)}
-        />
+      <div className="dd-answer-box">
+        <label className="dd-answer" htmlFor={fieldId}>
+          <textarea
+            id={fieldId}
+            ref={field}
+            className="dd-voice-text"
+            rows={1}
+            lang={item.lang}
+            aria-label={t("voice.answerLabel")}
+            aria-describedby={describedBy}
+            placeholder={t("voice.inlinePlaceholder")}
+            value={text}
+            onChange={(event) => change(event.target.value)}
+          />
+        </label>
         <button
           type="button"
           className={`dd-mic${listening ? " is-listening" : ""}`}
@@ -257,7 +260,7 @@ export function VoiceAnswer({
         >
           <Mic size={22} aria-hidden="true" />
         </button>
-      </label>
+      </div>
       {listening && (
         <output className="dd-cap" style={{ color: "var(--ink-2)" }}>
           {t("inbox.listening")}
