@@ -326,11 +326,12 @@ the 恩送り slide. English mirrors the Japanese. All strings live in `messages
 - Voice always has the text fallback in the same place.
 - Every page names itself (`generateMetadata`): 「会計（テニスサークル Smash）｜代々」, 「残す・会計（…）｜代々」, 「自分のメモ｜代々」;
   Next's route announcer reads it on each navigation, and a shared seat link gets a preview. The app installs from the browser
-  (`app/manifest.ts`). Its icon is the app's mark: three notes fanned like a hand of cards, the front one `--sheet` with an
-  `--ink` edge and three `--blue` lines (notes handed down). It is deliberately not the seat's key tag, which 聞く shows
-  right under it (Nico's call).
+  (`app/manifest.ts`). Its icon is the app's mark (Nico's call: simple, with a unique touch): a filled `--blue` note with
+  its top-right corner folded down (`--blue-wash`), and on it 々 in `--sheet`, written in Klee One, the notes' hand. 々 is
+  the mark that repeats the character before it, "generation after generation": a note handed down. It is deliberately
+  not the seat's key tag, which 聞く shows right under it.
 - The same mark stands in the top left of every screen in place of the word 「代々」 (Nico's call): `AppIcon`, an inline
-  SVG in the theme's tokens (so it follows the dark screen), 28px in a 44px target (36px beside the console's title).
+  SVG in the theme's tokens (so it follows the dark screen), 32px in a 44px target (40px beside the console's title).
   On a seat page (`SeatBar`) and in the console's title row it is the link to the start page, named 「代々」 for a screen
   reader (title 「はじめのページへ」) with a `--blue-wash` hover; on the start page it is a plain mark. The PNG icons
   (`app/app-mark.tsx`: favicon, home screen, link preview) draw the same shapes from `markSvg`, in the light colours.
