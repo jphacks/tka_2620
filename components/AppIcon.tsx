@@ -1,39 +1,27 @@
-// The app's mark (Nico's call: not the seat's key tag, which 聞く shows right under it): three notes fanned like a hand
-// of cards, the front one white with an ink edge and the notebook's three blue lines: notes handed down, which is what
-// 代々 does. One drawing, twice:
-// - AppIcon: on screen, in the theme's tokens, so it follows the dark screen. It stands top left on every screen in place
-//   of the word 「代々」. Decorative: the link around it carries the name.
+// The app's mark (Nico's call: simple, with a unique touch, and nothing like the seat's key tag below it on 聞く): a blue
+// note with its top-right corner folded down, and on it 々, the iteration mark that repeats the character before it
+// ("generation after generation", the 々 of 代々), written in the hand the notes are in (Klee One). A note handed down.
+// One drawing, twice:
+// - AppIcon: on screen, in the theme's tokens, so it follows the dark screen (there a light-blue note with a dark 々). It
+//   stands top left on every screen in place of the word 「代々」. Decorative: the link around it carries the name.
 // - markSvg: the same shapes in fixed colours, for the PNG icons (app/app-mark.tsx: favicon, home screen, link preview).
+// The 々 outline is Klee One SemiBold's (SIL Open Font License 1.1, like all the app's fonts), extracted once.
 
-type Colours = {
-  paper: string;
-  sheet: string;
-  ink: string;
-  ink2: string;
-  blue: string;
-};
+type Colours = { note: string; fold: string; glyph: string };
 const TOKENS: Colours = {
-  paper: "var(--paper)",
-  sheet: "var(--sheet)",
-  ink: "var(--ink)",
-  ink2: "var(--ink-2)",
-  blue: "var(--blue)",
+  note: "var(--blue)",
+  fold: "var(--blue-wash)",
+  glyph: "var(--sheet)",
 };
 
-// Three 30 × 40 slips, each turned about a point below them, back to front; the front one carries the lines.
-const SLIPS = [
-  { turn: -14, fill: "paper", edge: "ink2", width: 3 },
-  { turn: -2, fill: "sheet", edge: "ink2", width: 3 },
-  { turn: 11, fill: "sheet", edge: "ink", width: 3.6 },
-] as const;
-const PIVOT = "32 58";
-const LINES = [
-  { y: 22, length: 18 },
-  { y: 30, length: 13.5 },
-  { y: 38, length: 18 },
-];
-// Square, around the fan with its strokes.
-const VIEWBOX = "3 3 56 56";
+// Square, around the note (50 × 52, centred).
+const VIEWBOX = "3 4 56 56";
+const NOTE = "M14 6H42L56 20V50Q56 58 48 58H14Q6 58 6 50V14Q6 6 14 6Z";
+const FOLD = "M42 6V16Q42 20 46 20H56Z";
+// 々 in a 100-unit box centred on (0, 0), set a little left of and below the note's middle, to balance the fold.
+const GLYPH =
+  "M-2.43-14.59L-2.43-14.59L35.11-19.00Q27.96-7.90 20.59 0.84Q13.22 9.57 5.47 18.09L5.47 18.09Q-0.15 12.16-2.89 9.50Q-5.62 6.84-6.61 6.16Q-7.60 5.47-8.36 5.47L-8.36 5.47Q-10.18 5.47-11.40 6.99Q-12.61 8.51-12.61 9.42L-12.61 9.42Q-12.61 10.33-11.40 11.85L-11.40 11.85Q-4.26 19.45 3.27 28.80Q10.79 38.15 17.33 47.57L17.33 47.57Q18.09 48.33 19.07 48.94Q20.06 49.54 21.12 49.54L21.12 49.54Q23.40 49.54 25 47.80Q26.60 46.05 26.60 44.22L26.60 44.22Q26.60 43.01 25.68 41.49Q24.77 39.97 21.58 36.09Q18.39 32.22 11.25 24.32L11.25 24.32Q18.24 17.48 25.15 9.65Q32.07 1.82 37.69-5.32Q43.31-12.46 46.66-17.48Q50-22.49 50-23.56L50-23.56Q50-25.23 48.56-26.22Q47.11-27.20 45.44-27.74Q43.77-28.27 43.01-28.27L43.01-28.27L42.10-28.27L-2.74-23.40Q-3.65-23.25-4.71-23.18Q-5.78-23.10-6.99-23.10L-6.99-23.10Q-3.65-27.81-0.61-32.67Q2.43-37.54 5.02-42.55L5.02-42.55L5.02-42.86Q5.02-43.92 3.27-45.52Q1.52-47.11-0.68-48.33Q-2.89-49.54-4.26-49.54L-4.26-49.54Q-5.62-49.54-5.62-48.33L-5.62-48.33L-5.62-47.57Q-5.62-46.35-8.13-40.88Q-10.64-35.41-15.58-27.20Q-20.52-19.00-28.12-9.50Q-35.71 0-45.90 9.42L-45.90 9.42Q-48.02 11.25-49.01 12.77Q-50.00 14.29-50.00 15.20L-50.00 15.20Q-50.00 16.26-48.78 16.26L-48.78 16.26Q-47.11 16.26-43.01 13.53Q-38.91 10.79-33.43 6.08Q-27.96 1.37-22.04-4.79Q-16.11-10.94-10.94-17.63L-10.94-17.63L-9.73-16.41Q-8.51-15.65-7.37-15.05Q-6.23-14.44-4.26-14.44L-4.26-14.44Q-3.95-14.44-3.50-14.44Q-3.04-14.44-2.43-14.59Z";
+const GLYPH_AT = "translate(30 35) scale(0.31)";
 
 export function AppIcon() {
   return (
@@ -43,47 +31,14 @@ export function AppIcon() {
       aria-hidden="true"
       focusable="false"
     >
-      {SLIPS.map((slip, index) => (
-        <g key={slip.turn} transform={`rotate(${slip.turn} ${PIVOT})`}>
-          <rect
-            x="17"
-            y="10"
-            width="30"
-            height="40"
-            rx="4"
-            strokeWidth={slip.width}
-            style={{ fill: TOKENS[slip.fill], stroke: TOKENS[slip.edge] }}
-          />
-          {index === SLIPS.length - 1 &&
-            LINES.map((line) => (
-              <line
-                key={line.y}
-                x1="23"
-                y1={line.y}
-                x2={23 + line.length}
-                y2={line.y}
-                strokeWidth="3.6"
-                strokeLinecap="round"
-                style={{ stroke: TOKENS.blue }}
-              />
-            ))}
-        </g>
-      ))}
+      <path d={NOTE} style={{ fill: TOKENS.note }} />
+      <path d={FOLD} style={{ fill: TOKENS.fold }} />
+      <path d={GLYPH} transform={GLYPH_AT} style={{ fill: TOKENS.glyph }} />
     </svg>
   );
 }
 
 /** The mark as an SVG document in fixed colours, for next/og (it can't read the page's tokens). */
 export function markSvg(colours: Colours): string {
-  const slips = SLIPS.map((slip, index) => {
-    const lines =
-      index === SLIPS.length - 1
-        ? LINES.map(
-            (line) =>
-              `<line x1="23" y1="${line.y}" x2="${23 + line.length}" y2="${line.y}" stroke="${colours.blue}" stroke-width="3.6" stroke-linecap="round"/>`,
-          ).join("")
-        : "";
-    return `<g transform="rotate(${slip.turn} ${PIVOT})"><rect x="17" y="10" width="30" height="40" rx="4" fill="${colours[slip.fill]}" stroke="${colours[slip.edge]}" stroke-width="${slip.width}"/>${lines}</g>`;
-  }).join("");
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${VIEWBOX}">${slips}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${VIEWBOX}"><path d="${NOTE}" fill="${colours.note}"/><path d="${FOLD}" fill="${colours.fold}"/><path d="${GLYPH}" transform="${GLYPH_AT}" fill="${colours.glyph}"/></svg>`;
 }

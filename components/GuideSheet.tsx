@@ -85,26 +85,36 @@ export function GuideSheet({
     pushed.current = false;
   }
 
-  // 保存: print the guide alone, or save it as a PDF. A modal dialog sits in the top layer, where printing can't run it
-  // across pages, so for printing it opens in the page instead, then goes back to being modal.
-  const print = useCallback(() => {
-    const node = sheet.current;
-    if (!node) return;
+  // Printing while the sheet is open (保存, or ⌘P / Ctrl+P): the guide alone goes on paper. A modal dialog sits in the
+  // top layer, where printing can't run it across pages, so for the print it opens in the page instead, then goes back
+  // to being modal.
+  useEffect(() => {
+    if (!open) return;
     const root = document.documentElement;
-    node.close();
-    node.show();
-    root.classList.add("dd-printing-guide");
-    window.addEventListener(
-      "afterprint",
-      () => {
-        root.classList.remove("dd-printing-guide");
-        node.close();
-        node.showModal();
-      },
-      { once: true },
-    );
-    window.print();
-  }, []);
+    const before = () => {
+      const node = sheet.current;
+      if (!node?.open) return;
+      node.close();
+      node.show();
+      root.classList.add("dd-printing-guide");
+    };
+    const after = () => {
+      if (!root.classList.contains("dd-printing-guide")) return;
+      root.classList.remove("dd-printing-guide");
+      sheet.current?.close();
+      sheet.current?.showModal();
+    };
+    window.addEventListener("beforeprint", before);
+    window.addEventListener("afterprint", after);
+    return () => {
+      window.removeEventListener("beforeprint", before);
+      window.removeEventListener("afterprint", after);
+    };
+  }, [open]);
+  // 保存: print the guide alone, or save it as a PDF (the print dialog offers both).
+  const print = useCallback(() => window.print(), []);
+  // Where a press began: dragging to select a note's text and letting go over the backdrop isn't a tap on the backdrop.
+  const pressedOn = useRef<EventTarget | null>(null);
 
   return (
     <>
@@ -157,7 +167,7 @@ export function GuideSheet({
           </svg>
         </span>
       </button>
-      {/* A tap on the backdrop closes the sheet like Esc does (the dialog answers Esc itself) */}
+      {/* A tap on the backdrop (pressed and released there) closes the sheet like Esc does (the dialog answers Esc itself) */}
       {/* biome-ignore lint/a11y/useKeyWithClickEvents: the native dialog closes on Esc; the click is only the backdrop */}
       <dialog
         id={sheetId}
@@ -165,8 +175,14 @@ export function GuideSheet({
         className="dd-sheet"
         aria-labelledby={headId}
         onClose={closed}
+        onPointerDown={(event) => {
+          pressedOn.current = event.target;
+        }}
         onClick={(event) => {
-          if (event.target === sheet.current) sheet.current.close();
+          const backdrop = sheet.current;
+          if (event.target === backdrop && pressedOn.current === backdrop) {
+            backdrop.close();
+          }
         }}
       >
         {open && (

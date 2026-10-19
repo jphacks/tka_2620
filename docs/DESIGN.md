@@ -120,7 +120,8 @@ Use Japanese notebook marks, not coloured chips or emoji. Each mark is followed 
   tab is `--sheet` with blue text and joins the page, inactive tabs are `--paper` with `--ink-2` text. The bar is
   translucent (the paper at 72%, the chosen tab at 88%, no blur), so the page shows faintly as it scrolls under it;
   opaque under `prefers-reduced-transparency`. A pressed tab shows `--blue-wash` at once.
-- **`SeatBar`**: a quiet row above every seat page, right-aligned in the page's 640px column, never printed. Three
+- **`SeatBar`**: a quiet row above every seat page, right-aligned in the page's 640px column, never printed, with 8px
+  under it before the page begins (Nico's call: a little more room). Three
   44px items: the language switch (the other language named in itself, 「English」 / 「日本語」, as a blue text button),
   the theme switch (**`DisplayToggles`**: a 6px blue-outlined icon button, the moon on the notebook and the sun on the
   blackboard, `aria-pressed` for 暗い画面) and 「あなた」, a key tag's shape lying down, outlined solid in `--blue` like the
@@ -128,8 +129,9 @@ Use Japanese notebook marks, not coloured chips or emoji. Each mark is followed 
   choices are this device's own (cookies), rendered by the server, so there is no flash. Nothing in the bar is a
   fourth verb.
 - **「あなた」 is the account on this device** (`AccountMenu`). A small chevron after the word says it opens a menu
-  (`aria-haspopup`, `aria-expanded`). A tap opens a small slip just under the bar, at the column's right edge. It uses
-  the Popover API, so Esc or a tap outside closes it, and focus goes back to the tag.
+  (`aria-haspopup`, `aria-expanded`). A tap opens a small slip just under the bar, at the column's right edge: 264px,
+  13px text, its button 36px tall with a 44px tap area (Nico's call: smaller). It uses the Popover API, so Esc or a tap
+  outside closes it, and focus goes back to the tag.
   - Signed in: 「2025年度 会計でログインしています」 (never a name), then a full-width 「アカウントを切り替える」. That takes
     the account's data off the screen, signs out this device only, and shows `SignIn` in place.
   - Signed out: 「この端末ではログインしていません」.
@@ -164,18 +166,22 @@ Use Japanese notebook marks, not coloured chips or emoji. Each mark is followed 
   highlighter (`--marker` behind the text, slightly taller than the x-height, no rounded ends).
   A rule change is a red-pen margin note: a red bracket left of the sentence and 「2025年に変更」 in red UI text right
   after its stamp, on the same line.
-- **聞く, top to bottom:** `SeatHeader`, then `LineageRail` (代々の会計), then `UpcomingList` (これからの締切), then the ask
-  field, then the guide's cover (`GuideSheet`), then the answers (the first steps, or the answers and 「これまでの質問」).
-  - Who came before, then what's due, above the field (Nico's call): the seat's story first, then the question.
-  - The cover sits right under the field, not above it, so the field stays above the verb tabs on a 390×664 phone.
-  - Asking one question and reading everything sit side by side.
+- **聞く, top to bottom:** `SeatHeader`, then `LineageRail` (代々の会計), then `UpcomingList` (これからの締切), then the first
+  steps (for someone who hasn't asked yet), the guide's cover (`GuideSheet`), and the answers and 「これまでの質問」.
+  - Who came before, then what's due (Nico's call): the seat's story first, then the questions.
+  - The ask field isn't in that flow: it is **docked** right above the verb tabs (`AskDock`, Nico's call), in the page's
+    640px column, on the paper at 72% like the tabs, so it is always in reach. While the page scrolls it fades out (160ms)
+    and stops taking taps; 300ms after the scrolling stops it fades back in (200ms). It never fades while focus is in it,
+    so typing, and a phone's keyboard scrolling the page up to it, keep it on screen. What went wrong with it (a question
+    that didn't go out, the seat that didn't load, with 「もう一度ためす」) sits right above it, in the dock.
+  - The page leaves room for the dock: its end, and an answer brought into view, stop above the dock as well as the
+    tabs. The console's newcomer pane keeps the field in place, at the top of its pane.
 - **AskPanel's status line**: one always-present line for a screen reader, never shown: 「先輩たちのメモを探しています」, then
   the outcome (an answer, 「誰も知りません。…に届けました」, 「いま、…が答えました」). On screen the searching line sits under the
   new question, in `--ink-2`, where the answer will be (the only sign that 聞く is working), and the answer takes its place, so
   nothing jumps; the new entry comes into view as it is added (smoothly, unless the device asks for less motion). The
   field appears once, in place: 聞く keeps the panel unseen until the seat has loaded. A load that fails offers
-  「もう一度ためす」 (`RetryLine`). A question that didn't go out says so right under the field, above the first steps, comes
-  into view, and is back in the field to send again.
+  「もう一度ためす」 (`RetryLine`). A question that didn't go out says so right next to the field (above it in the dock; under it in the console's pane), and is back in the field to send again.
 - **First steps** on 聞く: someone who hasn't asked anything at the seat yet sees 「たとえば」 and three questions others ask at
   this kind of seat (the label pack's `seatTypes.<type>.examples`) as blue text buttons in the hand; a tap puts one in the
   field to read or change, never sends it. Gone after the first question; never on the console.
@@ -217,10 +223,15 @@ Use Japanese notebook marks, not coloured chips or emoji. Each mark is followed 
   says 「下書きを作る」.
 - **`NoteEntry`**: a note as a notebook entry: kind mark and title (UI bold), body (Klee One), date stamp
   bottom-right, scope in small UI text (「次の会計だけ」). Deadline notes show the date in figures with the highlighter.
+- **自分のメモ's list** (`MyNotes`) is what's live, what the newcomers' answers draw on. Withdrawn notes aren't dropped
+  from view, since the author keeps the record of what they took back: they're folded away at the end under one 44px blue
+  line, 「撤回したメモ（2件）」, which opens them struck through with 撤回済み under 「どの回答にも使われません。」 (Nico's
+  call). Withdrawing a note draws the double line, collapses it out of the list, and adds it to the fold, as a reload
+  shows it too. The same search and filters apply to both; with every note withdrawn the list says 「公開中のメモはありません。」.
 - **`UpcomingList`**: a planner column: boxed date in figures (「10/20 火」), title, mini stamp. Dates within 7 days
   carry the highlighter.
 - **The filter** (`.dd-filter`, on the guide and 自分のメモ): the search across the whole width, then the selects on one
-  line, each with its caption above (種類 · 書いた人 · 並び順; 状態 · 読める人 · 並び順). The captions let the choices stay
+  line, each with its caption above (種類 · 書いた人 · 並び順; 読める人 · 並び順). The captions let the choices stay
   short (「すべて」, 「新しい順」, 「締切順」); a long one, once picked, ends in 「…」 and reads in full in the open list. Two to
   a row below 380px (375px iPhones, 360px Androids); a fourth select (席) takes its own row. The printout and the export
   still say what was left in, in full words (「絞り込み：すべての種類、2025年度 会計」).
@@ -307,9 +318,15 @@ One signature moment, everything else functional.
 - **Double line** (withdraw, update): two red lines draw left to right, 220ms, then the entry collapses (200ms).
 - **Listening**: one ring pulses from the voice button every 1.2s while recording.
 - **Inbox arrival**: the slip slides 8px down into place (160ms) and the phone vibrates where supported.
-- **Page change** (a verb tab, the guide link; Nico's call): the new page's content fades in, opacity only, 160ms
-  (`PageTurn`), never on the first load. After sign-in the account's page fades in the same way (`.dd-fade-in`).
-- No fade or slide on the first page load, no slides at all, no hover lifts, no confetti, no bouncing.
+- **Changing verb tabs** (Nico's call): the page slides out to one side while the chosen one slides in from the other,
+  by the tabs' order (聞く · 残す · 自分のメモ; a tab to the right brings its page in from the right), 300ms
+  `cubic-bezier(.2,.7,.2,1)`, through the browser's View Transitions (`PageTurn` → `slideTo`). The top bar and the tabs
+  stay put above it, and the tab's highlight moves across. A click with a modifier key opens the link as usual.
+- **Other page changes** (the guide page, a redirect), or a browser without View Transitions: the new page's content
+  fades in, opacity only, 160ms (`PageTurn`). After sign-in the account's page fades in the same way (`.dd-fade-in`).
+- **The guide's reading sheet** slides in over 200ms (up on a phone, from the right from 720px).
+- No fade or slide on the first page load, and no slides beyond these and the inbox's 8px arrival; no hover lifts, no
+  confetti, no bouncing.
 - `prefers-reduced-motion`: every motion becomes an instant state change; the stamp simply appears.
 
 ## Copy voice
@@ -338,11 +355,12 @@ the 恩送り slide. English mirrors the Japanese. All strings live in `messages
 - Voice always has the text fallback in the same place.
 - Every page names itself (`generateMetadata`): 「会計（テニスサークル Smash）｜代々」, 「残す・会計（…）｜代々」, 「自分のメモ｜代々」;
   Next's route announcer reads it on each navigation, and a shared seat link gets a preview. The app installs from the browser
-  (`app/manifest.ts`). Its icon is the app's mark: three notes fanned like a hand of cards, the front one `--sheet` with an
-  `--ink` edge and three `--blue` lines (notes handed down). It is deliberately not the seat's key tag, which 聞く shows
-  right under it (Nico's call).
+  (`app/manifest.ts`). Its icon is the app's mark (Nico's call: simple, with a unique touch): a filled `--blue` note with
+  its top-right corner folded down (`--blue-wash`), and on it 々 in `--sheet`, written in Klee One, the notes' hand. 々 is
+  the mark that repeats the character before it, "generation after generation": a note handed down. It is deliberately
+  not the seat's key tag, which 聞く shows right under it.
 - The same mark stands in the top left of every screen in place of the word 「代々」 (Nico's call): `AppIcon`, an inline
-  SVG in the theme's tokens (so it follows the dark screen), 28px in a 44px target (36px beside the console's title).
+  SVG in the theme's tokens (so it follows the dark screen), 32px in a 44px target (40px beside the console's title).
   On a seat page (`SeatBar`) and in the console's title row it is the link to the start page, named 「代々」 for a screen
   reader (title 「はじめのページへ」) with a `--blue-wash` hover; on the start page it is a plain mark. The PNG icons
   (`app/app-mark.tsx`: favicon, home screen, link preview) draw the same shapes from `markSvg`, in the light colours.

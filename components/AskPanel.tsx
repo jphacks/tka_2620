@@ -12,6 +12,7 @@ import {
 } from "react";
 import { AbstainEntry } from "@/components/AbstainEntry";
 import { AnswerEntry } from "@/components/AnswerEntry";
+import { AskDock } from "@/components/AskDock";
 import { AskField } from "@/components/AskField";
 import { LiveStamp } from "@/components/LiveStamp";
 import { RetryLine } from "@/components/RetryLine";
@@ -57,6 +58,7 @@ export function AskPanel({
   onSeatFailed,
   history = true,
   belowField,
+  dock = false,
 }: {
   slug: string;
   mockShortcuts?: boolean;
@@ -69,9 +71,12 @@ export function AskPanel({
   /** List the asker's earlier questions and their answers (GET /api/seats/[slug]/asked). Off on the console, whose
    * newcomer pane starts clean for the trust proof. */
   history?: boolean;
-  /** Right under the field (and its first steps), above the answers: 聞く's way into the whole guide (GuideSheet), so
-   * asking one thing and reading everything sit side by side, and the field stays high on a short phone. */
+  /** After the first steps, above the answers: 聞く's way into the whole guide (GuideSheet). It waits for the asker's
+   * earlier questions, so the first steps don't push it down once it shows. */
   belowField?: ReactNode;
+  /** 聞く: the field (and what went wrong with it) rides fixed above the verb tabs (AskDock) instead of heading the panel;
+   * the console's panes keep it in place. */
+  dock?: boolean;
 }) {
   const t = useTranslations();
   const api = useMemo(() => given ?? createMockApi("a26"), [given]);
@@ -86,6 +91,8 @@ export function AskPanel({
   // The asker's earlier questions at this seat, from the server: they outlast a reload or a closed tab, so an answer that
   // arrived meanwhile is here (docs/SPEC.md → the notification "your question was answered").
   const [earlier, setEarlier] = useState<GuideAsked[]>();
+  // The first read of the earlier questions is done, worked or not: what sits below the first steps may show.
+  const [earlierSettled, setEarlierSettled] = useState(false);
   const [fresh, setFresh] = useState<ReadonlySet<string>>(new Set());
   // The questions asked in this tab, by id, for the Realtime handler (a row for one of them is shown right here).
   const shownIds = useRef<Set<string>>(new Set());
@@ -103,6 +110,7 @@ export function AskPanel({
     if (!history) return;
     api.asked(slug).then(
       ({ asked: rows }) => {
+        setEarlierSettled(true);
         setEarlier(rows);
         const answered = rows.flatMap((row) =>
           row.answer ? [row.questionId] : [],
@@ -117,7 +125,7 @@ export function AskPanel({
         }
         writeSeen(slug, new Set([...(seen ?? []), ...answered]));
       },
-      () => undefined, // the list stays as it was; the ask field works regardless
+      () => setEarlierSettled(true), // the list stays as it was; the ask field works regardless
     );
   }, [api, slug, history]);
   useEffect(() => {
@@ -244,15 +252,12 @@ export function AskPanel({
     }
   }
 
-  return (
-    <section className="dd-col dd-ask-panel" style={{ gap: "var(--s-6)" }}>
-      <AskField onAsk={ask} busy={busy || !seatView} suggestion={suggestion} />
-      {/* What a screen reader hears about the newest question (docs/DESIGN.md → AskPanel): always there, so a change is
-          read out, and never shown, since the entry below says it (searching included, under its question). */}
-      <output aria-live="polite" className="dd-sr-only">
-        {status}
-      </output>
-      {/* Right under the field, before the examples: what went wrong stays next to what it is about */}
+  const field = (
+    <AskField onAsk={ask} busy={busy || !seatView} suggestion={suggestion} />
+  );
+  // What went wrong with the field: the seat didn't load (with its retry), or a question didn't go out
+  const alerts = (
+    <>
       {failed === "seat" && (
         <RetryLine
           message={t("ask.seatFailed")}
@@ -268,6 +273,29 @@ export function AskPanel({
           {t("ask.failed")}
         </p>
       )}
+    </>
+  );
+
+  return (
+    <section className="dd-col dd-ask-panel" style={{ gap: "var(--s-6)" }}>
+      {dock ? (
+        // Docked: what went wrong sits right above the field, both above the verb tabs
+        <AskDock>
+          {alerts}
+          {field}
+        </AskDock>
+      ) : (
+        // In place: the field heads the panel, and what went wrong sits right under it, before the examples
+        <>
+          {field}
+          {alerts}
+        </>
+      )}
+      {/* What a screen reader hears about the newest question (docs/DESIGN.md → AskPanel): always there, so a change is
+          read out, and never shown, since the entry below says it (searching included, under its question). */}
+      <output aria-live="polite" className="dd-sr-only">
+        {status}
+      </output>
       {/* First steps: someone who hasn't asked anything here yet gets three questions others ask at this kind of seat
           (the label pack's), to tap into the field. Gone after the first question; never on the console. */}
       {seatView &&
@@ -298,7 +326,7 @@ export function AskPanel({
             </ul>
           </div>
         )}
-      {belowField}
+      {(!history || earlierSettled) && belowField}
       {asked.map(({ question, result }, index) => (
         <article
           key={`${asked.length - index}`}
