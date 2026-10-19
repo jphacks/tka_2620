@@ -14,7 +14,7 @@
 <!-- デモ動画（タスク2）ができたら、この <picture> 全体を <a href="https://www.youtube.com/watch?v=VIDEO_ID"> で囲み、リンクの行の先頭に「[デモ動画（90秒）](https://www.youtube.com/watch?v=VIDEO_ID) ・ 」を足す。 -->
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/hero-ja-dark.png">
-  <img src="docs/images/hero-ja-light.png" width="100%" alt="2台のスマホの画面（デモ用データ）。左は去年の会計のスマホで、「後輩から質問が届きました」と、決算後の領収書についての質問、声で答えるマイクが出ている。右は後輩のスマホの席ページで、歴代の会計の札（24、25、あなた）、これからの締切、そして「いま、2025年度 会計が答えました」と署名つきの答えが出ている。">
+  <img src="docs/images/hero-ja-light.png" width="100%" alt="2台のスマホの画面（デモ用データ）。左は去年の会計のスマホの「残す」で、「後輩から質問が届きました」と、決算後の領収書についての質問、声で答えるマイクつきの欄、その下に「引き継ぎの質問」と「＋ 追加」が出ている。右は後輩のスマホの席ページで、歴代の会計の札（24、25、あなた）、これからの締切、「会計の引き継ぎ書」を開く入口、そして「いま、2025年度 会計が答えました」と署名つきの答えが出ていて、質問欄はタブのすぐ上にある。">
 </picture>
 
 [しくみ](#しくみ) ・ [試し方](#試し方) ・ [ユーザーの声（13件）](docs/EVIDENCE.md) ・ [Hack Day の全差分](https://github.com/jphacks/tka_2620/compare/pre-hackday...2206aa2) ・ [English](README.en.md)

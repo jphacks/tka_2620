@@ -16,7 +16,7 @@
 <!-- Once the demo video (task 2) is online, wrap this whole <picture> in <a href="https://www.youtube.com/watch?v=VIDEO_ID"> and start the links line with "[Demo video (90 s)](https://www.youtube.com/watch?v=VIDEO_ID) · ". -->
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/hero-en-dark.png">
-  <img src="docs/images/hero-en-light.png" width="100%" alt="Two phone screens with demo data. On the left, last year's treasurer's phone shows 「後輩から質問が届きました」 (a newcomer asked you something), the question about receipts after the books were closed, and a microphone for answering by voice. On the right, the newcomer's seat page shows the tags of past treasurers (24, 25, and you), the upcoming deadline, and the signed answer 「いま、2025年度 会計が答えました」 (the FY2025 treasurer just answered).">
+  <img src="docs/images/hero-en-light.png" width="100%" alt="Two phone screens with demo data. On the left, last year's treasurer's 残す (hand over) page shows 「後輩から質問が届きました」 (a newcomer asked you something), the question about receipts after the books were closed, and a field with a microphone for answering by voice, then the handover questions with 「＋ 追加」 (add). On the right, the newcomer's seat page shows the tags of past treasurers (24, 25, and you), the upcoming deadline, the way into the handover guide, and the signed answer 「いま、2025年度 会計が答えました」 (the FY2025 treasurer just answered), with the ask field right above the tabs.">
 </picture>
 
 [How it works](#how-it-works) · [Try it](#try-it) · [User evidence (13 quotes)](docs/EVIDENCE.md) · [Everything built during Hack Day](https://github.com/jphacks/tka_2620/compare/pre-hackday...2206aa2)
