@@ -299,9 +299,15 @@ One signature moment, everything else functional.
 - **Double line** (withdraw, update): two red lines draw left to right, 220ms, then the entry collapses (200ms).
 - **Listening**: one ring pulses from the voice button every 1.2s while recording.
 - **Inbox arrival**: the slip slides 8px down into place (160ms) and the phone vibrates where supported.
-- **Page change** (a verb tab, the guide link; Nico's call): the new page's content fades in, opacity only, 160ms
-  (`PageTurn`), never on the first load. After sign-in the account's page fades in the same way (`.dd-fade-in`).
-- No fade or slide on the first page load, no slides at all, no hover lifts, no confetti, no bouncing.
+- **Changing verb tabs** (Nico's call): the page slides out to one side while the chosen one slides in from the other,
+  by the tabs' order (聞く · 残す · 自分のメモ; a tab to the right brings its page in from the right), 300ms
+  `cubic-bezier(.2,.7,.2,1)`, through the browser's View Transitions (`PageTurn` → `slideTo`). The top bar and the tabs
+  stay put above it, and the tab's highlight moves across. A click with a modifier key opens the link as usual.
+- **Other page changes** (the guide page, a redirect), or a browser without View Transitions: the new page's content
+  fades in, opacity only, 160ms (`PageTurn`). After sign-in the account's page fades in the same way (`.dd-fade-in`).
+- **The guide's reading sheet** slides in over 200ms (up on a phone, from the right from 720px).
+- No fade or slide on the first page load, and no slides beyond these and the inbox's 8px arrival; no hover lifts, no
+  confetti, no bouncing.
 - `prefers-reduced-motion`: every motion becomes an instant state change; the stamp simply appears.
 
 ## Copy voice

@@ -161,6 +161,24 @@ html { overscroll-behavior-y: none; }
 /* only the tabs' own 52px and a 12px gap: scrolled to the end, the last element sits just above the tabs, no blank paper */
 .dd-with-verbs { padding-bottom: calc(52px + var(--s-3) + env(safe-area-inset-bottom)); }
 :root:has(.dd-verbs) { scroll-padding-bottom: calc(52px + var(--s-4) + env(safe-area-inset-bottom)); }
+/* Changing verb tabs (PageTurn → slideTo; Nico's call): the page slides out to one side while the chosen one slides in
+   from the other, by the tabs' order (forward = to the right), 300ms easing out. While it runs, the top bar and the tabs
+   carry their own view-transition names, so they stay put above it and the tab's highlight moves across. Under
+   prefers-reduced-motion there is no slide at all (slideTo leaves the link alone). */
+:root[data-slide] .dd-bar { view-transition-name: dd-bar; }
+:root[data-slide] .dd-verbs { view-transition-name: dd-verbs; }
+:root[data-slide]::view-transition-old(root),
+:root[data-slide]::view-transition-new(root) { animation-duration: 300ms; animation-timing-function: cubic-bezier(.2, .7, .2, 1); animation-fill-mode: both; }
+:root[data-slide="forward"]::view-transition-old(root) { animation-name: dd-slide-out-left; }
+:root[data-slide="forward"]::view-transition-new(root) { animation-name: dd-slide-in-right; }
+:root[data-slide="back"]::view-transition-old(root) { animation-name: dd-slide-out-right; }
+:root[data-slide="back"]::view-transition-new(root) { animation-name: dd-slide-in-left; }
+:root[data-slide]::view-transition-group(dd-bar),
+:root[data-slide]::view-transition-group(dd-verbs) { animation-duration: 300ms; }
+@keyframes dd-slide-out-left { to { transform: translateX(-100%); } }
+@keyframes dd-slide-in-right { from { transform: translateX(100%); } }
+@keyframes dd-slide-out-right { to { transform: translateX(100%); } }
+@keyframes dd-slide-in-left { from { transform: translateX(-100%); } }
 
 /* SeatBar: a quiet row above every seat page, in the page's 640px column: the language and theme switches, then 「あなた」
    (docs/DESIGN.md → SeatBar). Every item is a 44px target. */
