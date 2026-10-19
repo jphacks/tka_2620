@@ -179,13 +179,23 @@ html { overscroll-behavior-y: none; }
   :root:not([data-theme="light"]) .dd-when-light { display: none; }
   :root:not([data-theme="light"]) .dd-when-dark { display: block; }
 }
-/* 「あなた」: the lineage rail's dashed blank tag for the viewer, lying down; solid on /me itself */
-.dd-you { display: inline-grid; place-items: center; min-width: 44px; min-height: 44px; box-sizing: border-box; padding: 0 var(--s-3); border: 1.5px dashed var(--blue); border-radius: var(--r-tag); color: var(--blue);
-  font-weight: 700; letter-spacing: .04em; font-feature-settings: "palt"; text-decoration: none; }
-.dd-you:hover { background: var(--blue-wash); }
-.dd-you[aria-current="page"] { border-style: solid; background: var(--blue-wash); }
+/* 「あなた」: the account on this device. A key tag's shape lying down, but outlined solid like the theme button beside it,
+   with a chevron: a control that opens a menu, unlike the dashed 「あなた」 tags on the lineage rail and 自分のメモ's
+   card. Open, it fills with --blue-wash and the chevron points up. */
+.dd-you { display: inline-flex; align-items: center; justify-content: center; gap: 2px; min-width: 44px; min-height: 44px; box-sizing: border-box; padding: 0 var(--s-3); border: 1.5px solid var(--blue); border-radius: var(--r-tag); color: var(--blue);
+  background: none; font: inherit; font-weight: 700; letter-spacing: .04em; font-feature-settings: "palt"; text-decoration: none; cursor: pointer; }
+.dd-you:hover, .dd-you:active { background: var(--blue-wash); }
+.dd-you[aria-expanded="true"] { background: var(--blue-wash); }
+.dd-you[aria-expanded="true"] svg { transform: rotate(180deg); }
+/* 「あなた」's menu (AccountMenu): a slip in the top layer, just under the bar at the right edge of the page's column:
+   who is signed in on this device, then 「アカウントを切り替える」 across its width */
+.dd-account { position: fixed; inset: auto; top: 56px; right: max(var(--s-4), calc((100vw - 640px) / 2 + var(--s-4))); margin: 0;
+  width: min(320px, calc(100vw - 2 * var(--s-4))); box-sizing: border-box; padding: var(--s-4); color: var(--ink); }
+@media (min-width: 600px) { .dd-account { right: max(var(--s-5), calc((100vw - 640px) / 2 + var(--s-5))); } }
+.dd-account:popover-open { display: grid; gap: var(--s-3); }
+.dd-account p { margin: 0; }
 
-/* /me: the viewer's dashed tag beside their byline, group and institution */
+/* 自分のメモ's top (YouCard): the viewer's dashed tag beside their byline, group and institution */
 .dd-me { display: flex; gap: var(--s-4); align-items: flex-start; }
 .dd-me .dd-ltag { flex: none; }
 .dd-me-byline { margin: 0; font-size: var(--text-m); line-height: 30px; font-weight: 700; font-feature-settings: "palt"; letter-spacing: .04em; word-break: auto-phrase; }
@@ -342,9 +352,6 @@ html { overscroll-behavior-y: none; }
 .dd-choice:has(input:checked) { border-color: var(--blue); background: var(--blue-wash); color: var(--blue); font-weight: 700; }
 .dd-choice:has(input:focus-visible) { outline: 2px solid var(--blue); outline-offset: 2px; }
 .dd-btn-wide { width: 100%; }
-/* Signed in: which account this device is, and 切り替える */
-.dd-who { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s-2) var(--s-3); padding-top: var(--s-4); border-top: 1px solid var(--rule); }
-.dd-who p { margin: 0; color: var(--ink-2); }
 
 /* UpcomingList: a planner column, each row the boxed date, the title and the mini stamp of whose note it is */
 .dd-planner { list-style: none; margin: 0; padding: 0; display: grid; }

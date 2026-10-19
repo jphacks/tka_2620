@@ -1,27 +1,9 @@
-import type { Metadata } from "next";
-import { getTranslations } from "next-intl/server";
-import { ProfilePanel } from "@/components/ProfilePanel";
-import { VerbTabs } from "@/components/VerbTabs";
+import { redirect } from "next/navigation";
 import { SeatSlug } from "@/lib/contracts";
 
-export async function generateMetadata(): Promise<Metadata> {
-  const t = await getTranslations("meta");
-  return { title: t("me") };
-}
-
-// /me: who you are at the seat you came from (SeatBar's 「あなた」 brings it along as ?seat=). Not a fourth verb: the verb
-// tabs stay, with none of them current.
+// /me was who you are at the seat; 自分のメモ opens with that now (components/YouCard.tsx). Old links land there, the
+// seat (?seat=) brought along.
 export default async function ProfilePage({ searchParams }: PageProps<"/me">) {
   const seat = SeatSlug.safeParse((await searchParams).seat).data;
-  return (
-    <>
-      <main
-        className={`dd-pad${seat ? " dd-with-verbs" : ""}`}
-        style={{ maxWidth: "640px", marginInline: "auto" }}
-      >
-        <ProfilePanel seat={seat} />
-      </main>
-      {seat && <VerbTabs seat={seat} />}
-    </>
-  );
+  redirect(seat ? `/me/notes?seat=${encodeURIComponent(seat)}` : "/me/notes");
 }

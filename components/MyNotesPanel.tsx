@@ -1,5 +1,6 @@
 "use client";
-// /me/notes (自分のメモ): the signed-in holder's own notes with their scope and 「撤回する」. Withdrawing draws
+// /me/notes (自分のメモ): who you are at the seat you came from (YouCard; /me redirects here), then your own notes with
+// their scope and 「撤回する」. Withdrawing draws
 // the double line, then the entry closes and leaves — and the engine drops the note out of every answer
 // (POST /api/notes/[id]/withdraw). On mocks as last year's treasurer (a25); on real data as the account signed in on
 // this device, or the login screen in place (components/SignInGate.tsx), so withdrawing works from a phone too. Filters narrow the list
@@ -15,7 +16,14 @@ import {
 } from "@/components/NoteEntry";
 import { RetryLine } from "@/components/RetryLine";
 import { SignInGate } from "@/components/SignInGate";
-import { type Api, type MyNote, Scope } from "@/lib/contracts";
+import { YouCard } from "@/components/YouCard";
+import {
+  type Api,
+  type DemoAccount,
+  type MyNote,
+  Scope,
+  type SeatView,
+} from "@/lib/contracts";
 import { createMockApi, USE_MOCKS } from "@/lib/mocks";
 import { useRealtime } from "@/lib/realtime";
 
@@ -40,18 +48,30 @@ export function MyNotesPanel({ seat }: { seat?: string }) {
     () => (USE_MOCKS ? createMockApi("a25") : undefined),
     [],
   );
-  if (mock) return <MyNotesList api={mock} seat={seat} />;
+  if (mock) return <MyNotesList api={mock} account="a25" seat={seat} />;
   return (
     <SignInGate>
-      {({ api }) => <MyNotesList api={api} seat={seat} />}
+      {({ api, account }) => (
+        <MyNotesList api={api} account={account} seat={seat} />
+      )}
     </SignInGate>
   );
 }
 
-function MyNotesList({ api, seat }: { api: Api; seat?: string }) {
+function MyNotesList({
+  api,
+  account,
+  seat,
+}: {
+  api: Api;
+  account: DemoAccount;
+  seat?: string;
+}) {
   const t = useTranslations();
   const [seats, setSeats] = useState<NoteSeats>();
   const [notes, setNotes] = useState<MyNote[]>();
+  // The seat the page came from, for who you are there; read with the notes, so the card and the list come at once.
+  const [you, setYou] = useState<SeatView>();
   const [failed, setFailed] = useState(false);
   const [withdrawFailed, setWithdrawFailed] = useState(false);
   const [withdrawing, setWithdrawing] = useState<{
@@ -70,13 +90,17 @@ function MyNotesList({ api, seat }: { api: Api; seat?: string }) {
   // biome-ignore lint/correctness/useExhaustiveDependencies: loadTry is the retry button's way to read the notes again
   useEffect(() => {
     let alive = true;
-    api
-      .myNotes()
-      .then(async (mine) => {
+    // The card is extra: a seat that can't be read (a mistyped ?seat=, a moment offline) leaves it out, never the notes.
+    Promise.all([
+      api.myNotes(),
+      seat ? api.seat(seat).catch(() => undefined) : undefined,
+    ])
+      .then(async ([mine, here]) => {
         const bySlug = await seatsOf(api, mine.notes);
         if (!alive) return;
         setSeats(bySlug);
         setNotes(mine.notes);
+        setYou(here);
       })
       .catch(() => {
         if (alive) setFailed(true);
@@ -84,7 +108,7 @@ function MyNotesList({ api, seat }: { api: Api; seat?: string }) {
     return () => {
       alive = false;
     };
-  }, [api, loadTry]);
+  }, [api, seat, loadTry]);
 
   // A status change from another pane (the console) marks the note withdrawn here too.
   useRealtime(api, "notes", (row) => {
@@ -276,7 +300,14 @@ function MyNotesList({ api, seat }: { api: Api; seat?: string }) {
         withdrawing={withdrawing}
         withdrawFailed={withdrawFailed}
         onWithdraw={withdraw}
-        tools={tools || undefined}
+        tools={
+          you || tools ? (
+            <>
+              {you && <YouCard view={you} account={account} />}
+              {tools || null}
+            </>
+          ) : undefined
+        }
         headingLevel={1}
         emptyText={notes.length > 0 ? t("filter.noneMatch") : undefined}
       />

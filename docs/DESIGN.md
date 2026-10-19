@@ -123,12 +123,27 @@ Use Japanese notebook marks, not coloured chips or emoji. Each mark is followed 
 - **`SeatBar`**: a quiet row above every seat page, right-aligned in the page's 640px column, never printed. Three
   44px items: the language switch (the other language named in itself, 「English」 / 「日本語」, as a blue text button),
   the theme switch (**`DisplayToggles`**: a 6px blue-outlined icon button, the moon on the notebook and the sun on the
-  blackboard, `aria-pressed` for 暗い画面) and 「あなた」, the lineage rail's dashed blue tag lying down, which opens
-  `/me`. Both choices are this device's own (cookies), rendered by the server, so there is no flash. It is not a
+  blackboard, `aria-pressed` for 暗い画面) and 「あなた」, a key tag's shape lying down, outlined solid in `--blue` like the
+  theme button, so it reads as a control (the dashed 「あなた」 stays the viewer on the lineage rail). Both display
+  choices are this device's own (cookies), rendered by the server, so there is no flash. Nothing in the bar is a
   fourth verb.
-- **Profile** (`/me`): who you are at the seat, never by name. Your dashed tag 「26 会計」 beside your byline
-  (「2026年度 会計」, 20px bold), the group and institution, 「この席の3代目です」, and your notes here with the way to
-  自分のメモ. Identity only: nothing to set.
+- **「あなた」 is the account on this device** (`AccountMenu`). A small chevron after the word says it opens a menu
+  (`aria-haspopup`, `aria-expanded`). A tap opens a small slip just under the bar, at the column's right edge. It uses
+  the Popover API, so Esc or a tap outside closes it, and focus goes back to the tag.
+  - Signed in: 「2025年度 会計でログインしています」 (never a name), then a full-width 「アカウントを切り替える」. That takes
+    the account's data off the screen, signs out this device only, and shows `SignIn` in place.
+  - Signed out: 「この端末ではログインしていません」.
+  - While the page checks the sign-in, or signs out: its caption (「ログインを確かめています」, 「ログアウトしています」).
+  - Offline: the offline line.
+  - On mocks: that the page shows sample data.
+  - The tag fills with `--blue-wash`, its chevron pointing up, while the slip is open.
+- **`YouCard`**, at the top of 自分のメモ (`/me` redirects there): who you are at the seat you came from, never by name.
+  - Your dashed tag 「26 会計」 beside your byline (「2026年度 会計」, 20px bold).
+  - The group and institution, and 「この席の3代目です」.
+  - Someone who never held the seat is named as `SignIn` names them, with 「会計を担当したことはありません」.
+  - Identity only: nothing to set. The notes, their filter and 「撤回する」 follow.
+  - It is read with the notes, so the card and the list appear together. A seat that can't be read leaves the card out,
+    never the notes.
 - **`SignIn`**: what a signed-out seat page shows in place (the URL stays the seat link, so an NFC tap still lands
   on the seat). A UI area with no ruled lines: 「ログイン」 and a one-sentence lead in `--ink-2`, then 「アカウント」 and the
   five demo accounts as 44px choices, never by name: a holder by the label pack's byline (「2026年度 会計」), the other
@@ -139,8 +154,8 @@ Use Japanese notebook marks, not coloured chips or emoji. Each mark is followed 
   then a full-width primary 「ログインする」, live as soon as an account is chosen. A wrong password, or no answer from
   the server, gets a calm `--ink-2` line under the button that says what to do, never red; it scrolls clear of the
   verb tabs. Checking the session and signing out show a calm caption (「ログインを確かめています」,
-  「ログアウトしています」); no network shows a calm line with 「もう一度ためす」. Signed in, the page ends with
-  「2025年度 会計でログインしています」 and 「切り替える」, which signs out this device only.
+  「ログアウトしています」); no network shows a calm line with 「もう一度ためす」. Signed in, the page has no foot: which account
+  this is, and 「アカウントを切り替える」, are in 「あなた」's slip in `SeatBar`.
 - **`AskField`**: an outlined box, 1.5px `--blue` with 6px corners on `--sheet` (Nico's call; it was a writing line),
   as tall as the blue 「聞く」 button beside it, with the placeholder in Klee One (「先輩たちに聞いてみましょう」). Not a chat
   box: no bubble, no send arrow.
@@ -166,7 +181,7 @@ Use Japanese notebook marks, not coloured chips or emoji. Each mark is followed 
   this kind of seat (the label pack's `seatTypes.<type>.examples`) as blue text buttons in the hand; a tap puts one in the
   field to read or change, never sends it. Gone after the first question; never on the console.
 - **A load that fails** offers 「もう一度ためす」 (`RetryLine`) everywhere a page or section reads data: the seat, the inbox,
-  the handover prompts, 自分のメモ, /me and the guide. A read that hangs (venue Wi-Fi) gives up after 20 s and fails the
+  the handover prompts, 自分のメモ and the guide. A read that hangs (venue Wi-Fi) gives up after 20 s and fails the
   same way, so no page waits forever behind 「読み込んでいます」.
 - **「これまでの質問」** on 聞く: the asker's earlier questions at the seat (GET /api/seats/[slug]/asked), under this session's,
   answered ones as `AnswerEntry`, the rest with 「まだ答えはありません。答えが届くと、ここに出ます。」. An answer that came
@@ -246,8 +261,8 @@ Use Japanese notebook marks, not coloured chips or emoji. Each mark is followed 
     - The export buttons come after the notes: read first, then save.
     - 「引き継ぎ書を閉じる」 at the end folds it and lands back on the cover.
 
-    Printing from there puts only the guide on paper, with its full header. `/s/[seat]/guide` stays as it is for /me
-    (「引き継ぎ書を開く」): export first, the filter open.
+    Printing from there puts only the guide on paper, with its full header. `/s/[seat]/guide` stays as its own page, for
+    a direct link and the source line on paper: export first, the filter open.
 - **`WithdrawMeter`**: figures face, 39px on the console; counts in `--red` from the click, freezes in `--ink`
   when the last pane drops the note: 「0.8秒」.
 - **`LeakCounter`**: 「漏れ 0 / 50 回」, the 0 in `--green`.
@@ -273,7 +288,7 @@ One signature moment, everything else functional.
 - **Double line** (withdraw, update): two red lines draw left to right, 220ms, then the entry collapses (200ms).
 - **Listening**: one ring pulses from the voice button every 1.2s while recording.
 - **Inbox arrival**: the slip slides 8px down into place (160ms) and the phone vibrates where supported.
-- **Page change** (a verb tab, 「あなた」, the guide link; Nico's call): the new page's content fades in, opacity only, 160ms
+- **Page change** (a verb tab, the guide link; Nico's call): the new page's content fades in, opacity only, 160ms
   (`PageTurn`), never on the first load. After sign-in the account's page fades in the same way (`.dd-fade-in`).
 - No fade or slide on the first page load, no slides at all, no hover lifts, no confetti, no bouncing.
 - `prefers-reduced-motion`: every motion becomes an instant state change; the stamp simply appears.
@@ -291,7 +306,7 @@ the 恩送り slide. English mirrors the Japanese. All strings live in `messages
   seat's settings enable them. Scope defaults to `successor`.
 - No feeds, badges, follower counts, folders or settings pages for newcomers.
 - Exception, by choice: the two display switches and 「あなた」 in `SeatBar` (language and theme are the viewer's
-  device settings, not the seat's; `/me` only shows who you are).
+  device settings, not the seat's; 「あなた」 is the account on this device, not a page).
 - Anything that decides what a user sees is visible and usable on screen, never only in a terminal, a URL fragment
   or a cookie: the language and theme switches, the measured numbers on the console. What stays a terminal command
   (`pnpm demo:reset`, which needs the service-role key) is said on screen where it matters.

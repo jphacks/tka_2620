@@ -153,6 +153,8 @@
     "label": "表示とあなた",
     "darkScreen": "暗い画面",
     "you": "あなた",
+    "signedOut": "この端末ではログインしていません",
+    "mock": "見本のデータで表示しています。ログインはありません。",
     "home": "はじめのページへ",
     "language": {
       "ja": "日本語",
@@ -171,14 +173,9 @@
     "openConsole": "コンソールを開く"
   },
   "profile": {
-    "title": "あなた",
     "loading": "読み込んでいます",
-    "noSeat": "席のページの「あなた」から開いてください。",
-    "failed": "読み込めませんでした。通信を確かめて、もう一度ためしてください。",
     "notHolder": "{seat}を担当したことはありません",
-    "place": "この席の<fig>{n}</fig>代目です",
-    "noteCounts": "公開中 <fig>{live}</fig>件、撤回済み <fig>{withdrawn}</fig>件",
-    "openNotes": "自分のメモを開く"
+    "place": "この席の<fig>{n}</fig>代目です"
   },
   "measured": {
     "title": "測定の内訳",
@@ -221,7 +218,6 @@
     "loading": "席を開いています",
     "titlePlain": "引き継ぎ書",
     "title": "{seat}の引き継ぎ書",
-    "open": "引き継ぎ書を開く",
     "close": "引き継ぎ書を閉じる",
     "coverLead": "先輩たちが残したメモを、一冊にまとめて読めます",
     "read": "読む",
@@ -279,7 +275,6 @@
     "handoverPlain": "残す",
     "guide": "{seat}の引き継ぎ書（{group}）",
     "guidePlain": "引き継ぎ書",
-    "me": "あなた",
     "notes": "自分のメモ",
     "console": "信頼の証明"
   },
@@ -313,7 +308,7 @@
     "offline": "ログインを確かめられませんでした。通信を確かめて、もう一度ためしてください。",
     "retry": "もう一度ためす",
     "signedInAs": "{account}でログインしています",
-    "switch": "切り替える",
+    "switch": "アカウントを切り替える",
     "signingOut": "ログアウトしています"
   },
   "kinds": {
