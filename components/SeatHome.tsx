@@ -1,7 +1,7 @@
 "use client";
 // 聞く (/s/[seat]): the club-room key and its notebook. Top to bottom:
 // 1. the key tag
-// 2. the deadlines coming up and the lineage, above the ask field (Nico's call)
+// 2. the lineage, then the deadlines coming up, above the ask field (Nico's call)
 // 3. the ask field
 // 4. right under it, the way into the whole handover guide (引き継ぎ書): a cover that opens it as a reading sheet over
 //    the page (GuideSheet), so 聞く itself never moves. Under the field rather than above it, so the field stays above
@@ -42,8 +42,8 @@ export function SeatHome({
       {view && (
         <>
           <SeatHeader seat={view.seat} />
-          <UpcomingList items={view.upcoming} />
           <LineageRail view={view} />
+          <UpcomingList items={view.upcoming} />
         </>
       )}
       {!ready && <output className="dd-cap">{t("loading")}</output>}

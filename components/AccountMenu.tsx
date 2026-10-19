@@ -18,6 +18,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
 import { accountLabel } from "@/components/sign-in";
 import type { DemoAccount } from "@/lib/contracts";
@@ -72,9 +73,22 @@ export function useAccountSlot(
   }, [state, account, setSlot]);
 }
 
+// Hydrated or not: false on the server and while React hydrates, true after.
+const noSubscription = () => () => undefined;
+const useHydrated = () =>
+  useSyncExternalStore(
+    noSubscription,
+    () => true,
+    () => false,
+  );
+
 export function AccountMenu() {
   const t = useTranslations();
   const { slot } = useContext(AccountContext);
+  // The bar hydrates in its own Suspense boundary, after the page, whose gate may have handed up its state by then:
+  // the slip (closed, unseen until a tap) fills only once hydrated, so the server's HTML and the first client render
+  // match.
+  const hydrated = useHydrated();
   const menu = useId();
   const panel = useRef<HTMLDivElement>(null);
   // The slip's open state, for the tag's aria-expanded and its turned chevron (the popover's own toggle event)
@@ -131,7 +145,7 @@ export function AccountMenu() {
         className="dd-slip dd-account"
         aria-label={t("bar.you")}
       >
-        {slot?.account && slot.switchAccount && label ? (
+        {!hydrated ? null : slot?.account && slot.switchAccount && label ? (
           <>
             <p className="dd-phrase">
               {t("signIn.signedInAs", {
