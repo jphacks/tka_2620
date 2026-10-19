@@ -2,6 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import {
+  type ReactNode,
   useCallback,
   useEffect,
   useId,
@@ -55,6 +56,7 @@ export function AskPanel({
   onSeat,
   onSeatFailed,
   history = true,
+  belowField,
 }: {
   slug: string;
   mockShortcuts?: boolean;
@@ -67,6 +69,9 @@ export function AskPanel({
   /** List the asker's earlier questions and their answers (GET /api/seats/[slug]/asked). Off on the console, whose
    * newcomer pane starts clean for the trust proof. */
   history?: boolean;
+  /** Right under the field (and its first steps), above the answers: 聞く's way into the whole guide (GuideSheet), so
+   * asking one thing and reading everything sit side by side, and the field stays high on a short phone. */
+  belowField?: ReactNode;
 }) {
   const t = useTranslations();
   const api = useMemo(() => given ?? createMockApi("a26"), [given]);
@@ -240,7 +245,7 @@ export function AskPanel({
   }
 
   return (
-    <section className="dd-col" style={{ gap: "var(--s-6)" }}>
+    <section className="dd-col dd-ask-panel" style={{ gap: "var(--s-6)" }}>
       <AskField onAsk={ask} busy={busy || !seatView} suggestion={suggestion} />
       {/* What a screen reader hears about the newest question (docs/DESIGN.md → AskPanel): always there, so a change is
           read out, and never shown, since the entry below says it (searching included, under its question). */}
@@ -293,6 +298,7 @@ export function AskPanel({
             </ul>
           </div>
         )}
+      {belowField}
       {asked.map(({ question, result }, index) => (
         <article
           key={`${asked.length - index}`}

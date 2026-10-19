@@ -244,25 +244,33 @@ Use Japanese notebook marks, not coloured chips or emoji. Each mark is followed 
        questions in blue
     4. 「あなたの質問と答え」 as `AnswerEntry`s, whose stamps open their notes
   - **Who wrote it:** people appear only as bylines (「2025年度 会計」).
-  - **Inline on 聞く:** the way in is the guide's **cover**, a slip under the ask panel that says what it is:
+  - **On 聞く (`GuideSheet`):** the way in is the guide's **cover**, a slip right under the ask field that says what it is
+    (Nico's call: the deadlines and the lineage stay above the field, and the cover comes under it, so the field stays
+    above the verb tabs on a 664px phone):
     - a 4px `--blue` spine on its left edge, so it reads as a book to open, not one more note;
     - a line book icon (left out below 360px, where the spine alone says it);
     - 「会計の引き継ぎ書」;
     - one `--ink-2` line, 「先輩たちが残したメモを、一冊にまとめて読めます」;
-    - at the end, a blue 「読む」 with a chevron.
+    - at the end, a blue 「読む」 with a chevron pointing right.
 
-    The whole slip is the button. A tap unfolds the same guide in place under it (no screen change):
-    - The cover becomes its header, saying 「閉じる」. Focus stays on the cover. Once loaded, the cover moves to the top
-      of the screen.
-    - Once the guide has loaded, the page's own deadline list steps aside, since the guide lists the deadlines at its
-      top. While it loads, or if it fails, the list stays.
-    - The title, group and institution go on paper only (the cover and the key tag say them).
-    - The filter folds under one 44px blue line, 「絞り込みと並び順」.
-    - The export buttons come after the notes: read first, then save.
-    - 「引き継ぎ書を閉じる」 at the end folds it and lands back on the cover.
+    The whole slip is the button (`aria-haspopup="dialog"`). A tap opens the guide as a **reading sheet** over 聞く,
+    which itself never moves (no screen change, no unfolding):
+    - Full height on a phone; a 560px panel on the right from 720px, with 聞く faded beside it (the paper at 72% as a
+      backdrop, solid under `prefers-reduced-transparency`). It slides in over 200ms, at once under
+      `prefers-reduced-motion`.
+    - A native modal `<dialog>`: the page behind is inert and doesn't scroll. Focus goes to the sheet's title, and comes
+      back to the cover on closing.
+    - Its header stays while the guide scrolls under it: 「会計の引き継ぎ書」, 「保存」 (prints the guide alone, or saves a
+      PDF; named 「印刷・PDFで保存」) and ✕ (「引き継ぎ書を閉じる」).
+    - It closes with ✕, Esc, a tap on the backdrop, the phone's back button (the sheet has its own address, `#guide`,
+      which also opens it from a link), or 「引き継ぎ書を閉じる」 at the guide's end.
+    - The guide loads when the sheet opens. Its title, group and institution go on paper only (the sheet's header and
+      the key tag say them). The filter folds under one 44px blue line, 「絞り込みと並び順」. The export buttons come
+      after the notes: read first, then save.
 
-    Printing from there puts only the guide on paper, with its full header. `/s/[seat]/guide` stays as its own page, for
-    a direct link and the source line on paper: export first, the filter open.
+    Printing from the sheet puts only the guide on paper, with its full header, across as many pages as it needs.
+    `/s/[seat]/guide` stays as its own page, for a direct link and the source line on paper: export first, the filter
+    open.
 - **`WithdrawMeter`**: figures face, 39px on the console; counts in `--red` from the click, freezes in `--ink`
   when the last pane drops the note: 「0.8秒」.
 - **`LeakCounter`**: 「漏れ 0 / 50 回」, the 0 in `--green`.
