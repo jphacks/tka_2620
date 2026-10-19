@@ -219,7 +219,8 @@ Use Japanese notebook marks, not coloured chips or emoji. Each mark is followed 
     4. 「あなたの質問と答え」 as `AnswerEntry`s, whose stamps open their notes
   - **Who wrote it:** people appear only as bylines (「2025年度 会計」).
   - **Inline on 聞く:** the way in is the guide's **cover**, a slip under the ask panel that says what it is:
-    - a line book icon;
+    - a 4px `--blue` spine on its left edge, so it reads as a book to open, not one more note;
+    - a line book icon (left out below 360px, where the spine alone says it);
     - 「会計の引き継ぎ書」;
     - one `--ink-2` line, 「先輩たちが残したメモを、一冊にまとめて読めます」;
     - at the end, a blue 「読む」 with a chevron.
@@ -227,7 +228,8 @@ Use Japanese notebook marks, not coloured chips or emoji. Each mark is followed 
     The whole slip is the button. A tap unfolds the same guide in place under it (no screen change):
     - The cover becomes its header, saying 「閉じる」. Focus stays on the cover. Once loaded, the cover moves to the top
       of the screen.
-    - The page's own deadline list steps aside, since the guide lists the deadlines at its top.
+    - Once the guide has loaded, the page's own deadline list steps aside, since the guide lists the deadlines at its
+      top. While it loads, or if it fails, the list stays.
     - The title, group and institution go on paper only (the cover and the key tag say them).
     - The filter folds under one 44px blue line, 「絞り込みと並び順」.
     - The export buttons come after the notes: read first, then save.

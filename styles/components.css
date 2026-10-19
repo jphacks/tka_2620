@@ -267,12 +267,15 @@ html { overscroll-behavior-y: none; }
 .dd-tag-kind { font-family: var(--font-ui); font-size: var(--text-s); font-weight: 700; color: var(--ink-2); letter-spacing: .04em; }
 /* The way into the handover guide on 聞く, under the ask panel: the guide as a slip that says what it is (its title, one
    line on what's inside) and what a tap does (読む, 閉じる once open). The whole slip is the button. Opened, it heads the
-   guide unfolded under it; scrolled to, it stops clear of the top edge. */
+   guide unfolded under it; scrolled to, it stops clear of the top edge. A blue spine on its left edge says it's a bound
+   book you can open, not one more note slip. */
 .dd-guide-cover { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; column-gap: var(--s-3);
-  width: 100%; min-height: 64px; padding: var(--s-3) var(--s-4); text-align: start; font: inherit; color: var(--ink); cursor: pointer;
-  scroll-margin-top: 56px; }
-.dd-guide-cover:hover { background: var(--blue-wash); }
+  width: 100%; min-height: 64px; padding: var(--s-3) var(--s-4); border-left: 4px solid var(--blue); text-align: start; font: inherit;
+  color: var(--ink); cursor: pointer; scroll-margin-top: 56px; }
+.dd-guide-cover:hover, .dd-guide-cover:active { background: var(--blue-wash); }
 .dd-guide-cover > svg { color: var(--blue); }
+/* On the narrowest phones the spine says "book" alone: the icon's room goes to the lead, two lines instead of three */
+@media (max-width: 359px) { .dd-guide-cover { grid-template-columns: minmax(0, 1fr) auto; } .dd-guide-cover > svg:first-child { display: none; } }
 .dd-guide-cover-text { display: grid; gap: 2px; }
 .dd-guide-cover-title { font-size: var(--text-s); line-height: 24px; font-weight: 700; letter-spacing: .04em; word-break: auto-phrase; }
 .dd-guide-cover-act { display: inline-flex; align-items: center; gap: var(--s-1); color: var(--blue); font-weight: 700; white-space: nowrap; }

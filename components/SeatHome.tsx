@@ -38,10 +38,17 @@ export function SeatHome({
   // the keyboard. Once the guide has loaded, the cover moves up to the top of the screen, so the guide fills it under
   // its header, with 「閉じる」 in reach.
   const cover = useRef<HTMLButtonElement>(null);
-  const guideReady = useCallback(
-    () => cover.current?.scrollIntoView({ block: "start" }),
-    [],
-  );
+  // Loaded, the guide lists the deadlines at its top, and only then does the page's own list step aside: while it
+  // loads (or if it fails), the deadlines stay on screen.
+  const [guideLoaded, setGuideLoaded] = useState(false);
+  const guideReady = useCallback(() => {
+    setGuideLoaded(true);
+    cover.current?.scrollIntoView({ block: "start" });
+  }, []);
+  const toggleGuide = (open: boolean) => {
+    setGuideOpen(open);
+    if (!open) setGuideLoaded(false);
+  };
   const coverTitle = useId();
   const coverLead = useId();
   const coverAct = useId();
@@ -73,7 +80,7 @@ export function SeatHome({
               aria-controls={guideOpen ? "seat-guide" : undefined}
               aria-labelledby={`${coverTitle} ${coverAct}`}
               aria-describedby={coverLead}
-              onClick={() => setGuideOpen((open) => !open)}
+              onClick={() => toggleGuide(!guideOpen)}
             >
               <svg
                 aria-hidden="true"
@@ -127,7 +134,7 @@ export function SeatHome({
                   className="dd-link dd-guide-close dd-noprint"
                   onClick={() => {
                     cover.current?.focus();
-                    setGuideOpen(false);
+                    toggleGuide(false);
                   }}
                 >
                   {t("close")}
@@ -135,8 +142,10 @@ export function SeatHome({
               </section>
             )}
           </div>
-          {/* Opened, the guide lists the deadlines at its top, so the page doesn't show them twice */}
-          {!guideOpen && <UpcomingList items={view.upcoming} />}
+          {/* Opened and loaded, the guide lists the deadlines at its top, so the page doesn't show them twice */}
+          {!(guideOpen && guideLoaded) && (
+            <UpcomingList items={view.upcoming} />
+          )}
           <LineageRail view={view} />
         </>
       )}
