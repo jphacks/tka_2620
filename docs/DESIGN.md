@@ -227,7 +227,9 @@ Use Japanese notebook marks, not coloured chips or emoji. Each mark is followed 
   - **The defaults** are 状態 「公開中」 (the live notes, what the newcomers' answers draw on), 読める人 「すべて」 and
     並び順 「新しい順」. 「絞り込みを外す」 goes back to them.
   - **Withdrawing a note** draws the double line and collapses it. Under 公開中 it then leaves the list; a reload shows
-    the same.
+    the same. One caption line under the count says where it went (「撤回したメモは、状態を「撤回済み」にすると見られます。」)
+    until the filter changes.
+  - **The 状態 options** list the default first: 公開中 · 撤回済み · すべて.
   - **「すべて」 and 「撤回済み」** list withdrawn notes too: the author keeps the record of what they took back. A
     withdrawn note at rest has its title crossed out with the red double line (`.dd-double`, on the words) and the
     撤回済み label. The lines across the whole entry belong to the moment of withdrawing (Motion → Double line).

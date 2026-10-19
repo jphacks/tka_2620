@@ -88,6 +88,11 @@ function MyNotesList({
   const [loadTry, setLoadTry] = useState(0); // the retry button reads the notes again
   const [withdrawn, setWithdrawn] = useState<string>();
   const [query, setQuery] = useState("");
+  // After a withdrawal under 公開中, the note leaves the list: one visible line says where to find it, until the filter
+  // changes.
+  const [whereHint, setWhereHint] = useState(false);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: any change to the filter puts the hint away
+  useEffect(() => setWhereHint(false), [status, scope, atSeat, query]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: loadTry is the retry button's way to read the notes again
   useEffect(() => {
@@ -148,6 +153,7 @@ function MyNotesList({
     // The entry and its button are gone: focus goes to the page's heading, and a screen reader hears what happened. The
     // page doesn't scroll up to it: the notes below the withdrawn one stay where the eye is.
     if (gone) setWithdrawn(gone.title);
+    if (gone) setWhereHint(true);
     const heading = document.querySelector<HTMLElement>("main h1, main h2");
     if (heading) {
       heading.tabIndex = -1; // focusable by script only, not a Tab stop
@@ -227,9 +233,10 @@ function MyNotesList({
           value={status}
           onChange={(event) => setStatus(event.target.value as Status)}
         >
-          <option value={ALL}>{t("filter.allStatus")}</option>
+          {/* The default first: 公開中 */}
           <option value="live">{t("filter.live")}</option>
           <option value="withdrawn">{t("myNotes.withdrawn")}</option>
+          <option value={ALL}>{t("filter.allStatus")}</option>
         </select>
       </label>
       <label>
@@ -307,6 +314,11 @@ function MyNotesList({
           </button>
         )}
       </div>
+      {whereHint && status === "live" && (
+        <p className="dd-cap" style={{ gridColumn: "1 / -1", margin: 0 }}>
+          {t("myNotes.whereWithdrawn")}
+        </p>
+      )}
     </fieldset>
   );
 
