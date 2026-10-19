@@ -509,6 +509,7 @@ describe("the clients", () => {
       method: "GET",
       headers: { authorization: "Bearer token-a26" },
       body: undefined,
+      signal: expect.any(AbortSignal),
     });
     vi.stubGlobal("fetch", async () =>
       Response.json({ asked: [{ questionId: "not-a-uuid" }] }),

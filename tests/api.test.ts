@@ -44,7 +44,38 @@ describe("createApi", () => {
       method: "GET",
       headers: { authorization: "Bearer token-a26" },
       body: undefined,
+      signal: expect.any(AbortSignal),
     });
+  });
+
+  it("cuts off a read that stalls, as unavailable, and leaves writes without a limit", async () => {
+    // AbortSignal.timeout, fired at once: the stalled read gives up like a route that didn't answer.
+    const timeout = vi.spyOn(AbortSignal, "timeout").mockImplementation(() => {
+      const stop = new AbortController();
+      queueMicrotask(() =>
+        stop.abort(new DOMException("stalled", "TimeoutError")),
+      );
+      return stop.signal;
+    });
+    const fetch = vi.fn(
+      (_path: string, init?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () =>
+            reject(init.signal?.reason),
+          );
+        }),
+    );
+    vi.stubGlobal("fetch", fetch);
+    const api = createApi(fakeDb("token-a26").db);
+    const stalled = await api.seat("smash-kaikei").catch((e) => e);
+    expect(stalled).toBeInstanceOf(ApiClientError);
+    expect(stalled.error).toBe("unavailable");
+    expect(timeout).toHaveBeenCalledWith(20_000);
+
+    fetch.mockImplementationOnce(async () => Response.json(mockAnswer));
+    await api.ask({ seat: "smash-kaikei", question: "いつまで？" });
+    expect(fetch.mock.calls.at(-1)?.[1]).not.toHaveProperty("signal");
+    timeout.mockRestore();
   });
 
   it("posts JSON and parses the contract", async () => {

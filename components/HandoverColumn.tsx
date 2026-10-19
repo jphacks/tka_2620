@@ -1,9 +1,10 @@
 "use client";
-// 残す on /s/<seat>/handover: the page's heading with the seat it's for, newcomers' questions, the handover prompts, then
-// 「＋ 追加」. A newcomer's question shows once, on its inbox slip: the prompts below leave out what the inbox holds, and
-// publishing in one has the other read its list again. Only the seat's holders get 「＋ 追加」. The sections appear
-// together, in place, once the seat, the inbox and the prompts have been read: until then they are there but unseen, so
-// 「＋ 追加」 doesn't slide down under a finger as the slips and prompts above it arrive.
+// 残す on /s/<seat>/handover: newcomers' questions, the handover prompts, then 「＋ 追加」. No title on screen (Nico's call):
+// the verb tab says where you are; the h1 is there for a screen reader. A newcomer's question shows once, on its inbox
+// slip: the prompts below leave out what the inbox holds, and publishing in one has the other read its list again. Only
+// the seat's holders get 「＋ 追加」. The sections appear together, in place, once the seat, the inbox and the prompts
+// have been read: until then they are there but unseen, so 「＋ 追加」 doesn't slide down under a finger as the slips and
+// prompts above it arrive. The seat is read here once, for the prompts and 「＋ 追加」 alike, with one retry.
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AddPanel } from "@/components/AddPanel";
@@ -29,21 +30,28 @@ export function HandoverColumn({
   const seatApi = useMemo(() => api ?? createMockApi("a25"), [api]);
   const [view, setView] = useState<SeatView>();
   const [seatFailed, setSeatFailed] = useState(false);
+  const [seatTry, setSeatTry] = useState(0); // the prompts' retry reads the seat again
+  // biome-ignore lint/correctness/useExhaustiveDependencies: seatTry is the retry button's way to read the seat again
   useEffect(() => {
     let alive = true;
     seatApi.seat(slug).then(
       (seat) => {
-        if (alive) setView(seat);
+        if (!alive) return;
+        setSeatFailed(false);
+        setView(seat);
       },
       () => {
-        // the heading stays without its seat line; the sections below say what failed
-        if (alive) setSeatFailed(true);
+        if (alive) setSeatFailed(true); // the prompts say so, with the retry
       },
     );
     return () => {
       alive = false;
     };
-  }, [seatApi, slug]);
+  }, [seatApi, slug, seatTry]);
+  const retrySeat = useCallback(() => {
+    setSeatFailed(false);
+    setSeatTry((n) => n + 1);
+  }, []);
   // Each section says when its first read is done, whether it worked or not.
   const [inboxLoaded, setInboxLoaded] = useState(false);
   const [promptsLoaded, setPromptsLoaded] = useState(false);
@@ -54,17 +62,7 @@ export function HandoverColumn({
 
   return (
     <div className="dd-col" style={{ gap: "var(--s-7)" }}>
-      <header className="dd-page-head">
-        <h1 className="dd-h dd-page-title">{t("verbs.handover")}</h1>
-        <p className="dd-cap">
-          {view
-            ? t("handover.seatLine", {
-                seat: view.seat.name,
-                group: view.seat.group,
-              })
-            : " "}
-        </p>
-      </header>
+      <h1 className="dd-sr-only">{t("verbs.handover")}</h1>
       {!ready && <output className="dd-cap">{t("profile.loading")}</output>}
       <div
         className="dd-col"
@@ -86,15 +84,17 @@ export function HandoverColumn({
         <HandoverPrompts
           slug={slug}
           api={api}
+          view={view}
+          seatFailed={seatFailed}
+          onSeatRetry={retrySeat}
           refresh={promptsRead}
           hidden={inInbox}
           onLoaded={onPromptsLoaded}
           onPublished={() => setInboxRead((n) => n + 1)}
         />
-        {/* Only once the seat says who may add: a non-holder never sees 「＋ 追加」 flash before its caption */}
-        {view && (
-          <AddPanel slug={slug} api={api} canAdd={view.viewer.isHolder} />
-        )}
+        {/* There from the start, so a file dropped on the page never opens in the tab; it shows 「＋ 追加」 (or why not)
+            only once the seat says who may add, so a non-holder never sees the button flash */}
+        <AddPanel slug={slug} api={api} canAdd={view?.viewer.isHolder} />
       </div>
     </div>
   );

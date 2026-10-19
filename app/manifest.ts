@@ -1,7 +1,8 @@
 import type { MetadataRoute } from "next";
+import { PAPER } from "@/app/app-mark";
 
 // Installable from the browser (「ホーム画面に追加」): it opens standalone on the start page, in the notebook's colours
-// (--paper in styles/tokens.css), with the key-tag icons from app/icon.tsx.
+// (--paper, as the icons have it in app/app-mark.tsx), with the key-tag icons from app/icon.tsx.
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "代々 Daidai",
@@ -10,8 +11,8 @@ export default function manifest(): MetadataRoute.Manifest {
     lang: "ja",
     start_url: "/",
     display: "standalone",
-    background_color: "#F9FAFB",
-    theme_color: "#F9FAFB",
+    background_color: PAPER,
+    theme_color: PAPER,
     icons: [
       { src: "/icon/192", sizes: "192x192", type: "image/png" },
       { src: "/icon/512", sizes: "512x512", type: "image/png" },

@@ -38,6 +38,12 @@ function writeSeen(slug: string, ids: Iterable<string>) {
     // storage off: the marks simply don't carry over
   }
 }
+// The page scrolls smoothly to what it brings into view, so the eye can follow; at once when the device asks for less
+// motion.
+const scrollMotion = (): ScrollBehavior =>
+  window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    ? "auto"
+    : "smooth";
 
 // 聞く on the seat page: the ask field, then each question in blue with its result underneath.
 // Mocks only for now (NEXT_PUBLIC_USE_MOCKS=1); the real client replaces createMockApi when /api/ask exists.
@@ -142,9 +148,16 @@ export function AskPanel({
   const newestEntry = asked[0];
   useEffect(() => {
     if (newestEntry && failed !== "ask") {
-      newest.current?.scrollIntoView({ block: "nearest" });
+      newest.current?.scrollIntoView({
+        block: "nearest",
+        behavior: scrollMotion(),
+      });
     }
   }, [newestEntry, failed]);
+  // A question that didn't go out: its error comes into view (on a short phone it can sit under the verb tabs).
+  const intoView = useCallback((node: HTMLElement | null) => {
+    node?.scrollIntoView({ block: "nearest", behavior: scrollMotion() });
+  }, []);
 
   // The asker's latest answer replaces the entry: the live answer, then any re-answer after a withdrawal
   // (fewer sentences, or the blank line again).
@@ -171,6 +184,7 @@ export function AskPanel({
         entries.filter((entry) => entry.question !== question || entry.result),
       );
       setFailed("ask");
+      setSuggestion({ text: question }); // back in the field, to send again with 聞く
       return;
     }
     setAsked((entries) =>
@@ -209,7 +223,10 @@ export function AskPanel({
     const { seatType, name } = seatView.seat;
     const nobody = t(`seatTypes.${seatType}.abstain`, { seat: name });
     return result.routedTo > 0
-      ? `${nobody}${t(`seatTypes.${seatType}.routed`, { seat: name })}`
+      ? t("ask.abstainedStatus", {
+          nobody,
+          routed: t(`seatTypes.${seatType}.routed`, { seat: name }),
+        })
       : nobody;
   })();
 
@@ -230,6 +247,22 @@ export function AskPanel({
       <output aria-live="polite" className="dd-sr-only">
         {status}
       </output>
+      {/* Right under the field, before the examples: what went wrong stays next to what it is about */}
+      {failed === "seat" && (
+        <RetryLine
+          message={t("ask.seatFailed")}
+          onRetry={() => setSeatTry((n) => n + 1)}
+        />
+      )}
+      {failed === "ask" && (
+        <p
+          ref={intoView}
+          role="alert"
+          style={{ margin: 0, color: "var(--ink-2)" }}
+        >
+          {t("ask.failed")}
+        </p>
+      )}
       {/* First steps: someone who hasn't asked anything here yet gets three questions others ask at this kind of seat
           (the label pack's), to tap into the field. Gone after the first question; never on the console. */}
       {seatView &&
@@ -260,17 +293,6 @@ export function AskPanel({
             </ul>
           </div>
         )}
-      {failed === "seat" && (
-        <RetryLine
-          message={t("ask.seatFailed")}
-          onRetry={() => setSeatTry((n) => n + 1)}
-        />
-      )}
-      {failed === "ask" && (
-        <p role="alert" style={{ margin: 0, color: "var(--ink-2)" }}>
-          {t("ask.failed")}
-        </p>
-      )}
       {asked.map(({ question, result }, index) => (
         <article
           key={`${asked.length - index}`}

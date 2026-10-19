@@ -152,13 +152,16 @@ Use Japanese notebook marks, not coloured chips or emoji. Each mark is followed 
 - **AskPanel's status line**: one always-present line for a screen reader, never shown: 「先輩たちのメモを探しています」, then
   the outcome (an answer, 「誰も知りません。…に届けました」, 「いま、…が答えました」). On screen the searching line sits under the
   new question, in `--ink-2`, where the answer will be (the only sign that 聞く is working), and the answer takes its place, so
-  nothing jumps; the new entry comes into view as it is added. The field appears once, in place: 聞く keeps the panel
-  unseen until the seat has loaded. A load that fails offers 「もう一度ためす」 (`RetryLine`).
+  nothing jumps; the new entry comes into view as it is added (smoothly, unless the device asks for less motion). The
+  field appears once, in place: 聞く keeps the panel unseen until the seat has loaded. A load that fails offers
+  「もう一度ためす」 (`RetryLine`). A question that didn't go out says so right under the field, above the first steps, comes
+  into view, and is back in the field to send again.
 - **First steps** on 聞く: someone who hasn't asked anything at the seat yet sees 「たとえば」 and three questions others ask at
   this kind of seat (the label pack's `seatTypes.<type>.examples`) as blue text buttons in the hand; a tap puts one in the
   field to read or change, never sends it. Gone after the first question; never on the console.
 - **A load that fails** offers 「もう一度ためす」 (`RetryLine`) everywhere a page or section reads data: the seat, the inbox,
-  the handover prompts, 自分のメモ, /me and the guide.
+  the handover prompts, 自分のメモ, /me and the guide. A read that hangs (venue Wi-Fi) gives up after 20 s and fails the
+  same way, so no page waits forever behind 「読み込んでいます」.
 - **「これまでの質問」** on 聞く: the asker's earlier questions at the seat (GET /api/seats/[slug]/asked), under this session's,
   answered ones as `AnswerEntry`, the rest with 「まだ答えはありません。答えが届くと、ここに出ます。」. An answer that came
   while the tab was closed carries 「新しい答え」 in blue UI text (13px, bold) once per device, and the status line reads out
@@ -170,19 +173,22 @@ Use Japanese notebook marks, not coloured chips or emoji. Each mark is followed 
 - **`InboxSlip`** (伝言メモ, on the predecessor's phone): a message slip like an office phone-message pad.
   Header 「後輩から質問が届きました」, a 「から」 field with 「2026年度 会計」, the question in Klee One 20px,
   「〇人が質問しました」, and the answer written on the slip itself (`VoiceAnswer`), so nothing has to open first.
-- **残す's page** (`HandoverColumn`): an h1 「残す」 with the seat it's for (「テニスサークル Smashの会計の席」), then the
-  inbox, the handover prompts and 「＋ 追加」. They appear together, in place, once the seat, the inbox and the prompts have
-  been read (a 「読み込んでいます」 caption until then), so nothing slides under a finger. A newcomer's question shows once,
+- **残す's page** (`HandoverColumn`): no title on screen (Nico's call: the verb tab says where you are; the h1 is for a
+  screen reader), just the inbox, the handover prompts and 「＋ 追加」. They appear together, in place, once the seat, the
+  inbox and the prompts have been read (a 「読み込んでいます」 caption until then), so nothing slides under a finger; a
+  file dropped on the page is kept off it from the first moment. A newcomer's question shows once,
   on its slip (the prompts leave out what the inbox holds); a new one is read out in one line
   (「後輩から質問が届きました（2026年度 会計）：…」), and the inbox reads itself again when the phone wakes or comes back
   online. Each answer box is described by its question, keeps its draft when its drafted cards are put away (やめる), and
   dictates in the question's (or the page's) language. 「＋ 追加」 shows only to the seat's holders; others read why.
-  A page's h1 (残す, 自分のメモ, あなた) is `--text-l`, one step above its 20px section headings.
+  自分のメモ shows no title either. あなた's h1 and the guide's title are `--text-l`, one step above their 20px section
+  headings.
 - **`VoiceAnswer`**: a textbox (1px `--ink-2`, `--blue` while focused) holding the answer in Klee One on ruled lines,
   growing with it and using its full width, with a round 40px microphone laid over it at the bottom right: `--blue` icon, filled `--blue` while
   listening with one ring pulsing outward in `--blue-wash`. Focused, the border turns `--blue` inside the usual 2px ring.
-  Tap anywhere on the box to type (it is the field's label) or the mic to speak; 「公開する」 appears below with the first
-  word and stays clear of the verb tabs as the answer grows. The same box sits on each handover prompt, where the button
+  Tap anywhere on the box to type (it is the field's label) or the mic to speak (it sits in the box's corner beside the
+  label, with its own focus ring inside its circle); 「公開する」 appears below with the first word and stays clear of the
+  verb tabs as the answer grows. The same box sits on each handover prompt, where the button
   says 「下書きを作る」.
 - **`NoteEntry`**: a note as a notebook entry: kind mark and title (UI bold), body (Klee One), date stamp
   bottom-right, scope in small UI text (「次の会計だけ」). Deadline notes show the date in figures with the highlighter.

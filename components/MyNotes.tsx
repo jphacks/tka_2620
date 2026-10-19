@@ -3,7 +3,7 @@
 // the page (MyNotesPanel) and the console (TrustConsole) each own the withdrawal state machine and pass it in.
 // Each note says its scope in the words of the seat it was written at (MyNote.seat), so seats holds those seats.
 import { useTranslations } from "next-intl";
-import type { ReactNode } from "react";
+import { type ReactNode, useCallback } from "react";
 import { NoteEntry, type WithdrawPhase } from "@/components/NoteEntry";
 import type { Api, MyNote, SeatView } from "@/lib/contracts";
 
@@ -36,10 +36,15 @@ export function MyNotes({
   tools?: ReactNode;
   /** What an empty list says when the author has notes the filter hides. */
   emptyText?: string;
-  /** 1 on /me/notes, where this is the page; 2 inside the console's pane. */
+  /** 1 on /me/notes, where this is the page and its h1 is for a screen reader only (the verb tab says where you are,
+   * Nico's call); 2 inside the console's pane, shown, since a pane has no tabs. */
   headingLevel?: 1 | 2;
 }) {
   const t = useTranslations();
+  // A withdrawal that failed says so above the list: it comes into view, as the author may be far down the list.
+  const intoView = useCallback((node: HTMLElement | null) => {
+    node?.scrollIntoView({ block: "nearest" });
+  }, []);
   return (
     <section
       className="dd-col"
@@ -47,13 +52,13 @@ export function MyNotes({
       aria-label={t("verbs.myNotes")}
     >
       {headingLevel === 1 ? (
-        <h1 className="dd-h dd-page-title">{t("verbs.myNotes")}</h1>
+        <h1 className="dd-sr-only">{t("verbs.myNotes")}</h1>
       ) : (
         <h2 className="dd-h">{t("verbs.myNotes")}</h2>
       )}
       {tools}
       {withdrawFailed && (
-        <p role="alert" style={{ margin: 0 }}>
+        <p ref={intoView} role="alert" style={{ margin: 0 }}>
           {t("myNotes.withdrawFailed")}
         </p>
       )}

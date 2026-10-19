@@ -174,10 +174,14 @@ export function InboxPanel({
                 load();
                 onPublished?.();
                 if (closeAfterPublish) {
-                  setTimeout(
-                    () => release(item.promptId),
-                    CLOSE_AFTER_PUBLISH_MS,
-                  );
+                  setTimeout(() => {
+                    release(item.promptId);
+                    // The console's pane had scrolled down to the card: back up to the inbox's heading, so the pane
+                    // reads from its top again instead of cutting the heading off.
+                    document
+                      .getElementById("inbox-title")
+                      ?.scrollIntoView({ block: "nearest" });
+                  }, CLOSE_AFTER_PUBLISH_MS);
                 }
               }}
               onClose={() => release(item.promptId)}
