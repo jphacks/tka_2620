@@ -149,6 +149,12 @@ Use Japanese notebook marks, not coloured chips or emoji. Each mark is followed 
   highlighter (`--marker` behind the text, slightly taller than the x-height, no rounded ends).
   A rule change is a red-pen margin note: a red bracket left of the sentence and 「2025年に変更」 in red UI text right
   after its stamp, on the same line.
+- **聞く, top to bottom:** `SeatHeader`, then the ask panel (the field, the first steps or the answers, 「これまでの質問」),
+  then the guide's cover (`HandoverGuide`, inline), then `UpcomingList`, then `LineageRail`.
+  - The field comes first: a tap on the key is for asking, and on a 390×664 phone the start of an answer stays above
+    the verb tabs.
+  - Asking one question and reading everything sit side by side.
+  - The lineage closes the page: every answer's stamps already carry the years.
 - **AskPanel's status line**: one always-present line for a screen reader, never shown: 「先輩たちのメモを探しています」, then
   the outcome (an answer, 「誰も知りません。…に届けました」, 「いま、…が答えました」). On screen the searching line sits under the
   new question, in `--ink-2`, where the answer will be (the only sign that 聞く is working), and the answer takes its place, so
@@ -212,9 +218,25 @@ Use Japanese notebook marks, not coloured chips or emoji. Each mark is followed 
        questions in blue
     4. 「あなたの質問と答え」 as `AnswerEntry`s, whose stamps open their notes
   - **Who wrote it:** people appear only as bylines (「2025年度 会計」).
-  - **Inline on 聞く:** 「引き継ぎ書を開く」 opens the same guide in place below the ask panel (no screen change) and scrolls
-    its top into view, 「引き継ぎ書を閉じる」 folds it; printing from there puts only the guide on paper. `/s/[seat]/guide`
-    stays for /me.
+  - **Inline on 聞く:** the way in is the guide's **cover**, a slip under the ask panel that says what it is:
+    - a 4px `--blue` spine on its left edge, so it reads as a book to open, not one more note;
+    - a line book icon (left out below 360px, where the spine alone says it);
+    - 「会計の引き継ぎ書」;
+    - one `--ink-2` line, 「先輩たちが残したメモを、一冊にまとめて読めます」;
+    - at the end, a blue 「読む」 with a chevron.
+
+    The whole slip is the button. A tap unfolds the same guide in place under it (no screen change):
+    - The cover becomes its header, saying 「閉じる」. Focus stays on the cover. Once loaded, the cover moves to the top
+      of the screen.
+    - Once the guide has loaded, the page's own deadline list steps aside, since the guide lists the deadlines at its
+      top. While it loads, or if it fails, the list stays.
+    - The title, group and institution go on paper only (the cover and the key tag say them).
+    - The filter folds under one 44px blue line, 「絞り込みと並び順」.
+    - The export buttons come after the notes: read first, then save.
+    - 「引き継ぎ書を閉じる」 at the end folds it and lands back on the cover.
+
+    Printing from there puts only the guide on paper, with its full header. `/s/[seat]/guide` stays as it is for /me
+    (「引き継ぎ書を開く」): export first, the filter open.
 - **`WithdrawMeter`**: figures face, 39px on the console; counts in `--red` from the click, freezes in `--ink`
   when the last pane drops the note: 「0.8秒」.
 - **`LeakCounter`**: 「漏れ 0 / 50 回」, the 0 in `--green`.
