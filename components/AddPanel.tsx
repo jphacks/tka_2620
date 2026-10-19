@@ -59,6 +59,12 @@ export function AddPanel({
   const allowed = useRef(canAdd === true);
   allowed.current = canAdd === true;
   const [open, setOpen] = useState(false);
+  const button = useRef<HTMLButtonElement>(null);
+  const close = () => {
+    setOpen(false);
+    setDropped(undefined);
+    button.current?.focus(); // back where the slip was opened from
+  };
   const [dragging, setDragging] = useState(false);
   const [dropped, setDropped] = useState<Dropped>();
 
@@ -115,11 +121,13 @@ export function AddPanel({
   }
   return children({
     button: (
+      // A second tap folds the slip again, as 閉じる does; pressed (--blue-wash) while it's open
       <button
+        ref={button}
         type="button"
         className="dd-btn"
         aria-expanded={open}
-        onClick={() => setOpen(true)}
+        onClick={() => (open ? close() : setOpen(true))}
       >
         {t("add")}
       </button>
@@ -142,10 +150,7 @@ export function AddPanel({
           api={api}
           dragging={dragging}
           dropped={dropped}
-          onClose={() => {
-            setOpen(false);
-            setDropped(undefined);
-          }}
+          onClose={close}
           onImported={onImported}
         />
       </Suspense>
