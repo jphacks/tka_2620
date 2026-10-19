@@ -223,20 +223,18 @@ Use Japanese notebook marks, not coloured chips or emoji. Each mark is followed 
   says 「下書きを作る」.
 - **`NoteEntry`**: a note as a notebook entry: kind mark and title (UI bold), body (Klee One), date stamp
   bottom-right, scope in small UI text (「次の会計だけ」). Deadline notes show the date in figures with the highlighter.
-- **自分のメモ's list** (`MyNotes`) is what's live, what the newcomers' answers draw on. Withdrawn notes aren't dropped
-  from view, since the author keeps the record of what they took back: they're folded away at the end under one 44px blue
-  line, 「撤回したメモ（2件）」, which opens them struck through with 撤回済み under 「どの回答にも使われません。」 (Nico's
-  call). Withdrawing a note draws the double line, collapses it out of the list, and adds it to the fold, as a reload
-  shows it too. The same search and filters apply to both; with every note withdrawn the list says 「公開中のメモはありません。」.
-  The filter keeps its 状態 select (Nico's call), and it works with the fold:
-  - 「すべて」 (the default): the live list and the fold.
-  - 「公開中」: the live list alone.
-  - 「撤回済み」: the withdrawn notes listed in place, unfolded.
-
-  The count line counts what the list shows. An empty list under 状態 alone says which notes there are none of
-  (「公開中のメモはありません。」, 「撤回したメモはありません。」). With another filter as well, it says nothing matches. A
-  withdrawn note at rest, in the fold or under 撤回済み, has its title crossed out with the red double line (`.dd-double`,
-  on the words). The lines across the whole entry belong to the moment of withdrawing (Motion → Double line).
+- **自分のメモ's list** (`MyNotes`) shows what the filter's 状態 picks, in place, with no fold (Nico's call: as before).
+  - **The defaults** are 状態 「公開中」 (the live notes, what the newcomers' answers draw on), 読める人 「すべて」 and
+    並び順 「新しい順」. 「絞り込みを外す」 goes back to them.
+  - **Withdrawing a note** draws the double line and collapses it. Under 公開中 it then leaves the list; a reload shows
+    the same.
+  - **「すべて」 and 「撤回済み」** list withdrawn notes too: the author keeps the record of what they took back. A
+    withdrawn note at rest has its title crossed out with the red double line (`.dd-double`, on the words) and the
+    撤回済み label. The lines across the whole entry belong to the moment of withdrawing (Motion → Double line).
+  - **The count line** counts what the list shows.
+  - **An empty list** says which notes there are none of (「公開中のメモはありません。」, 「撤回したメモはありません。」), or that
+    nothing matches when the search or another filter hides some.
+  - **The console's a25 pane** drops a withdrawn note the same way after its collapse.
 - **`UpcomingList`**: a planner column: boxed date in figures (「10/20 火」), title, mini stamp. Dates within 7 days
   carry the highlighter.
 - **The filter** (`.dd-filter`, on the guide and 自分のメモ): the search across the whole width, then the selects on one
