@@ -10,9 +10,10 @@ export const INK = "#1D2433";
 const BLUE = "#2141B8";
 const BLUE_WASH = "#E8EDFB";
 
-const MARK = `data:image/svg+xml;base64,${btoa(
-  markSvg({ note: BLUE, fold: BLUE_WASH, glyph: SHEET }),
-)}`;
+const COLOURS = { note: BLUE, fold: BLUE_WASH, glyph: SHEET };
+const MARK = `data:image/svg+xml;base64,${btoa(markSvg(COLOURS))}`;
+// The 32px favicon draws 々 a little heavier, so its strokes don't fade at that size.
+const MARK_SMALL = `data:image/svg+xml;base64,${btoa(markSvg(COLOURS, true))}`;
 
 /** size: the square's side in px; padded: room around the note (a home-screen icon gets cut to a rounded square). */
 export function AppMark({
@@ -35,7 +36,12 @@ export function AppMark({
       }}
     >
       {/* biome-ignore lint/performance/noImgElement: next/og draws the PNG icons; next/image doesn't exist there */}
-      <img src={MARK} width={side} height={side} alt="" />
+      <img
+        src={size <= 48 ? MARK_SMALL : MARK}
+        width={side}
+        height={side}
+        alt=""
+      />
     </div>
   );
 }
