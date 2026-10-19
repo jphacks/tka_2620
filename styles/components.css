@@ -80,9 +80,6 @@ body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(
 .dd-ask-status { margin: 0; }
 /* A long URL or word in a question or an answer wraps instead of widening a 390px phone */
 .dd-q, .dd-ruled { overflow-wrap: anywhere; }
-/* The inline guide takes focus when opened: the ring would frame the whole guide, so it shows on its heading's line only */
-.dd-guide-inline:focus { outline: none; }
-.dd-guide-inline:focus-visible .dd-guide-title { outline: 2px solid var(--blue); outline-offset: 4px; }
 
 /* 「新しい答え」 over an earlier question answered while the tab was closed: blue, as everything that is for you */
 .dd-new-answer { margin: 0; color: var(--blue); font-weight: 700; font-size: 13px; letter-spacing: .04em; }
@@ -225,7 +222,6 @@ html { overscroll-behavior-y: none; }
 /* A page's h1 (残す, 自分のメモ, あなた) and the guide's title: one size above the sections' 20px headings */
 .dd-page-title, .dd-guide-title { font-size: var(--text-l); line-height: 1.3; }
 .dd-guide-rules { margin: 0; }
-.dd-guide-link { justify-self: start; display: inline-flex; align-items: center; min-height: 44px; font-weight: 700; }
 .dd-guide-body { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .dd-gaps { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s-2); }
 .dd-gaps li { display: grid; grid-template-columns: 1fr auto; column-gap: var(--s-3); align-items: center; padding-block: var(--s-2); border-bottom: 1px solid var(--rule); }
@@ -269,9 +265,27 @@ html { overscroll-behavior-y: none; }
 .dd-seat-head .dd-tag { min-height: 44px; padding: var(--s-1) var(--s-3) var(--s-1) var(--s-6); }
 .dd-seat-head .dd-tag-name { font-size: var(--text-m); line-height: 28px; }
 .dd-tag-kind { font-family: var(--font-ui); font-size: var(--text-s); font-weight: 700; color: var(--ink-2); letter-spacing: .04em; }
-/* The guide opened inline on 聞く sits under the ask panel, ruled off from it (16 + the page's 32px gap = 48); scrolled
-   to, its rule stops clear of the top edge */
-.dd-guide-inline { margin-top: var(--s-4); padding-top: var(--s-5); border-top: 1px solid var(--rule); scroll-margin-top: 56px; }
+/* The way into the handover guide on 聞く, under the ask panel: the guide as a slip that says what it is (its title, one
+   line on what's inside) and what a tap does (読む, 閉じる once open). The whole slip is the button. Opened, it heads the
+   guide unfolded under it; scrolled to, it stops clear of the top edge. */
+.dd-guide-cover { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; column-gap: var(--s-3);
+  width: 100%; min-height: 64px; padding: var(--s-3) var(--s-4); text-align: start; font: inherit; color: var(--ink); cursor: pointer;
+  scroll-margin-top: 56px; }
+.dd-guide-cover:hover { background: var(--blue-wash); }
+.dd-guide-cover > svg { color: var(--blue); }
+.dd-guide-cover-text { display: grid; gap: 2px; }
+.dd-guide-cover-title { font-size: var(--text-s); line-height: 24px; font-weight: 700; letter-spacing: .04em; word-break: auto-phrase; }
+.dd-guide-cover-act { display: inline-flex; align-items: center; gap: var(--s-1); color: var(--blue); font-weight: 700; white-space: nowrap; }
+.dd-guide-cover[aria-expanded="true"] .dd-guide-cover-act svg { transform: rotate(180deg); }
+/* The guide opened under its cover, 24px below it (the wrap's 12 + 12); at its end, 「引き継ぎ書を閉じる」 */
+.dd-guide-inline { padding-top: var(--s-3); gap: var(--s-6); }
+.dd-guide-close { justify-self: start; display: inline-flex; align-items: center; min-height: 44px; font-weight: 700; }
+/* The inline guide's filter, folded: one 44px blue line that opens the frame under it */
+.dd-filter-fold > summary { display: flex; align-items: center; gap: var(--s-1); min-height: 44px; list-style: none; color: var(--blue);
+  font-weight: 700; cursor: pointer; }
+.dd-filter-fold > summary::-webkit-details-marker { display: none; }
+.dd-filter-fold[open] > summary { margin-bottom: var(--s-2); }
+.dd-filter-fold[open] > summary svg { transform: rotate(180deg); }
 @media print {
   /* Printing the inline guide: only the guide goes on paper, not the seat page around it */
   :root.dd-printing-guide .dd-seat-home > :not(:has(.dd-guide-inline)),

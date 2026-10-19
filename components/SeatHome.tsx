@@ -1,10 +1,12 @@
 "use client";
-// 聞く (/s/[seat]): the club-room key and its notebook. The key tag, the lineage, the deadlines coming up and the way to
-// the whole handover guide (引き継ぎ書), then the ask panel, and the guide below it when opened. The ask field appears
-// once, in its place: until the seat has loaded the panel is there but unseen, so nothing jumps under a finger. AskPanel loads the seat view (as a26 on mocks, as the signed-in persona on real data) and hands it up, so
-// the page reads GET /api/seats/[slug] once.
+// 聞く (/s/[seat]): the club-room key and its notebook. The key tag, then the ask panel, the way into the whole handover
+// guide (引き継ぎ書) as a slip that says what it is, the deadlines coming up and the lineage. The field comes first: a tap
+// on the key is for asking, and on a phone the start of an answer stays above the verb tabs. It appears once, in its
+// place: until the seat has loaded the panel is there but unseen, so nothing jumps under a finger. AskPanel loads the
+// seat view (as a26 on mocks, as the signed-in persona on real data) and hands it up, so the page reads
+// GET /api/seats/[slug] once.
 import { useTranslations } from "next-intl";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useId, useMemo, useRef, useState } from "react";
 import { AskPanel } from "@/components/AskPanel";
 import { Guide } from "@/components/HandoverGuide";
 import { LineageRail } from "@/components/LineageRail";
@@ -25,45 +27,27 @@ export function SeatHome({
 }) {
   const t = useTranslations("guide");
   const [view, setView] = useState<SeatView>();
-  // The handover guide opens here, below the ask panel, instead of on its own page: one screen less (Nico's call).
+  // The handover guide opens here, under its cover, instead of on its own page: one screen less (Nico's call).
   const [guideOpen, setGuideOpen] = useState(false);
   const guideApi = useMemo(() => api ?? createMockApi("a26"), [api]);
   // The seat didn't load: the panel shows anyway, with its error and retry.
   const [seatFailed, setSeatFailed] = useState(false);
   const onSeatFailed = useCallback(() => setSeatFailed(true), []);
   const ready = view !== undefined || seatFailed;
-  // Opened, the guide takes focus (and its title comes into view), so a keyboard or screen reader lands on it, not the
-  // page top. Once loaded, its top moves up to the top of the screen: under a long answer history, focus alone leaves
-  // only the title showing, just above the verb tabs, and while loading the page isn't tall enough to scroll that far.
-  const guide = useRef<HTMLElement>(null);
-  useEffect(() => {
-    if (guideOpen) guide.current?.focus();
-  }, [guideOpen]);
+  // The cover is the guide's disclosure button and, opened, its header: focus stays on it and the guide follows it for
+  // the keyboard. Once the guide has loaded, the cover moves up to the top of the screen, so the guide fills it under
+  // its header, with 「閉じる」 in reach.
+  const cover = useRef<HTMLButtonElement>(null);
   const guideReady = useCallback(
-    () => guide.current?.scrollIntoView({ block: "start" }),
+    () => cover.current?.scrollIntoView({ block: "start" }),
     [],
   );
+  const coverTitle = useId();
+  const coverLead = useId();
+  const coverAct = useId();
   return (
     <div className="dd-col dd-seat-home" style={{ gap: "var(--s-6)" }}>
-      {view && (
-        <>
-          <SeatHeader seat={view.seat} />
-          <LineageRail view={view} />
-          {/* The way to the whole guide belongs to the deadlines above it, not to the ask field below */}
-          <div className="dd-col dd-guide-wrap" style={{ gap: "var(--s-2)" }}>
-            <UpcomingList items={view.upcoming} />
-            <button
-              type="button"
-              className="dd-link dd-guide-link"
-              aria-expanded={guideOpen}
-              aria-controls={guideOpen ? "seat-guide" : undefined}
-              onClick={() => setGuideOpen((open) => !open)}
-            >
-              {t(guideOpen ? "close" : "open")}
-            </button>
-          </div>
-        </>
-      )}
+      {view && <SeatHeader seat={view.seat} />}
       {!ready && <output className="dd-cap">{t("loading")}</output>}
       <div
         style={ready ? undefined : { visibility: "hidden" }}
@@ -77,17 +61,84 @@ export function SeatHome({
           onSeatFailed={onSeatFailed}
         />
       </div>
-      {/* The guide opens below the ask panel, so the field stays near the top and comes before it for the keyboard */}
-      {guideOpen && view && (
-        <section
-          id="seat-guide"
-          ref={guide}
-          tabIndex={-1}
-          className="dd-guide-inline"
-          aria-label={t("titlePlain")}
-        >
-          <Guide slug={slug} api={guideApi} inline onReady={guideReady} />
-        </section>
+      {view && (
+        <>
+          {/* Asking one question, or reading everything: the two ways in, side by side */}
+          <div className="dd-col dd-guide-wrap">
+            <button
+              ref={cover}
+              type="button"
+              className="dd-slip dd-guide-cover"
+              aria-expanded={guideOpen}
+              aria-controls={guideOpen ? "seat-guide" : undefined}
+              aria-labelledby={`${coverTitle} ${coverAct}`}
+              aria-describedby={coverLead}
+              onClick={() => setGuideOpen((open) => !open)}
+            >
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 24 24"
+                width="24"
+                height="24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M12 6.5C10.5 5.3 8.3 4.8 4 5v13c4.3-.2 6.5.3 8 1.5 1.5-1.2 3.7-1.7 8-1.5V5c-4.3-.2-6.5.3-8 1.5Z" />
+                <path d="M12 6.5v13" />
+              </svg>
+              <span className="dd-guide-cover-text">
+                <span id={coverTitle} className="dd-guide-cover-title">
+                  {t("title", { seat: view.seat.name })}
+                </span>
+                <span id={coverLead} className="dd-cap dd-phrase">
+                  {t("coverLead")}
+                </span>
+              </span>
+              <span className="dd-guide-cover-act">
+                <span id={coverAct}>{t(guideOpen ? "fold" : "read")}</span>
+                <svg
+                  aria-hidden="true"
+                  viewBox="0 0 24 24"
+                  width="20"
+                  height="20"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="m6 9 6 6 6-6" />
+                </svg>
+              </span>
+            </button>
+            {guideOpen && (
+              <section
+                id="seat-guide"
+                className="dd-col dd-guide-inline"
+                aria-label={t("titlePlain")}
+              >
+                <Guide slug={slug} api={guideApi} inline onReady={guideReady} />
+                {/* The end of a long guide: fold it from here too, and land back on the cover */}
+                <button
+                  type="button"
+                  className="dd-link dd-guide-close dd-noprint"
+                  onClick={() => {
+                    cover.current?.focus();
+                    setGuideOpen(false);
+                  }}
+                >
+                  {t("close")}
+                </button>
+              </section>
+            )}
+          </div>
+          {/* Opened, the guide lists the deadlines at its top, so the page doesn't show them twice */}
+          {!guideOpen && <UpcomingList items={view.upcoming} />}
+          <LineageRail view={view} />
+        </>
       )}
     </div>
   );
