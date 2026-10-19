@@ -84,6 +84,9 @@ body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(
 .dd-guide-inline:focus { outline: none; }
 .dd-guide-inline:focus-visible .dd-guide-title { outline: 2px solid var(--blue); outline-offset: 4px; }
 
+/* 「新しい答え」 over an earlier question answered while the tab was closed: blue, as everything that is for you */
+.dd-new-answer { margin: 0; color: var(--blue); font-weight: 700; font-size: 13px; letter-spacing: .04em; }
+
 /* Answer */
 .dd-q { color: var(--blue); font-weight: 700; margin: 0 0 var(--s-2); }
 .dd-live-note { color: var(--blue); font-weight: 700; margin: var(--s-2) 0 0; }

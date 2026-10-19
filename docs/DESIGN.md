@@ -154,6 +154,10 @@ Use Japanese notebook marks, not coloured chips or emoji. Each mark is followed 
   new question, in `--ink-2`, where the answer will be (the only sign that 聞く is working), and the answer takes its place, so
   nothing jumps; the new entry comes into view as it is added. The field appears once, in place: 聞く keeps the panel
   unseen until the seat has loaded. A load that fails offers 「もう一度ためす」 (`RetryLine`).
+- **「これまでの質問」** on 聞く: the asker's earlier questions at the seat (GET /api/seats/[slug]/asked), under this session's,
+  answered ones as `AnswerEntry`, the rest with 「まだ答えはありません。答えが届くと、ここに出ます。」. An answer that came
+  while the tab was closed carries 「新しい答え」 in blue UI text (13px, bold) once per device, and the status line reads out
+  「先輩から新しい答えが1件届いています」. Read again when the page is back from sleep. Off on the console's newcomer pane.
 - **`AbstainEntry`** (空欄): the blank line, 「歴代の会計は誰も知りません」 in `--ink-2`, and a blue status line
   「去年の会計に届けました」. Calm; never red, never an error icon.
 - **`LiveStamp`**: when the live answer arrives, the new `AnswerEntry` appears and its date stamp lands,

@@ -53,6 +53,10 @@
     }
   },
   "ask": {
+    "earlierTitle": "Your earlier questions",
+    "newAnswer": "New answer",
+    "newAnswers": "New answers from your predecessors: {n}",
+    "noAnswerYet": "No answer yet. It will appear here when one comes.",
     "placeholder": "Ask the people who held this seat",
     "searching": "Looking through your predecessors' notes",
     "found": "Found an answer in your predecessors' notes",
