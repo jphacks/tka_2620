@@ -183,9 +183,9 @@
     "allStatus": "すべて",
     "live": "公開中",
     "scope": "読める人",
-    "allScopes": "すべての範囲",
+    "allScopes": "すべて",
     "seat": "席",
-    "allSeats": "すべての席",
+    "allSeats": "すべて",
     "newest": "新しい順",
     "oldest": "古い順"
   },
@@ -205,14 +205,16 @@
     "saved": "{name} を保存しました",
     "kind": "種類",
     "byline": "書いた人",
-    "allKinds": "すべての種類",
-    "allBylines": "すべての先輩",
+    "allKinds": "すべて",
+    "allBylines": "すべて",
     "sorts": {
-      "newest": "新しい年度から",
-      "oldest": "古い年度から",
-      "deadline": "締切が近い順"
+      "newest": "新しい順",
+      "oldest": "古い順",
+      "deadline": "締切順"
     },
     "filteredNote": "絞り込み：{kind}、{byline}",
+    "filteredAllKinds": "すべての種類",
+    "filteredAllBylines": "すべての先輩",
     "noNotes": "この席には、あなたが読めるメモがまだありません。",
     "deadline": "締切 {date}",
     "openTitle": "まだ書かれていないこと",

@@ -164,6 +164,11 @@ Use Japanese notebook marks, not coloured chips or emoji. Each mark is followed 
   bottom-right, scope in small UI text (「次の会計だけ」). Deadline notes show the date in figures with the highlighter.
 - **`UpcomingList`**: a planner column: boxed date in figures (「10/20 火」), title, mini stamp. Dates within 7 days
   carry the highlighter.
+- **The filter** (`.dd-filter`, on the guide and 自分のメモ): the search across the whole width, then the selects on one
+  line, each with its caption above (種類 · 書いた人 · 並び順; 状態 · 読める人 · 並び順). The captions let the choices stay
+  short (「すべて」, 「新しい順」, 「締切順」); a long one, once picked, ends in 「…」 and reads in full in the open list. Two to
+  a row below 380px (375px iPhones, 360px Androids); a fourth select (席) takes its own row. The printout and the export
+  still say what was left in, in full words (「絞り込み：すべての種類、2025年度 会計」).
 - **`ScopeRings`**: four concentric rings drawn in 1.5px `--blue`; the chosen ring fills with `--blue-wash`.
   Labels from the seat's label pack. `ReaderCount` beside it: 「12人が読めます」 in figures; no avatar stack.
 - **`AddPanel`** (「＋ 追加」): a slip with three index tabs, 貼り付け · ファイル · トーク履歴; `FileDrop` is a dashed
