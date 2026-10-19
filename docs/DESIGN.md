@@ -226,10 +226,16 @@ Use Japanese notebook marks, not coloured chips or emoji. Each mark is followed 
   line, 「撤回したメモ（2件）」, which opens them struck through with 撤回済み under 「どの回答にも使われません。」 (Nico's
   call). Withdrawing a note draws the double line, collapses it out of the list, and adds it to the fold, as a reload
   shows it too. The same search and filters apply to both; with every note withdrawn the list says 「公開中のメモはありません。」.
+  The filter keeps its 状態 select (Nico's call), and it works with the fold:
+  - 「すべて」 (the default): the live list and the fold.
+  - 「公開中」: the live list alone.
+  - 「撤回済み」: the withdrawn notes listed in place, struck through and unfolded.
+
+  The count line counts what the list shows.
 - **`UpcomingList`**: a planner column: boxed date in figures (「10/20 火」), title, mini stamp. Dates within 7 days
   carry the highlighter.
 - **The filter** (`.dd-filter`, on the guide and 自分のメモ): the search across the whole width, then the selects on one
-  line, each with its caption above (種類 · 書いた人 · 並び順; 読める人 · 並び順). The captions let the choices stay
+  line, each with its caption above (種類 · 書いた人 · 並び順; 状態 · 読める人 · 並び順). The captions let the choices stay
   short (「すべて」, 「新しい順」, 「締切順」); a long one, once picked, ends in 「…」 and reads in full in the open list. Two to
   a row below 380px (375px iPhones, 360px Androids); a fourth select (席) takes its own row. The printout and the export
   still say what was left in, in full words (「絞り込み：すべての種類、2025年度 会計」).

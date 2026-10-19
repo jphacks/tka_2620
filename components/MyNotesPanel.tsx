@@ -4,8 +4,10 @@
 // the double line, then the entry closes and leaves — and the engine drops the note out of every answer
 // (POST /api/notes/[id]/withdraw). On mocks as last year's treasurer (a25); on real data as the account signed in on
 // this device, or the login screen in place (components/SignInGate.tsx), so withdrawing works from a phone too. Filters narrow the list
-// by scope ring and seat, and the order is newest or oldest first (GET /api/me/notes lists newest first). The list is
-// what's live; a withdrawn note joins the fold at its end (MyNotes), now and after a reload alike.
+// by status, scope ring and seat, and the order is newest or oldest first (GET /api/me/notes lists newest first). Under
+// 状態 「すべて」 the list is what's live and a withdrawn note joins the fold at its end (MyNotes), now and after a reload
+// alike; 「公開中」 shows the live notes alone, 「撤回済み」 the withdrawn ones, listed in place (Nico's call: the select
+// stays).
 import { useTranslations } from "next-intl";
 import { useEffect, useMemo, useState } from "react";
 import { matches } from "@/components/guide";
@@ -41,6 +43,7 @@ const SR_ONLY = {
   whiteSpace: "nowrap",
 } as const;
 const ALL = "all";
+type Status = MyNote["status"] | typeof ALL;
 type Order = "newest" | "oldest";
 
 export function MyNotesPanel({ seat }: { seat?: string }) {
@@ -78,6 +81,7 @@ function MyNotesList({
     id: string;
     phase: WithdrawPhase;
   }>();
+  const [status, setStatus] = useState<Status>(ALL);
   const [scope, setScope] = useState<Scope | typeof ALL>(ALL);
   // The seat the page came from (?seat=) first; every seat of the author's notes is one choice away.
   const [atSeat, setAtSeat] = useState<string>(seat ?? ALL);
@@ -171,6 +175,7 @@ function MyNotesList({
     atSeat !== ALL && (slugs.includes(atSeat) || seats[atSeat]) ? atSeat : ALL;
   const shown = notes.filter(
     (note) =>
+      (status === ALL || note.status === status) &&
       (scope === ALL || note.scope === scope) &&
       (seatFilter === ALL || note.seat === seatFilter) &&
       matches(query, note.title),
@@ -181,6 +186,7 @@ function MyNotesList({
     seats[seatFilter === ALL ? slugs[0] : seatFilter] ??
     Object.values(seats)[0];
   const filtered =
+    status !== ALL ||
     scope !== ALL ||
     (seatFilter !== ALL && slugs.length > 1) ||
     query.trim() !== "";
@@ -201,6 +207,18 @@ function MyNotesList({
           onChange={(event) => setQuery(event.target.value)}
         />
       </div>
+      <label>
+        <span className="dd-cap">{t("filter.status")}</span>
+        <select
+          className="dd-select"
+          value={status}
+          onChange={(event) => setStatus(event.target.value as Status)}
+        >
+          <option value={ALL}>{t("filter.allStatus")}</option>
+          <option value="live">{t("filter.live")}</option>
+          <option value="withdrawn">{t("myNotes.withdrawn")}</option>
+        </select>
+      </label>
       <label>
         <span className="dd-cap">{t("filter.scope")}</span>
         <select
@@ -257,7 +275,11 @@ function MyNotesList({
       <div className="dd-filter-count">
         <output aria-live="polite">
           {t.rich("filter.shown", {
-            n: ordered.filter((note) => note.status !== "withdrawn").length,
+            // What the list shows: under すべて the live notes (the fold counts its own), else the notes picked
+            n:
+              status === ALL
+                ? ordered.filter((note) => note.status !== "withdrawn").length
+                : ordered.length,
             fig: (chunks) => <span className="dd-fig">{chunks}</span>,
           })}
         </output>
@@ -266,6 +288,7 @@ function MyNotesList({
             type="button"
             className="dd-link dd-filter-reset"
             onClick={() => {
+              setStatus(ALL);
               setScope(ALL);
               setAtSeat(ALL);
               setQuery("");
@@ -298,6 +321,7 @@ function MyNotesList({
           ) : undefined
         }
         headingLevel={1}
+        fold={status === ALL}
         emptyText={notes.length > 0 ? t("filter.noneMatch") : undefined}
       />
     </>
