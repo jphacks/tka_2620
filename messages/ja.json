@@ -383,7 +383,7 @@
     "provenance": "{platform}・{month}",
     "blocked": "個人の情報が含まれていたため、このメモは作りませんでした",
     "add": "＋ 追加",
-    "anytime": "いつでも追加できます。最初は、去年の資料やトーク履歴から始めましょう",
+    "addWhat": "去年の資料・トーク履歴",
     "tabFile": "ファイル",
     "dropFile": "PDF・Word・テキストファイル、LINE・\u2060WhatsApp のトーク履歴（.txt）をここに置いてください（10MBまで）",
     "pickFile": "ファイルを選ぶ",

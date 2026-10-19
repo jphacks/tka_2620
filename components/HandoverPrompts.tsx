@@ -78,9 +78,9 @@ export function HandoverPrompts({
   onSeatRetry?: () => void;
   /** The signed-in predecessor's client; mocks as a25 when left out. */
   api?: Api;
-  /** Beside the heading, left-aligned with it and the cards: 「＋ 追加」 (AddPanel's button). */
+  /** At the heading row's right end, aligned with the cards' right edge: 「＋ 追加」 (AddPanel's button). */
   action?: ReactNode;
-  /** One line under the heading (AddPanel's: when to add, or why not). */
+  /** One line under the heading row (AddPanel's: the button's subtitle, or why not). */
   note?: ReactNode;
   /** Opened under the heading, above the cards (AddPanel's slip). */
   panel?: ReactNode;

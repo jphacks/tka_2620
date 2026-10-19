@@ -383,7 +383,7 @@
     "provenance": "{platform} · {month}",
     "blocked": "Not created: it contained personal information",
     "add": "+ Add",
-    "anytime": "You can add at any time. Start with last year's docs or chat history",
+    "addWhat": "Last year's docs and chats",
     "tabFile": "File",
     "dropFile": "Drop a PDF, Word or text file, or a LINE or WhatsApp chat export (.txt), here (up to 10 MB)",
     "pickFile": "Choose a file",

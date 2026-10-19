@@ -200,10 +200,12 @@ Use Japanese notebook marks, not coloured chips or emoji. Each mark is followed 
   on its slip (the prompts leave out what the inbox holds); a new one is read out in one line
   (「後輩から質問が届きました（2026年度 会計）：…」), and the inbox reads itself again when the phone wakes or comes back
   online. Each answer box is described by its question, keeps its draft when its drafted cards are put away (やめる), and
-  dictates in the question's (or the page's) language. 「＋ 追加」 sits right after the 「引き継ぎの質問」 heading, on its line
-  and left-aligned with the cards below (Nico's call). One caption line under them says what it adds
-  (「いつでも追加できます。最初は、去年の資料やトーク履歴から始めましょう」), and the slip opens right there, above the cards.
-  「＋ 追加」 shows only to the seat's holders; others read why in that line.
+  dictates in the question's (or the page's) language. 「＋ 追加」 sits at the right end of the 「引き継ぎの質問」 row, aligned
+  with the cards' right edge (Nico's call).
+  - Its subtitle, right-aligned under it, says in one short line what it adds: 「去年の資料・トーク履歴」. A full
+    sentence under the heading would have read as being about the questions.
+  - The slip opens right there, above the cards.
+  - 「＋ 追加」 shows only to the seat's holders. Others read why, in a line under the heading.
   自分のメモ shows no title either. あなた's h1 and the guide's title are `--text-l`, one step above their 20px section
   headings.
 - **`VoiceAnswer`**: a textbox (1px `--ink-2`, `--blue` while focused) holding the answer in Klee One on ruled lines,

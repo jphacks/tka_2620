@@ -6,6 +6,7 @@ import {
   type ReactNode,
   Suspense,
   useEffect,
+  useId,
   useRef,
   useState,
 } from "react";
@@ -60,6 +61,7 @@ export function AddPanel({
   allowed.current = canAdd === true;
   const [open, setOpen] = useState(false);
   const button = useRef<HTMLButtonElement>(null);
+  const noteId = useId();
   const close = () => {
     setOpen(false);
     setDropped(undefined);
@@ -121,20 +123,23 @@ export function AddPanel({
   }
   return children({
     button: (
-      // A second tap folds the slip again, as 閉じる does; pressed (--blue-wash) while it's open
+      // A second tap folds the slip again, as 閉じる does; pressed (--blue-wash) while it's open. Its subtitle below says
+      // what it adds, for a screen reader too.
       <button
         ref={button}
         type="button"
         className="dd-btn"
         aria-expanded={open}
+        aria-describedby={open ? undefined : noteId}
         onClick={() => (open ? close() : setOpen(true))}
       >
         {t("add")}
       </button>
     ),
+    // The button's subtitle, right under it at the row's right end: what it adds (last year's docs and chats)
     note: open ? null : (
-      <p className="dd-cap" style={{ margin: 0 }}>
-        {t("anytime")}
+      <p id={noteId} className="dd-cap dd-section-note">
+        {t("addWhat")}
       </p>
     ),
     slip: open ? (

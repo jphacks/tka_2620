@@ -459,9 +459,12 @@ span.dd-mini::after { content: none; }
 .dd-drop { border: 1.5px dashed var(--ink-2); border-radius: var(--r-slip); padding: var(--s-5) var(--s-4); text-align: center; display: grid; gap: var(--s-1); justify-items: center; }
 .dd-drop.is-over { border-color: var(--blue); background: var(--blue-wash); } /* a file is being dragged over the page */
 
-/* A section heading with its action right after it, left-aligned with the cards below (残す: 「引き継ぎの質問」 and
-   「＋ 追加」); the action wraps under the heading only when the row can't hold both */
-.dd-section-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3); }
+/* A section heading at the left and its action at the right end, both aligned with the cards' edges (残す:
+   「引き継ぎの質問」 and 「＋ 追加」); the action wraps under the heading, still at the right, only when the row can't hold
+   both. The action's subtitle (.dd-section-note) sits right-aligned under it. */
+.dd-section-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s-2) var(--s-3); }
+.dd-section-head > :last-child:not(:first-child) { margin-left: auto; }
+.dd-section-note { margin: 0; justify-self: end; text-align: end; }
 .dd-section-head .dd-btn[aria-expanded="true"] { background: var(--blue-wash); } /* its slip is open below */
 .dd-section-head + .dd-cap { text-wrap: balance; word-break: auto-phrase; } /* the line under it, no lone last word */
 
