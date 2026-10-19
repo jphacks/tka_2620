@@ -26,6 +26,7 @@ import {
   sortNotes,
 } from "@/components/guide";
 import { kindMarks } from "@/components/marks";
+import { RetryLine } from "@/components/RetryLine";
 import { SignInGate } from "@/components/SignInGate";
 import { plannerDate, tokyoToday } from "@/components/seat-page";
 import { UpcomingList } from "@/components/UpcomingList";
@@ -86,9 +87,11 @@ export function Guide({
   const [view, setView] = useState<SeatView>();
   const [guide, setGuide] = useState<GuideView>();
   const [failed, setFailed] = useState(false);
+  const [loadTry, setLoadTry] = useState(0); // the retry button reads again
   const [filter, setFilter] = useState<GuideFilter>(START);
   const [saved, setSaved] = useState<string>();
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: loadTry is the retry button's way to read again
   useEffect(() => {
     let alive = true;
     Promise.all([api.seat(slug), api.guide(slug)]).then(
@@ -104,7 +107,7 @@ export function Guide({
     return () => {
       alive = false;
     };
-  }, [api, slug]);
+  }, [api, slug, loadTry]);
   const ready = view !== undefined && guide !== undefined;
   useEffect(() => {
     if (ready) onReady?.();
@@ -114,7 +117,13 @@ export function Guide({
     return (
       <section className="dd-col" style={{ gap: "var(--s-4)" }}>
         <Title className="dd-h dd-guide-title">{t("guide.titlePlain")}</Title>
-        <p style={{ margin: 0, color: "var(--ink-2)" }}>{t("guide.failed")}</p>
+        <RetryLine
+          message={t("guide.failed")}
+          onRetry={() => {
+            setFailed(false);
+            setLoadTry((n) => n + 1);
+          }}
+        />
       </section>
     );
   }

@@ -1,19 +1,27 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { type FormEvent, useRef, useState } from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
 
 // A single writing line and a blue 聞く button (docs/DESIGN.md → AskField). Not a chat box.
 export function AskField({
   onAsk,
   busy = false,
+  suggestion,
 }: {
   onAsk: (question: string) => void;
   busy?: boolean;
+  /** An example the person tapped: it goes into the field to read or change, and is sent only with 聞く. */
+  suggestion?: { text: string };
 }) {
   const t = useTranslations();
   const [question, setQuestion] = useState("");
   const field = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (!suggestion) return;
+    setQuestion(suggestion.text);
+    field.current?.focus();
+  }, [suggestion]);
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

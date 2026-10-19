@@ -79,6 +79,8 @@ export function AskPanel({
   // The questions asked in this tab, by id, for the Realtime handler (a row for one of them is shown right here).
   const shownIds = useRef<Set<string>>(new Set());
   const earlierId = useId();
+  // An example tapped below the field, for a newcomer who doesn't know what to ask yet.
+  const [suggestion, setSuggestion] = useState<{ text: string }>();
   // An answer shown in this tab (聞く's own, or the live one) is seen: it won't come back as 「新しい答え」.
   const markSeen = useCallback(
     (questionId: string) => {
@@ -222,12 +224,42 @@ export function AskPanel({
 
   return (
     <section className="dd-col" style={{ gap: "var(--s-6)" }}>
-      <AskField onAsk={ask} busy={busy || !seatView} />
+      <AskField onAsk={ask} busy={busy || !seatView} suggestion={suggestion} />
       {/* What a screen reader hears about the newest question (docs/DESIGN.md → AskPanel): always there, so a change is
           read out, and never shown, since the entry below says it (searching included, under its question). */}
       <output aria-live="polite" className="dd-sr-only">
         {status}
       </output>
+      {/* First steps: someone who hasn't asked anything here yet gets three questions others ask at this kind of seat
+          (the label pack's), to tap into the field. Gone after the first question; never on the console. */}
+      {seatView &&
+        earlier !== undefined &&
+        earlier.length === 0 &&
+        asked.length === 0 && (
+          <div className="dd-examples">
+            <p className="dd-cap" style={{ margin: 0 }}>
+              {t("ask.examplesLead")}
+            </p>
+            <ul>
+              {(["one", "two", "three"] as const).map((n) => {
+                const text = t(
+                  `seatTypes.${seatView.seat.seatType}.examples.${n}`,
+                );
+                return (
+                  <li key={n}>
+                    <button
+                      type="button"
+                      className="dd-link dd-example"
+                      onClick={() => setSuggestion({ text })}
+                    >
+                      {text}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
       {failed === "seat" && (
         <RetryLine
           message={t("ask.seatFailed")}

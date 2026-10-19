@@ -7,6 +7,11 @@
   },
   "seatTypes": {
     "club_role": {
+      "examples": {
+        "one": "When is the health-office deadline for the food stall?",
+        "two": "By when do receipts have to be in?",
+        "three": "How is the club's bank account handed over?"
+      },
       "seat": "role",
       "term": "{term}",
       "byline": "{term} {seat}",
@@ -22,6 +27,11 @@
       "roles": "President, Vice president, Treasurer, Deputy treasurer, Advisor, Student affairs office"
     },
     "exchange_route": {
+      "examples": {
+        "one": "When is the dorm application due?",
+        "two": "What should I watch out for in course registration?",
+        "three": "What do I need to do right after arriving?"
+      },
       "seat": "exchange route",
       "term": "{term}",
       "byline": "{term} exchange student",
@@ -37,6 +47,11 @@
       "roles": "Previous exchange student, Host university contact, International office, Supervisor"
     },
     "lab_duty": {
+      "examples": {
+        "one": "How do I book the instrument?",
+        "two": "Where do I order consumables?",
+        "three": "How often is maintenance due?"
+      },
       "seat": "duty",
       "term": "{term}",
       "byline": "{term} {seat}",
@@ -53,6 +68,7 @@
     }
   },
   "ask": {
+    "examplesLead": "For example",
     "earlierTitle": "Your earlier questions",
     "newAnswer": "New answer",
     "newAnswers": "New answers from your predecessors: {n}",
@@ -107,7 +123,7 @@
     "critical": "Mark as important (kept by {group})",
     "publishedAs": "Published: {scopes}",
     "promptsEmpty": "Nothing to answer right now.",
-    "promptsFailed": "Couldn't load the questions. Check your connection and reopen this page.",
+    "promptsFailed": "Couldn't load the questions. Check your connection and try again.",
     "cancel": "Cancel"
   },
   "withdraw": {
@@ -158,7 +174,7 @@
     "title": "You",
     "loading": "Loading",
     "noSeat": "Open this page with “You” on a seat's page.",
-    "failed": "Couldn't load this. Check the connection and reopen the page.",
+    "failed": "Couldn't load this. Check the connection and try again.",
     "notHolder": "You have never held {seat}",
     "place": "Holder no. <fig>{n}</fig> of this seat",
     "noteCounts": "<fig>{live}</fig> live, <fig>{withdrawn}</fig> withdrawn",
@@ -244,7 +260,7 @@
     "sentenceBy": "{text} ({byline})",
     "bylineSeparator": ", ",
     "source": "Latest version: {url}",
-    "failed": "Couldn't load the handover guide. Check the connection and reopen this page."
+    "failed": "Couldn't load the handover guide. Check the connection and try again."
   },
   "meta": {
     "app": "Daidai",
@@ -322,7 +338,7 @@
     "listening": "Listening…",
     "publish": "Publish",
     "empty": "No questions yet.",
-    "failed": "Couldn't load the questions. Check your connection and reopen this page."
+    "failed": "Couldn't load the questions. Check your connection and try again."
   },
   "voice": {
     "title": "Leave the answer",

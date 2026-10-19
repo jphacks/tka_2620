@@ -87,6 +87,11 @@ body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(
 /* 「新しい答え」 over an earlier question answered while the tab was closed: blue, as everything that is for you */
 .dd-new-answer { margin: 0; color: var(--blue); font-weight: 700; font-size: 13px; letter-spacing: .04em; }
 
+/* First steps on 聞く: three example questions under the field, blue text buttons on their own 44px lines */
+.dd-examples { display: grid; gap: var(--s-1); }
+.dd-examples ul { list-style: none; margin: 0; padding: 0; display: grid; }
+.dd-example { min-height: 44px; text-align: start; font-family: var(--font-hand); font-size: 17px; text-decoration-thickness: 1px; }
+
 /* Answer */
 .dd-q { color: var(--blue); font-weight: 700; margin: 0 0 var(--s-2); }
 .dd-live-note { color: var(--blue); font-weight: 700; margin: var(--s-2) 0 0; }

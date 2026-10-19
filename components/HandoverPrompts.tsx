@@ -18,6 +18,7 @@ import {
 import { CardReview } from "@/components/CardReview";
 import { DateStamp } from "@/components/DateStamp";
 import { mergePrompts } from "@/components/handover";
+import { RetryLine } from "@/components/RetryLine";
 import { VoiceAnswer } from "@/components/VoiceAnswer";
 import type {
   Api,
@@ -86,7 +87,9 @@ export function HandoverPrompts({
   const [published, setPublished] = useState<ReadonlyMap<string, Scope[]>>(
     new Map(),
   );
+  const [seatTry, setSeatTry] = useState(0); // the retry button reads the seat again
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: seatTry is the retry button's way to read the seat again
   useEffect(() => {
     let alive = true;
     api.seat(slug).then(
@@ -100,7 +103,7 @@ export function HandoverPrompts({
     return () => {
       alive = false;
     };
-  }, [api, slug]);
+  }, [api, slug, seatTry]);
 
   // Prompts already shown keep their places, so nothing slides in under the person's thumb (components/handover.ts →
   // mergePrompts).
@@ -240,9 +243,16 @@ export function HandoverPrompts({
         {t("handover.promptsTitle")}
       </h2>
       {(failed || seatFailed) && (
-        <p role="alert" style={{ margin: 0, color: "var(--ink-2)" }}>
-          {t("handover.promptsFailed")}
-        </p>
+        <RetryLine
+          message={t("handover.promptsFailed")}
+          onRetry={() => {
+            if (seatFailed) {
+              setSeatFailed(false);
+              setSeatTry((n) => n + 1);
+            }
+            load();
+          }}
+        />
       )}
       {shownPrompts?.length === 0 && (
         <p style={{ margin: 0, color: "var(--ink-2)" }}>

@@ -3,6 +3,7 @@
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { InboxSlip } from "@/components/InboxSlip";
+import { RetryLine } from "@/components/RetryLine";
 import { VoiceAnswer } from "@/components/VoiceAnswer";
 import type { Api, InboxItem } from "@/lib/contracts";
 import { createMockApi, mockNewcomerAsks } from "@/lib/mocks";
@@ -186,11 +187,7 @@ export function InboxPanel({
         {shown?.length === 0 && (
           <p style={{ margin: 0, color: "var(--ink-2)" }}>{t("inbox.empty")}</p>
         )}
-        {failed && (
-          <p style={{ margin: 0, color: "var(--ink-2)" }}>
-            {t("inbox.failed")}
-          </p>
-        )}
+        {failed && <RetryLine message={t("inbox.failed")} onRetry={load} />}
       </div>
       {/* Plays the newcomer asking q04 in this tab (lib/mocks.ts), so the loop works on one phone. */}
       {mockShortcuts && shown?.length === 0 && (
