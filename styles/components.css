@@ -221,14 +221,15 @@ html { overscroll-behavior-y: none; }
 /* 「あなた」's menu (AccountMenu): a small slip in the top layer, just under the bar at the right edge of the page's
    column: who is signed in on this device, then 「アカウントを切り替える」 across its width. Small (Nico's call): 264px,
    13px text, the button 36px tall, its tap area still 44px. */
-.dd-account { position: fixed; inset: auto; top: 56px; right: max(var(--s-4), calc((100vw - 640px) / 2 + var(--s-4))); margin: 0;
-  width: min(264px, calc(100vw - 2 * var(--s-4))); box-sizing: border-box; padding: var(--s-3); color: var(--ink);
+.dd-account { position: fixed; inset: auto; top: 56px; right: max(var(--s-4), calc((100% - 640px) / 2 + var(--s-4))); margin: 0;
+  width: min(264px, calc(100% - 2 * var(--s-4))); box-sizing: border-box; padding: var(--s-3); color: var(--ink);
   font-size: var(--text-xs); line-height: 20px; }
-@media (min-width: 600px) { .dd-account { right: max(var(--s-5), calc((100vw - 640px) / 2 + var(--s-5))); } }
+@media (min-width: 600px) { .dd-account { right: max(var(--s-5), calc((100% - 640px) / 2 + var(--s-5))); } }
+/* 100%, not 100vw: the viewport without a classic scrollbar, so the slip stays flush with its tag where one takes room */
 .dd-account:popover-open { display: grid; gap: var(--s-2); }
 .dd-account p { margin: 0; }
 .dd-account .dd-btn { position: relative; min-height: 36px; padding-inline: var(--s-3); font-size: var(--text-xs); }
-.dd-account .dd-btn::before { content: ""; position: absolute; inset: -4px 0; } /* a 44px tap area around the 36px button */
+.dd-account .dd-btn::before { content: ""; position: absolute; inset: -6px 0; } /* a 44px tap area around the 36px button (from its padding box, so 6px past the 1.5px border) */
 
 /* 自分のメモ's top (YouCard): the viewer's dashed tag beside their byline, group and institution */
 .dd-me { display: flex; gap: var(--s-4); align-items: flex-start; }
