@@ -3,7 +3,8 @@
 // the page (MyNotesPanel) and the console (TrustConsole) each own the withdrawal state machine and pass it in.
 // Each note says its scope in the words of the seat it was written at (MyNote.seat), so seats holds those seats.
 // The list is what's live, what the newcomers' answers draw on. Withdrawn notes aren't dropped from view (the author
-// keeps the record of what they took back): they're folded away at the end, 「撤回したメモ（2件）」 (Nico's call).
+// keeps the record of what they took back): they're folded away at the end, 「撤回したメモ（2件）」 (Nico's call). The
+// page's 状態 select narrows the notes itself (公開中, 撤回済み) and turns the fold off: then they're listed in place.
 import { useTranslations } from "next-intl";
 import { type ReactNode, useCallback } from "react";
 import { NoteEntry, type WithdrawPhase } from "@/components/NoteEntry";
@@ -27,6 +28,7 @@ export function MyNotes({
   tools,
   emptyText,
   headingLevel = 2,
+  fold = true,
 }: {
   notes: MyNote[];
   seats: NoteSeats;
@@ -41,6 +43,9 @@ export function MyNotes({
   /** 1 on /me/notes, where this is the page and its h1 is for a screen reader only (the verb tab says where you are,
    * Nico's call); 2 inside the console's pane, shown, since a pane has no tabs. */
   headingLevel?: 1 | 2;
+  /** Withdrawn notes folded away at the end: the console, and 自分のメモ's 状態 「すべて」. Off, every note given is
+   * listed in place (状態 「公開中」 or 「撤回済み」, which the page has already narrowed to). */
+  fold?: boolean;
 }) {
   const t = useTranslations();
   // A withdrawal that failed says so above the list: it comes into view, as the author may be far down the list.
@@ -48,12 +53,16 @@ export function MyNotes({
     node?.scrollIntoView({ block: "nearest" });
   }, []);
   // A note being withdrawn stays in the list until its double line and collapse have run, then joins the fold.
-  const live = notes.filter(
-    (note) => note.status !== "withdrawn" || withdrawing?.id === note.id,
-  );
-  const gone = notes.filter(
-    (note) => note.status === "withdrawn" && withdrawing?.id !== note.id,
-  );
+  const live = fold
+    ? notes.filter(
+        (note) => note.status !== "withdrawn" || withdrawing?.id === note.id,
+      )
+    : notes;
+  const gone = fold
+    ? notes.filter(
+        (note) => note.status === "withdrawn" && withdrawing?.id !== note.id,
+      )
+    : [];
   const entry = (note: MyNote) =>
     seats[note.seat] ? (
       <NoteEntry
@@ -87,9 +96,8 @@ export function MyNotes({
         {live.map(entry)}
         {live.length === 0 && (
           <p className="dd-cap" style={{ margin: 0 }}>
-            {gone.length > 0
-              ? t("myNotes.noneLive")
-              : (emptyText ?? t("myNotes.empty"))}
+            {emptyText ??
+              (gone.length > 0 ? t("myNotes.noneLive") : t("myNotes.empty"))}
           </p>
         )}
       </div>
@@ -97,7 +105,12 @@ export function MyNotes({
       {gone.length > 0 && (
         <details className="dd-withdrawn-fold">
           <summary>
-            <span>{t("myNotes.withdrawnTitle", { n: gone.length })}</span>
+            <span>
+              {t.rich("myNotes.withdrawnTitle", {
+                n: gone.length,
+                fig: (chunks) => <span className="dd-fig">{chunks}</span>,
+              })}
+            </span>
             <svg
               aria-hidden="true"
               viewBox="0 0 24 24"

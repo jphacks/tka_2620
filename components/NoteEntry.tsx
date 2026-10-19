@@ -37,7 +37,10 @@ export function NoteEntry({
     institution: seat.institution,
   });
   const withdrawn = note.status === "withdrawn";
-  const crossed = withdrawn || phase !== undefined;
+  // Being withdrawn: two red lines draw across the entry, then it closes. Withdrawn and at rest (自分のメモ's 撤回済み,
+  // the fold): its title is crossed out with the red double line itself, on the words.
+  const crossed = phase !== undefined;
+  const struck = withdrawn && phase === undefined;
   const entry = useRef<HTMLElement>(null);
   // The collapse runs from the entry's own height, so all of its 200ms shows (styles/components.css → .dd-collapse).
   useLayoutEffect(() => {
@@ -55,7 +58,11 @@ export function NoteEntry({
         padding: "var(--s-4)",
       }}
     >
-      <Title className="dd-h" lang={note.lang} style={{ margin: 0 }}>
+      <Title
+        className={`dd-h${struck ? " dd-double" : ""}`}
+        lang={note.lang}
+        style={{ margin: 0 }}
+      >
         {note.title}
       </Title>
       <p className="dd-cap" style={{ margin: 0 }}>
