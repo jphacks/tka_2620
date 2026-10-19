@@ -72,8 +72,9 @@
     "earlierTitle": "Your earlier questions",
     "newAnswer": "New answer",
     "newAnswers": "New answers from your predecessors: {n}",
+    "abstainedStatus": "{nobody} {routed}",
     "noAnswerYet": "No answer yet. It will appear here when one comes.",
-    "placeholder": "Ask the people who held this seat",
+    "placeholder": "Ask your predecessors",
     "searching": "Looking through your predecessors' notes",
     "found": "Found an answer in your predecessors' notes",
     "sources": "Notes this answer is based on",
@@ -98,7 +99,6 @@
     "routed": "Added to the next handover."
   },
   "handover": {
-    "seatLine": "The {seat} seat of {group}",
     "reasonDemand": "{n, plural, one {# newcomer asked this} other {# newcomers asked this}}",
     "reasonRequired": "Required by {group}",
     "readers": "{n, plural, one {# person can read this} other {# people can read this}}",
@@ -325,7 +325,7 @@
     "used": "This note was used in {n} answers",
     "empty": "You haven't written any notes yet.",
     "withdrawn": "Withdrawn",
-    "failed": "Couldn't load your notes. Reopen this page.",
+    "failed": "Couldn't load your notes. Check the connection and try again.",
     "withdrawFailed": "Couldn't withdraw the note. Press Withdraw again."
   },
   "inbox": {

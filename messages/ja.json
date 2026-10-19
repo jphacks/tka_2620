@@ -72,6 +72,7 @@
     "earlierTitle": "これまでの質問",
     "newAnswer": "新しい答え",
     "newAnswers": "先輩から新しい答えが{n}件届いています",
+    "abstainedStatus": "{nobody}{routed}",
     "noAnswerYet": "まだ答えはありません。答えが届くと、ここに出ます。",
     "placeholder": "先輩たちに聞いてみましょう",
     "searching": "先輩たちのメモを探しています",
@@ -98,7 +99,6 @@
     "routed": "この質問を次の引き継ぎに追加しました。"
   },
   "handover": {
-    "seatLine": "{group}の{seat}の席",
     "reasonDemand": "後輩の{n}人がこれを質問しました",
     "reasonRequired": "{group}の必須質問です",
     "readers": "{n}人が読めます",

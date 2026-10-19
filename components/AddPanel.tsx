@@ -29,20 +29,20 @@ export function AddPanel({
   slug,
   api,
   onImported,
-  canAdd = true,
+  canAdd,
 }: {
   slug: string;
   /** The signed-in client (SeatSignIn); mocks as a25 when left out. */
   api?: Api;
   onImported?: (response: ImportResponse) => void;
   /** Whether the viewer holds this seat: only holders can add (the import route would refuse anyone else). Unknown
-   * while the seat loads: the button waits. */
+   * while the seat loads: nothing shows yet, and a dropped file is kept off the page. */
   canAdd?: boolean;
 }) {
   const t = useTranslations("import");
   // The drop handler below is set up once; it reads the latest answer here.
-  const allowed = useRef(canAdd);
-  allowed.current = canAdd;
+  const allowed = useRef(canAdd === true);
+  allowed.current = canAdd === true;
   const [open, setOpen] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [dropped, setDropped] = useState<Dropped>();
@@ -84,6 +84,7 @@ export function AddPanel({
     };
   }, []);
 
+  if (canAdd === undefined) return null; // the seat hasn't said yet; the drop guard above already works
   if (!canAdd) {
     return (
       <p className="dd-cap" style={{ margin: 0 }}>
