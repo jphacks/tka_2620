@@ -30,9 +30,10 @@ export type Source =
 
 // What a piece of text turned out to be. A chat that can't be read safely is refused, never sent as text: its speakers
 // are names that only the role step hides. A chat found in what came as a doc keeps that doc (`doc`), so the role step
-// can offer 「トークではなく資料として読む」 when the guess is wrong.
+// can offer 「トークではなく資料として読む」 when the guess is wrong; a doc with lines like 名前: 本文 keeps them read as
+// messages (`messages`), so its preview can offer 「トークとして読む」 the other way.
 export type Read =
-  | { kind: "text"; text: string }
+  | { kind: "text"; text: string; messages?: ChatMessage[] }
   | {
       kind: "chat";
       platform: ChatPlatform;
@@ -49,19 +50,20 @@ export type Read =
 //   lines under them, so a wrong guess loses messages but never sends a speaker's name as text.
 // - WhatsApp lines that aren't read as WhatsApp, or leave no message, are refused: parsePaste would take each as text
 //   with no speaker. So is a LINE row copied without its date line (21:03⇥名前⇥本文): parseLine needs the date line.
-// - On トーク履歴, pasted messages need someone speaking.
-// - On 貼り付け, copied messages are a chat when someone speaks twice (名前: 本文) or a line has a chat's header
-//   (Slack 名前␣␣21:03, Discord 名前 — 日時, [21:03] 名前:). A doc's field labels each appear once (the seed docs'
-//   部費, 学祭, 提出期限), so they stay a doc. Two people saying one thing each, as 名前: 本文, can't be told from two
-//   labels: the preview shows those names, for the person to hide.
+// - Pasted as 「コピーしたメッセージ」 ("chat"), messages need someone speaking.
+// - As 「資料」 ("text"; every file reads this way), copied messages are a chat when someone speaks twice (名前: 本文) or
+//   a line has a chat's header (Slack 名前␣␣21:03, Discord 名前 — 日時, [21:03] 名前:). A doc's field labels each
+//   appear once (the seed docs' 部費, 学祭, 提出期限), so they stay a doc. Two people saying one thing each, as
+//   名前: 本文, can't be told from two labels: the preview shows those names, for the person to hide, and offers
+//   「トークとして読む」 (the messages it found).
 // Blank text is undefined.
 export function readSource(
   raw: string,
-  tab: "text" | "chat",
+  mode: "text" | "chat",
 ): Read | undefined {
   if (!raw.trim()) return undefined;
   const lines = raw.split(/\r\n|\r|\n/).filter((row) => row.trim());
-  const whatsapp = whatsAppLines(lines, tab);
+  const whatsapp = whatsAppLines(lines, mode);
   if (whatsapp > lineRows(raw)) {
     const messages = parseWhatsApp(raw);
     return messages.length > 0
@@ -76,15 +78,17 @@ export function readSource(
   }
   const pasted = parsePaste(raw);
   const people = speakers(pasted);
-  if (tab === "chat") {
+  if (mode === "chat") {
     if (pasted.length === 0) return { kind: "notChat" };
     return people.length > 0
       ? { kind: "chat", platform: "paste", messages: pasted }
       : { kind: "noSpeakers" };
   }
   const talking = people.some(({ count }) => count >= 2);
-  return people.length > 0 && (talking || lines.some(isChatHeader))
-    ? { kind: "chat", platform: "paste", messages: pasted, doc: raw }
+  if (people.length > 0 && (talking || lines.some(isChatHeader)))
+    return { kind: "chat", platform: "paste", messages: pasted, doc: raw };
+  return people.length > 0
+    ? { kind: "text", text: raw, messages: pasted }
     : { kind: "text", text: raw };
 }
 
@@ -94,13 +98,13 @@ const LINE_ROW =
   /^(?:(?:午前|午後|AM|PM)\s?)?\d{1,2}:\d{2}(?:\s?[AP]M)?\t[^\t\n]+\t/i;
 
 // How many WhatsApp message lines (16/10/2025, 17:03 - 名前: …, [16/10/2025, 17:03:12] 名前: …) there are, when
-// they're enough to be a WhatsApp chat: on トーク履歴 one; on 貼り付け two, or one first (a message and its
-// continuation lines), as a doc may hold one (2025/10/16 17:00 - 学生課: 提出). None in a LINE export, which starts
+// they're enough to be a WhatsApp chat: read as messages one; as a doc (any file, or 「資料」) two, or one first (a
+// message and its continuation lines), as a doc may hold one (2025/10/16 17:00 - 学生課: 提出). None in a LINE export, which starts
 // with its [LINE] header and whose messages may hold such a line.
-function whatsAppLines(lines: string[], tab: "text" | "chat"): number {
+function whatsAppLines(lines: string[], mode: "text" | "chat"): number {
   if (/^\ufeff?\[LINE\]/.test(lines[0] ?? "")) return 0;
   const count = lines.filter(isWhatsAppLine).length;
-  if (tab === "chat") return count;
+  if (mode === "chat") return count;
   return count >= 2 || (lines.length > 0 && isWhatsAppLine(lines[0]))
     ? count
     : 0;

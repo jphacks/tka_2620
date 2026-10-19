@@ -25,6 +25,7 @@ export function RedactionPreview({
   sending,
   onSend,
   onAsDoc,
+  onAsChat,
 }: {
   source: Source;
   /** The seat's label-pack roles (部長, 会計 …), offered after each speaker's default メンバーA/B/C. */
@@ -33,6 +34,8 @@ export function RedactionPreview({
   onSend: (text: string, redaction: RedactionCounts) => void;
   /** A chat guessed from what came as a doc: read it as the doc instead (its names then show, to be hidden by hand). */
   onAsDoc?: () => void;
+  /** A pasted doc with lines like 名前: 本文: read them as a chat instead, so each speaker gets a role. */
+  onAsChat?: () => void;
 }) {
   const t = useTranslations("import");
   const ids = useId();
@@ -217,6 +220,19 @@ export function RedactionPreview({
                 )),
             })}
       </p>
+      {onAsChat && (
+        <p className="dd-phrase" style={{ margin: 0 }}>
+          <span className="dd-cap">{t("asChatHint")}</span>{" "}
+          <button
+            type="button"
+            className="dd-link"
+            style={{ minHeight: "44px" }}
+            onClick={onAsChat}
+          >
+            {t("asChat")}
+          </button>
+        </p>
+      )}
       {people.length > 0 && (
         <p style={{ margin: 0 }}>
           <span className="dd-cap">{t("speakers")}</span>{" "}

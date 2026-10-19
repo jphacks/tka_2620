@@ -86,11 +86,11 @@ describe("what the browser sends for each made-up file in seed/", () => {
     }
   });
 
-  it("sends the chat the same when it's pasted into either tab, and the handover pasted as text", () => {
+  it("sends the chat the same when it's pasted as either choice, and the handover pasted as text", () => {
     const chat = sample("chat-line.sample.txt");
     const sent = chat.sends.map(({ body }) => body).join("\n");
-    for (const tab of ["text", "chat"] as const) {
-      const pasted = addPaste("chat", chat.raw, SEAT, tab);
+    for (const pasteAs of ["text", "chat"] as const) {
+      const pasted = addPaste("chat", chat.raw, SEAT, pasteAs);
       expect(pasted.sends.map(({ body }) => body).join("\n") === sent).toBe(
         true,
       );
@@ -112,11 +112,12 @@ describe("what the browser sends for each made-up file in seed/", () => {
 const COPIED: Record<string, string[]> = {
   "components/AddSlip.tsx": [
     'fileType === "txt" ? await extractTextFile(file) : await extractFile(file);',
-    'fileType === "txt" && tab === "chat" ? "chat" : "text",',
+    'const next = readSource(text, "text");',
     'if (!next) throw new IngestError("no_text");',
     'if (next.kind !== "text") return setProblem(next.kind);',
     'if (text.length > MAX_TEXT_CHARS) throw new IngestError("too_large");',
-    'const next = readSource(draft, tab === "chat" ? "chat" : "text");',
+    "const next = readSource(draft, pasteAs);",
+    'show({ kind: "text", text: next.text }, "text");',
     "await api.import(importRequest(slug, source, text, redaction))",
     'return { seat, kind: "text", text, redaction };',
     'return { seat, kind: "file", fileType: source.fileType, text, redaction };',

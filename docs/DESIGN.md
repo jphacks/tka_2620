@@ -224,9 +224,15 @@ Use Japanese notebook marks, not coloured chips or emoji. Each mark is followed 
   still say what was left in, in full words (「絞り込み：すべての種類、2025年度 会計」).
 - **`ScopeRings`**: four concentric rings drawn in 1.5px `--blue`; the chosen ring fills with `--blue-wash`.
   Labels from the seat's label pack. `ReaderCount` beside it: 「12人が読めます」 in figures; no avatar stack.
-- **`AddPanel`** (「＋ 追加」, beside the prompts' heading on 残す): a slip with three index tabs, 貼り付け · ファイル ·
-  トーク履歴; `FileDrop` is a dashed
-  `--rule` area; then `RedactionPreview`, the drafted `NoteEntry`s, `DuplicateHint`, `MissingList`.
+- **`AddPanel`** (「＋ 追加」, beside the prompts' heading on 残す): a slip with two index tabs, 貼り付け · ファイル.
+  - **貼り付け:** a two-way choice above the box (`.dd-choices`, side by side when they fit): 「資料」 (the default) or
+    「コピーしたメッセージ」, which reads every speaker as a chat's, so their names get roles. The box keeps what was
+    typed across the choice.
+  - **ファイル:** one `FileDrop` (a dashed `--rule` area) for a PDF, Word or text file and for a LINE or WhatsApp export.
+    An export is read as a chat by its form, here or dropped anywhere on the page.
+  - Then `RedactionPreview`, the drafted `NoteEntry`s, `DuplicateHint` and `MissingList`.
+  - A chat guessed from a doc offers 「トークではなく資料として読む」. A pasted doc with lines like 名前: 本文 offers the
+    other way, 「トークとして読む」, with one `--ink-2` line saying why.
 - **`RedactionPreview`**: counts line 「名前 12件・電話番号 2件を隠しました」 with the numbers in `--green`, speaker rows
   with role pickers, the scrollable text with blackout bars, the consent checkbox, 「この内容だけを送る」.
 - **`DuplicateHint`**: a red-pen note on the drafted entry, 「似たメモがあります：保健所申請の締切（2025年度 会計）」,

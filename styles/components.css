@@ -379,6 +379,9 @@ html { overscroll-behavior-y: none; }
 .dd-choice { display: flex; align-items: center; gap: var(--s-3); min-height: 44px; padding: var(--s-1) var(--s-3); box-sizing: border-box; border: 1.5px solid var(--rule); border-radius: var(--r-button); background: var(--sheet); cursor: pointer; }
 .dd-choice input { accent-color: var(--blue); width: 18px; height: 18px; margin: 0; flex: none; }
 .dd-choice input:focus-visible { outline: none; }
+/* Two choices side by side when they fit (「資料」 · 「コピーしたメッセージ」 above the paste box), one under the other on a phone */
+.dd-choices-row { grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); }
+.dd-choices-row legend { grid-column: 1 / -1; }
 .dd-choice:hover { background: var(--blue-wash); }
 .dd-choice:has(input:checked) { border-color: var(--blue); background: var(--blue-wash); color: var(--blue); font-weight: 700; }
 .dd-choice:has(input:focus-visible) { outline: 2px solid var(--blue); outline-offset: 2px; }

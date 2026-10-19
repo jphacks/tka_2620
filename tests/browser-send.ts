@@ -42,14 +42,10 @@ export type Added = {
   sends: Send[];
 };
 
-// AddSlip.readFile: the file becomes text on the device, then goes where its text says. A .txt dropped on トーク履歴 is
-// read as a chat export; every other file as a document, unless its text turns out to be a chat. `tab` is where the
-// file is dropped: a seed chat export on トーク履歴, anything else on ファイル.
-export async function addFile(
-  name: string,
-  seat: string,
-  tab: "file" | "chat" = name.startsWith("chat-") ? "chat" : "file",
-): Promise<Added> {
+// AddSlip.readFile: the file becomes text on the device, then goes where its text says: a document, unless its text
+// turns out to be a chat (a LINE or WhatsApp export is one by its form). One ファイル tab takes both, and a file dropped
+// anywhere on the page reads the same way.
+export async function addFile(name: string, seat: string): Promise<Added> {
   const file = new File([readFileSync(new URL(name, SEED))], name);
   const fileType = fileTypeOf(file);
   let raw = "";
@@ -60,10 +56,7 @@ export async function addFile(
         ? await extractTextFile(file)
         : await extractFile(file);
     raw = text;
-    const next = readSource(
-      text,
-      fileType === "txt" && tab === "chat" ? "chat" : "text",
-    );
+    const next = readSource(text, "text");
     if (!next) throw new IngestError("no_text");
     if (next.kind === "chat") return preview(name, raw, seat, next);
     if (next.kind !== "text")
@@ -83,18 +76,18 @@ export async function addFile(
   }
 }
 
-// AddSlip.check: text pasted into 貼り付け ("text") or トーク履歴 ("chat").
+// AddSlip.check: text pasted into 貼り付け as 「資料」 ("text") or 「コピーしたメッセージ」 ("chat").
 export function addPaste(
   name: string,
   raw: string,
   seat: string,
-  tab: "text" | "chat",
+  pasteAs: "text" | "chat",
 ): Added {
-  const next = readSource(raw, tab === "chat" ? "chat" : "text");
+  const next = readSource(raw, pasteAs);
   if (!next) return { name, raw, refused: "empty", sends: [] };
-  if (next.kind === "chat" || next.kind === "text") {
-    return preview(name, raw, seat, next);
-  }
+  if (next.kind === "chat") return preview(name, raw, seat, next);
+  if (next.kind === "text")
+    return preview(name, raw, seat, { kind: "text", text: next.text });
   return { name, raw, refused: next.kind, sends: [] };
 }
 
