@@ -153,6 +153,8 @@
     "label": "Display and you",
     "darkScreen": "Dark screen",
     "you": "You",
+    "signedOut": "No one is signed in on this device",
+    "mock": "This shows sample data. There is no sign-in.",
     "home": "To the start page",
     "language": {
       "ja": "日本語",
@@ -171,14 +173,9 @@
     "openConsole": "Open the console"
   },
   "profile": {
-    "title": "You",
     "loading": "Loading",
-    "noSeat": "Open this page with “You” on a seat's page.",
-    "failed": "Couldn't load this. Check the connection and try again.",
     "notHolder": "You have never held {seat}",
-    "place": "Holder no. <fig>{n}</fig> of this seat",
-    "noteCounts": "<fig>{live}</fig> live, <fig>{withdrawn}</fig> withdrawn",
-    "openNotes": "Open my notes"
+    "place": "Holder no. <fig>{n}</fig> of this seat"
   },
   "measured": {
     "title": "What the checks measured",
@@ -276,7 +273,6 @@
     "handoverPlain": "Hand over",
     "guide": "Handover guide: {seat} ({group})",
     "guidePlain": "Handover guide",
-    "me": "You",
     "notes": "My notes",
     "console": "Trust proof"
   },
