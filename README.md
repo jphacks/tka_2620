@@ -1,3 +1,8 @@
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/mark-dark.svg">
+  <img src="docs/images/mark-light.svg" width="112" alt="代々のマーク：角を折った青いメモに、手書きの「々」（代を重ねる「代々」の々）">
+</picture>
+
 # 代々（Daidai）｜誰も書かない引き継ぎ
 
 [![CI（型チェック・単体テスト・lint、モックで実行）](https://github.com/jphacks/tka_2620/actions/workflows/ci.yml/badge.svg)](https://github.com/jphacks/tka_2620/actions/workflows/ci.yml) [![ライセンス: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
