@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
+import { AppIcon } from "@/components/AppIcon";
 import { LanguageToggle, ThemeToggle } from "@/components/DisplayToggles";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -20,6 +21,10 @@ export default async function Home() {
   return (
     <>
       <nav className="dd-bar dd-noprint" aria-label={t("barLabel")}>
+        {/* The app's mark in the top left, as on every screen; here it is the page itself, so no link */}
+        <span className="dd-bar-mark">
+          <AppIcon />
+        </span>
         <LanguageToggle />
         <ThemeToggle />
       </nav>

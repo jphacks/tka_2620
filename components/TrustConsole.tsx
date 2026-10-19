@@ -12,6 +12,7 @@ import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AbstainEntry } from "@/components/AbstainEntry";
 import { AnswerEntry } from "@/components/AnswerEntry";
+import { AppIcon } from "@/components/AppIcon";
 import { AskPanel } from "@/components/AskPanel";
 import { LanguageToggle, ThemeToggle } from "@/components/DisplayToggles";
 import { InboxPanel } from "@/components/InboxPanel";
@@ -228,11 +229,21 @@ export function TrustConsole({
     >
       <header
         className="dd-row"
-        style={{ justifyContent: "space-between", alignItems: "baseline" }}
+        style={{ justifyContent: "space-between", alignItems: "center" }}
       >
-        <h1 className="dd-h" style={{ fontSize: "var(--text-xxl)", margin: 0 }}>
-          {t("console.title")}
-        </h1>
+        {/* The app's key-tag icon in the top left, as on every screen: the way to the start page */}
+        <div className="dd-row" style={{ gap: "var(--s-3)" }}>
+          <Link href="/" className="dd-bar-home" title={t("bar.home")}>
+            <AppIcon />
+            <span className="dd-sr-only">{t("home.title")}</span>
+          </Link>
+          <h1
+            className="dd-h"
+            style={{ fontSize: "var(--text-xxl)", margin: 0 }}
+          >
+            {t("console.title")}
+          </h1>
+        </div>
         <div className="dd-row" style={{ gap: "var(--s-5)" }}>
           <WithdrawMeter ms={shownMs} running={meter.running} />
           <LeakCounter leaks={metrics?.leaks} />
@@ -246,11 +257,8 @@ export function TrustConsole({
               {t("console.signOut")}
             </button>
           )}
-          {/* As on every seat page: the way to the start page, the language and the theme */}
+          {/* As on every seat page: the language and the theme */}
           <nav className="dd-console-tools" aria-label={t("bar.label")}>
-            <Link href="/" className="dd-bar-home" title={t("bar.home")}>
-              {t("home.title")}
-            </Link>
             <LanguageToggle />
             <ThemeToggle />
           </nav>

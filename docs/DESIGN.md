@@ -305,6 +305,10 @@ the 恩送り slide. English mirrors the Japanese. All strings live in `messages
 - Every page names itself (`generateMetadata`): 「会計（テニスサークル Smash）｜代々」, 「残す・会計（…）｜代々」, 「自分のメモ｜代々」;
   Next's route announcer reads it on each navigation, and a shared seat link gets a preview. The app installs from the browser
   (`app/manifest.ts`); its icon is the key tag drawn in shapes (`app/app-mark.tsx`: sheet, ink edge, hole, ring, blue lines).
+- The same key tag stands in the top left of every screen in place of the word 「代々」 (Nico's call): `AppIcon`, an inline
+  SVG in the theme's tokens (so it follows the dark screen), 24px tall in a 44px target. On a seat page (`SeatBar`) and
+  in the console's title row it is the link to the start page, named 「代々」 for a screen reader (title
+  「はじめのページへ」) with a `--blue-wash` hover; on the start page it is a plain mark.
 - Every seat page has two navs, each labelled: `SeatBar` (「表示とあなた」) and `VerbTabs` (「この席でできること」).
 - Print: paper only. `SeatBar`, `VerbTabs` and every `.dd-noprint` control are hidden, the light tokens are forced
   (the blackboard's pale ink would print grey on white), and an entry isn't split across sheets.

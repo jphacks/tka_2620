@@ -155,8 +155,12 @@ html { overscroll-behavior-y: none; }
 .dd-bar { display: flex; justify-content: flex-end; align-items: center; gap: var(--s-2); max-width: 640px; margin-inline: auto; box-sizing: border-box; padding: var(--s-2) var(--s-4) 0; }
 @media (min-width: 600px) { .dd-bar { padding-inline: var(--s-5); } } /* the page's 24px gutter */
 /* 「代々」, the bar's way to the start page: the wordmark pushes the switches to the right */
-.dd-bar-home { margin-right: auto; display: inline-flex; align-items: center; justify-content: center; min-height: 44px; min-width: 44px; box-sizing: border-box; padding-inline: var(--s-1); color: var(--blue); font-weight: 700; letter-spacing: .12em; text-decoration: none; }
-.dd-bar-home:hover { text-decoration: underline; text-underline-offset: 3px; }
+/* The app's key-tag icon on the left of every bar, in place of the word 「代々」 (Nico's call): a 44px link to the start
+   page (on the start page itself a plain mark), the tag 24px tall */
+.dd-bar-home, .dd-bar-mark { margin-right: auto; display: inline-flex; align-items: center; justify-content: center; min-height: 44px; min-width: 44px; box-sizing: border-box; padding-inline: var(--s-1); border-radius: var(--r-button); }
+.dd-bar-home:hover { background: var(--blue-wash); }
+.dd-app-icon { display: block; height: 24px; width: auto; }
+.dd-console .dd-app-icon { height: 32px; } /* beside the console's 39px title on the projector */
 /* The start page (/): the name, one line, then its two ways in, each a heading, a sentence and its button, ruled apart */
 .dd-home { gap: var(--s-6); padding-top: var(--s-5); }
 .dd-home-title { margin: 0; font-size: var(--text-xxl); line-height: 1.2; letter-spacing: .12em; }
