@@ -96,9 +96,8 @@ export function MyNotes({
         {live.map(entry)}
         {live.length === 0 && (
           <p className="dd-cap" style={{ margin: 0 }}>
-            {gone.length > 0
-              ? t("myNotes.noneLive")
-              : (emptyText ?? t("myNotes.empty"))}
+            {emptyText ??
+              (gone.length > 0 ? t("myNotes.noneLive") : t("myNotes.empty"))}
           </p>
         )}
       </div>
@@ -106,7 +105,12 @@ export function MyNotes({
       {gone.length > 0 && (
         <details className="dd-withdrawn-fold">
           <summary>
-            <span>{t("myNotes.withdrawnTitle", { n: gone.length })}</span>
+            <span>
+              {t.rich("myNotes.withdrawnTitle", {
+                n: gone.length,
+                fig: (chunks) => <span className="dd-fig">{chunks}</span>,
+              })}
+            </span>
             <svg
               aria-hidden="true"
               viewBox="0 0 24 24"

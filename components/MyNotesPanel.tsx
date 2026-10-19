@@ -167,7 +167,9 @@ function MyNotesList({
       />
     );
   }
-  if (!seats || !notes) return null;
+  // While the notes load, a calm caption, as 残す and 聞く show: the page never slides in blank.
+  if (!seats || !notes)
+    return <output className="dd-cap">{t("profile.loading")}</output>;
 
   const slugs = [...new Set(notes.map((note) => note.seat))];
   // A seat from ?seat= where the author wrote nothing yet still shows (an empty list says so), as long as it's known.
@@ -185,17 +187,16 @@ function MyNotesList({
   const wordsSeat =
     seats[seatFilter === ALL ? slugs[0] : seatFilter] ??
     Object.values(seats)[0];
-  // An empty list under 状態 alone says which notes there are none of; with another filter, that nothing matches.
-  const narrowed =
-    scope !== ALL ||
-    (seatFilter !== ALL && slugs.length > 1) ||
-    query.trim() !== "";
+  // An empty list says which notes there are none of (公開中, or 撤回済み under that 状態), and that nothing matches only
+  // when some exist that the search or another filter hides. Under すべて the list is the live notes.
+  const hasLive = notes.some((note) => note.status !== "withdrawn");
+  const hasWithdrawn = notes.some((note) => note.status === "withdrawn");
   const emptyText =
     notes.length === 0
       ? undefined
-      : status !== ALL && !narrowed
-        ? t(status === "live" ? "myNotes.noneLive" : "myNotes.noneWithdrawn")
-        : t("filter.noneMatch");
+      : status === "withdrawn"
+        ? t(hasWithdrawn ? "filter.noneMatch" : "myNotes.noneWithdrawn")
+        : t(hasLive ? "filter.noneMatch" : "myNotes.noneLive");
   const filtered =
     status !== ALL ||
     scope !== ALL ||

@@ -320,7 +320,7 @@
   },
   "myNotes": {
     "withdrawnNote": "Withdrew “{title}”. It no longer appears in any answer.",
-    "withdrawnTitle": "Withdrawn notes ({n})",
+    "withdrawnTitle": "Withdrawn notes (<fig>{n}</fig>)",
     "withdrawnLead": "No answer uses these any more.",
     "noneLive": "No live notes.",
     "noneWithdrawn": "No withdrawn notes.",
