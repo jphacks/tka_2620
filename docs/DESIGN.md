@@ -123,7 +123,8 @@ Use Japanese notebook marks, not coloured chips or emoji. Each mark is followed 
 - **`SeatBar`**: a quiet row above every seat page, right-aligned in the page's 640px column, never printed. Three
   44px items: the language switch (the other language named in itself, 「English」 / 「日本語」, as a blue text button),
   the theme switch (**`DisplayToggles`**: a 6px blue-outlined icon button, the moon on the notebook and the sun on the
-  blackboard, `aria-pressed` for 暗い画面) and 「あなた」, the lineage rail's dashed blue tag lying down. Both display
+  blackboard, `aria-pressed` for 暗い画面) and 「あなた」, a key tag's shape lying down, outlined solid in `--blue` like the
+  theme button, so it reads as a control (the dashed 「あなた」 stays the viewer on the lineage rail). Both display
   choices are this device's own (cookies), rendered by the server, so there is no flash. Nothing in the bar is a
   fourth verb.
 - **「あなた」 is the account on this device** (`AccountMenu`). A small chevron after the word says it opens a menu
@@ -135,7 +136,7 @@ Use Japanese notebook marks, not coloured chips or emoji. Each mark is followed 
   - While the page checks the sign-in, or signs out: its caption (「ログインを確かめています」, 「ログアウトしています」).
   - Offline: the offline line.
   - On mocks: that the page shows sample data.
-  - The tag turns solid, its chevron pointing up, while the slip is open.
+  - The tag fills with `--blue-wash`, its chevron pointing up, while the slip is open.
 - **`YouCard`**, at the top of 自分のメモ (`/me` redirects there): who you are at the seat you came from, never by name.
   - Your dashed tag 「26 会計」 beside your byline (「2026年度 会計」, 20px bold).
   - The group and institution, and 「この席の3代目です」.
