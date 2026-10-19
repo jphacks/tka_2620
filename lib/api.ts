@@ -17,6 +17,7 @@ import {
   type Api,
   ApiError,
   type ApiErrorCode,
+  AskedView,
   AskResult,
   DEMO_EMAIL,
   DemoAccount,
@@ -130,6 +131,8 @@ export function createApi(db: SupabaseClient, userId?: string): Api {
       call(NoteView, `/api/notes/${encodeURIComponent(noteId)}`),
     guide: (slug) =>
       call(GuideView, `/api/seats/${encodeURIComponent(slug)}/guide`),
+    asked: (slug) =>
+      call(AskedView, `/api/seats/${encodeURIComponent(slug)}/asked`),
     subscribe(channel, onRow) {
       let open = true;
       const subscription = db
